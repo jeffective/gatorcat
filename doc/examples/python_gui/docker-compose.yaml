@@ -12,7 +12,7 @@ services:
     environment:
      - PYTHONUNBUFFERED=1
   gatorcat:
-    image: ghcr.io/jeffective/gatorcat:0.3.4
+    image: ghcr.io/jeffective/gatorcat:0.3.8
     command: run --ifname enx00e04c68191a --zenoh-config-default
     volumes:
       - /dev/shm/:/dev/shm/

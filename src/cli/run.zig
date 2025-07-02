@@ -262,6 +262,17 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
             => continue :bus_scan,
         };
 
+        // warm up zenoh
+        if (maybe_zh) |*zh| {
+            std.log.warn("warming up zenoh...", .{});
+            var z_warmup_timer = std.time.Timer.start() catch @panic("timer unsupported");
+            zh.publishInputsOutputs(&md, eni.value) catch |err| {
+                std.log.err("failed to publish inputs / outputs on zenoh: {s}", .{@errorName(err)});
+                break :bus_scan; // TODO: correct action here?
+            };
+            std.log.warn("zenoh warmup time: {} us", .{z_warmup_timer.read() / 1000});
+        }
+
         // TODO: wtf jeff reduce the number of errors!
         md.busSafeop(args.safeop_timeout_us) catch |err| switch (err) {
             error.LinkError,
@@ -346,12 +357,18 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
                     error.NotAllSubdevicesInOP,
                     error.TopologyChanged,
                     error.Wkc,
-                    => continue :bus_scan,
+                    => |err2| {
+                        std.log.err("failure out of OP: {s}", .{@errorName(err2)});
+                        continue :bus_scan;
+                    },
                 }
             }
 
             if (maybe_zh) |*zh| {
-                zh.publishInputs(&md, eni.value) catch break :bus_scan; // TODO: correct action here?
+                zh.publishInputsOutputs(&md, eni.value) catch |err| {
+                    std.log.err("failed to publish inputs / outputs on zenoh: {s}", .{@errorName(err)});
+                    break :bus_scan; // TODO: correct action here?
+                };
             }
 
             // do application
@@ -378,6 +395,29 @@ pub const ZenohHandler = struct {
     // TODO: store string keys as [:0] const u8 by calling hash map ourselves with StringContext
     pubs: std.StringArrayHashMap(zenoh.c.z_owned_publisher_t),
     subs: *const std.StringArrayHashMap(SubscriberClosure),
+
+    fn createPublisher(
+        allocator: std.mem.Allocator,
+        pubs: *std.StringArrayHashMap(zenoh.c.z_owned_publisher_t),
+        session: *zenoh.c.z_owned_session_t,
+        key: [:0]const u8,
+    ) !void {
+        var publisher: zenoh.c.z_owned_publisher_t = undefined;
+        const view_keyexpr = try allocator.create(zenoh.c.z_view_keyexpr_t);
+        const result = zenoh.c.z_view_keyexpr_from_str(view_keyexpr, key.ptr);
+        try zenoh.err(result);
+        var publisher_options: zenoh.c.z_publisher_options_t = undefined;
+        zenoh.c.z_publisher_options_default(&publisher_options);
+        publisher_options.congestion_control = zenoh.c.Z_CONGESTION_CONTROL_DROP;
+        const result2 = zenoh.c.z_declare_publisher(zenoh.loan(session), &publisher, zenoh.loan(view_keyexpr), &publisher_options);
+        try zenoh.err(result2);
+        errdefer zenoh.drop(zenoh.move(&publisher));
+        const put_result = try pubs.getOrPutValue(key, publisher);
+        if (put_result.found_existing) {
+            std.log.err("duplicate key found: {s}", .{key});
+            return error.PVNameConflict;
+        } // TODO: assert this?
+    }
 
     /// Lifetime of md must be past deinit.
     /// Lifetime of eni must be past deinit.
@@ -418,20 +458,22 @@ pub const ZenohHandler = struct {
         for (eni.subdevices) |subdevice| {
             for (subdevice.inputs) |input| {
                 for (input.entries) |entry| {
-                    if (entry.pv_name == null) continue;
-                    var publisher: zenoh.c.z_owned_publisher_t = undefined;
-                    const view_keyexpr = try allocator.create(zenoh.c.z_view_keyexpr_t);
-                    std.log.warn("zenoh: declaring publisher: {s}, ethercat type: {s}", .{ entry.pv_name.?, @tagName(entry.type) });
-                    const result = zenoh.c.z_view_keyexpr_from_str(view_keyexpr, entry.pv_name.?.ptr);
-                    try zenoh.err(result);
-                    var publisher_options: zenoh.c.z_publisher_options_t = undefined;
-                    zenoh.c.z_publisher_options_default(&publisher_options);
-                    publisher_options.congestion_control = zenoh.c.Z_CONGESTION_CONTROL_DROP;
-                    const result2 = zenoh.c.z_declare_publisher(zenoh.loan(session), &publisher, zenoh.loan(view_keyexpr), &publisher_options);
-                    try zenoh.err(result2);
-                    errdefer zenoh.drop(zenoh.move(&publisher));
-                    const put_result = try pubs.getOrPutValue(entry.pv_name.?, publisher);
-                    if (put_result.found_existing) return error.PVNameConflict; // TODO: assert this?
+                    if (entry.pv_name) |pv_name| {
+                        std.log.warn("zenoh: declaring publisher: {s}, ethercat type: {s}", .{ pv_name, @tagName(entry.type) });
+                        try createPublisher(allocator, &pubs, session, pv_name);
+                    }
+                    if (entry.pv_name_fb) |pv_name_fb| {
+                        std.log.warn("zenoh: declaring publisher: {s}, ethercat type: {s}", .{ pv_name_fb, @tagName(entry.type) });
+                        try createPublisher(allocator, &pubs, session, pv_name_fb);
+                    }
+                }
+            }
+            for (subdevice.outputs) |output| {
+                for (output.entries) |entry| {
+                    if (entry.pv_name_fb) |pv_name_fb| {
+                        std.log.warn("zenoh: declaring publisher: {s}, ethercat type: {s}", .{ pv_name_fb, @tagName(entry.type) });
+                        try createPublisher(allocator, &pubs, session, pv_name_fb);
+                    }
                 }
             }
         }
@@ -485,7 +527,10 @@ pub const ZenohHandler = struct {
                     };
 
                     const put_result = try subs.getOrPutValue(entry.pv_name.?, subscriber_closure);
-                    if (put_result.found_existing) return error.PVNameConflict; // TODO: assert this?
+                    if (put_result.found_existing) {
+                        std.log.err("duplicate pv_name found: {s}", .{entry.pv_name.?});
+                        return error.PVNameConflict;
+                    } // TODO: assert this?
                 }
             }
         }
@@ -911,159 +956,178 @@ pub const ZenohHandler = struct {
         p_allocator.destroy(self.arena);
     }
 
-    pub fn publishInputs(self: *ZenohHandler, md: *const gcat.MainDevice, eni: gcat.ENI) !void {
+    pub fn publishInputsOutputs(self: *ZenohHandler, md: *const gcat.MainDevice, eni: gcat.ENI) !void {
         for (md.subdevices, eni.subdevices) |sub, sub_config| {
-            const data = sub.getInputProcessData();
-            var fbs = std.io.fixedBufferStream(data);
-            const reader = fbs.reader();
-            var bit_reader = gcat.wire.lossyBitReader(reader);
+            const input_data = sub.getInputProcessData();
+            var input_fbs = std.io.fixedBufferStream(input_data);
+            const input_reader = input_fbs.reader();
+            var intput_bit_reader = gcat.wire.lossyBitReader(input_reader);
 
             for (sub_config.inputs) |input| {
                 for (input.entries) |entry| {
-                    const key = entry.pv_name orelse {
-                        bit_reader.readBitsNoEof(void, entry.bits) catch unreachable;
-                        continue;
-                    };
                     var out_buffer: [32]u8 = undefined; // TODO: this is arbitrary
                     var fbs_out = std.io.fixedBufferStream(&out_buffer);
                     const writer = fbs_out.writer();
-                    switch (entry.type) {
-                        .BOOLEAN => {
-                            const value = bit_reader.readBitsNoEof(bool, entry.bits) catch unreachable;
-                            switch (value) {
-                                false => {
-                                    try self.publishAssumeKey(key, &.{0xf4});
-                                    continue;
-                                },
-                                true => {
-                                    try self.publishAssumeKey(key, &.{0xf5});
-                                    continue;
-                                },
-                            }
-                        },
-                        .BIT1 => {
-                            const value = bit_reader.readBitsNoEof(u1, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .BIT2 => {
-                            const value = bit_reader.readBitsNoEof(u2, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .BIT3 => {
-                            const value = bit_reader.readBitsNoEof(u3, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .BIT4 => {
-                            const value = bit_reader.readBitsNoEof(u4, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .BIT5 => {
-                            const value = bit_reader.readBitsNoEof(u5, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .BIT6 => {
-                            const value = bit_reader.readBitsNoEof(u6, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .BIT7 => {
-                            const value = bit_reader.readBitsNoEof(u7, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        // TODO: encode as bit array?
-                        .BIT8, .UNSIGNED8, .BYTE, .BITARR8 => {
-                            const value = bit_reader.readBitsNoEof(u8, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .INTEGER8 => {
-                            const value = bit_reader.readBitsNoEof(i8, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .INTEGER16 => {
-                            const value = bit_reader.readBitsNoEof(i16, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .INTEGER32 => {
-                            const value = bit_reader.readBitsNoEof(i32, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        // TODO: encode as bit array?
-                        .UNSIGNED16, .BITARR16 => {
-                            const value = bit_reader.readBitsNoEof(u16, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .UNSIGNED24 => {
-                            const value = bit_reader.readBitsNoEof(u24, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        // TODO: encode as bit array?
-                        .UNSIGNED32, .BITARR32 => {
-                            const value = bit_reader.readBitsNoEof(u32, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .UNSIGNED40 => {
-                            const value = bit_reader.readBitsNoEof(u40, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .UNSIGNED48 => {
-                            const value = bit_reader.readBitsNoEof(u48, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .UNSIGNED56 => {
-                            const value = bit_reader.readBitsNoEof(u56, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .UNSIGNED64 => {
-                            const value = bit_reader.readBitsNoEof(u64, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .REAL32 => {
-                            const value = bit_reader.readBitsNoEof(f32, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .REAL64 => {
-                            const value = bit_reader.readBitsNoEof(f64, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .INTEGER24 => {
-                            const value = bit_reader.readBitsNoEof(i24, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .INTEGER40 => {
-                            const value = bit_reader.readBitsNoEof(i40, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .INTEGER48 => {
-                            const value = bit_reader.readBitsNoEof(i48, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .INTEGER56 => {
-                            const value = bit_reader.readBitsNoEof(i56, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .INTEGER64 => {
-                            const value = bit_reader.readBitsNoEof(i64, entry.bits) catch unreachable;
-                            zbor.stringify(value, .{}, writer) catch unreachable;
-                        },
-                        .OCTET_STRING,
-                        .UNICODE_STRING,
-                        .TIME_OF_DAY,
-                        .TIME_DIFFERENCE,
-                        .DOMAIN,
-                        .GUID,
-                        .PDO_MAPPING,
-                        .IDENTITY,
-                        .COMMAND_PAR,
-                        .SYNC_PAR,
-                        .UNKNOWN,
-                        .VISIBLE_STRING,
-                        => {
-                            bit_reader.readBitsNoEof(void, entry.bits) catch unreachable;
-                            continue;
-                        },
+                    zborSerialize(entry, &intput_bit_reader, writer) catch continue;
+                    if (entry.pv_name) |pv_name| {
+                        try self.publishAssumeKey(pv_name, fbs_out.getWritten());
                     }
-                    try self.publishAssumeKey(key, fbs_out.getWritten());
+                    if (entry.pv_name_fb) |pv_name_fb| {
+                        try self.publishAssumeKey(pv_name_fb, fbs_out.getWritten());
+                    }
                 }
             }
+
+            const output_data = sub.getOutputProcessData();
+            var output_fbs = std.io.fixedBufferStream(output_data);
+            const output_reader = output_fbs.reader();
+            var output_bit_reader = gcat.wire.lossyBitReader(output_reader);
+
+            for (sub_config.outputs) |output| {
+                for (output.entries) |entry| {
+                    var out_buffer: [32]u8 = undefined; // TODO: this is arbitrary
+                    var fbs_out = std.io.fixedBufferStream(&out_buffer);
+                    const writer = fbs_out.writer();
+                    zborSerialize(entry, &output_bit_reader, writer) catch continue;
+                    if (entry.pv_name_fb) |pv_name_fb| {
+                        try self.publishAssumeKey(pv_name_fb, fbs_out.getWritten());
+                    }
+                }
+            }
+        }
+    }
+    fn zborSerialize(
+        entry: gcat.ENI.SubdeviceConfiguration.PDO.Entry,
+        bit_reader: anytype,
+        writer: anytype,
+    ) error{UnsupportedType}!void {
+        switch (entry.type) {
+            .BOOLEAN => {
+                const value = bit_reader.readBitsNoEof(bool, entry.bits) catch unreachable;
+                switch (value) {
+                    false => zbor.stringify(false, .{}, writer) catch unreachable,
+                    true => zbor.stringify(true, .{}, writer) catch unreachable,
+                }
+            },
+            .BIT1 => {
+                const value = bit_reader.readBitsNoEof(u1, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .BIT2 => {
+                const value = bit_reader.readBitsNoEof(u2, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .BIT3 => {
+                const value = bit_reader.readBitsNoEof(u3, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .BIT4 => {
+                const value = bit_reader.readBitsNoEof(u4, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .BIT5 => {
+                const value = bit_reader.readBitsNoEof(u5, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .BIT6 => {
+                const value = bit_reader.readBitsNoEof(u6, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .BIT7 => {
+                const value = bit_reader.readBitsNoEof(u7, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            // TODO: encode as bit array?
+            .BIT8, .UNSIGNED8, .BYTE, .BITARR8 => {
+                const value = bit_reader.readBitsNoEof(u8, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .INTEGER8 => {
+                const value = bit_reader.readBitsNoEof(i8, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .INTEGER16 => {
+                const value = bit_reader.readBitsNoEof(i16, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .INTEGER32 => {
+                const value = bit_reader.readBitsNoEof(i32, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            // TODO: encode as bit array?
+            .UNSIGNED16, .BITARR16 => {
+                const value = bit_reader.readBitsNoEof(u16, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .UNSIGNED24 => {
+                const value = bit_reader.readBitsNoEof(u24, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            // TODO: encode as bit array?
+            .UNSIGNED32, .BITARR32 => {
+                const value = bit_reader.readBitsNoEof(u32, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .UNSIGNED40 => {
+                const value = bit_reader.readBitsNoEof(u40, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .UNSIGNED48 => {
+                const value = bit_reader.readBitsNoEof(u48, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .UNSIGNED56 => {
+                const value = bit_reader.readBitsNoEof(u56, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .UNSIGNED64 => {
+                const value = bit_reader.readBitsNoEof(u64, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .REAL32 => {
+                const value = bit_reader.readBitsNoEof(f32, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .REAL64 => {
+                const value = bit_reader.readBitsNoEof(f64, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .INTEGER24 => {
+                const value = bit_reader.readBitsNoEof(i24, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .INTEGER40 => {
+                const value = bit_reader.readBitsNoEof(i40, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .INTEGER48 => {
+                const value = bit_reader.readBitsNoEof(i48, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .INTEGER56 => {
+                const value = bit_reader.readBitsNoEof(i56, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .INTEGER64 => {
+                const value = bit_reader.readBitsNoEof(i64, entry.bits) catch unreachable;
+                zbor.stringify(value, .{}, writer) catch unreachable;
+            },
+            .OCTET_STRING,
+            .UNICODE_STRING,
+            .TIME_OF_DAY,
+            .TIME_DIFFERENCE,
+            .DOMAIN,
+            .GUID,
+            .PDO_MAPPING,
+            .IDENTITY,
+            .COMMAND_PAR,
+            .SYNC_PAR,
+            .UNKNOWN,
+            .VISIBLE_STRING,
+            => {
+                bit_reader.readBitsNoEof(void, entry.bits) catch unreachable;
+                return error.UnsupportedType;
+            },
         }
     }
 };

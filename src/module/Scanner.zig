@@ -453,8 +453,10 @@ pub fn readSubdeviceConfigurationLeaky(
                             .description_only,
                         );
                         var pv_name: ?[:0]const u8 = null;
+                        var pv_name_fb: ?[:0]const u8 = null;
                         if (entry.index == 0 and entry.subindex == 0) {
                             pv_name = null;
+                            pv_name_fb = null;
                         } else {
                             pv_name = try processVariableNameZ(
                                 allocator,
@@ -466,6 +468,19 @@ pub fn readSubdeviceConfigurationLeaky(
                                 try allocator.dupeZ(u8, object_description.name.slice()),
                                 try allocator.dupeZ(u8, entry_description.data.slice()),
                                 pv_name_prefix,
+                                false,
+                            );
+                            pv_name_fb = try processVariableNameZ(
+                                allocator,
+                                ring_position,
+                                if (sm_comm_type == .input) .input else .output,
+                                entry.index,
+                                entry.subindex,
+                                name,
+                                try allocator.dupeZ(u8, object_description.name.slice()),
+                                try allocator.dupeZ(u8, entry_description.data.slice()),
+                                pv_name_prefix,
+                                true,
                             );
                         }
                         try entries.append(ENI.SubdeviceConfiguration.PDO.Entry{
@@ -480,6 +495,7 @@ pub fn readSubdeviceConfigurationLeaky(
                             // TODO: there is probably a bettter function for this
                             .type = std.meta.intToEnum(gcat.Exhaustive(coe.DataTypeArea), @as(u16, @intFromEnum(entry_description.data_type))) catch .UNKNOWN,
                             .pv_name = pv_name,
+                            .pv_name_fb = pv_name_fb,
                         });
                     }
                 }
@@ -549,8 +565,10 @@ pub fn readSubdeviceConfigurationLeaky(
                     }
 
                     var pv_name: ?[:0]const u8 = null;
+                    var pv_name_fb: ?[:0]const u8 = null;
                     if (entry.index == 0 and entry.subindex == 0) {
                         pv_name = null;
+                        pv_name_fb = null;
                     } else {
                         pv_name = try processVariableNameZ(
                             allocator,
@@ -562,6 +580,19 @@ pub fn readSubdeviceConfigurationLeaky(
                             pdo_name orelse "",
                             entry_name orelse "",
                             pv_name_prefix,
+                            false,
+                        );
+                        pv_name_fb = try processVariableNameZ(
+                            allocator,
+                            ring_position,
+                            direction,
+                            entry.index,
+                            entry.subindex,
+                            name,
+                            pdo_name orelse "",
+                            entry_name orelse "",
+                            pv_name_prefix,
+                            true,
                         );
                     }
 
@@ -572,6 +603,7 @@ pub fn readSubdeviceConfigurationLeaky(
                         .type = std.meta.intToEnum(gcat.Exhaustive(coe.DataTypeArea), entry.data_type) catch .UNKNOWN,
                         .description = entry_name,
                         .pv_name = pv_name,
+                        .pv_name_fb = pv_name_fb,
                     });
                 }
 
@@ -668,6 +700,8 @@ pub fn readFullPhysicalMemory(
     }
 }
 
+pub const process_variable_fmt = "subdevices/{}/{s}/{s}/0x{x:04}/{s}/0x{x:02}/{s}";
+
 /// Produces a unique process image variable name.
 pub fn processVariableNameZ(
     allocator: std.mem.Allocator,
@@ -679,11 +713,13 @@ pub fn processVariableNameZ(
     pdo_name: []const u8,
     entry_description: []const u8,
     maybe_prefix: ?[]const u8,
+    comptime is_fb: bool,
 ) error{OutOfMemory}![:0]const u8 {
     const direction_str: []const u8 = if (direction == .input) "inputs" else "outputs";
     var name: [:0]const u8 = undefined;
+    const fb_prefix_fmt = if (is_fb) "maindevice/pdi/" else "";
     if (maybe_prefix) |prefix| {
-        name = try std.fmt.allocPrintZ(allocator, "{s}/subdevices/{}/{s}/{s}/0x{x:04}/{s}/0x{x:02}/{s}", .{
+        name = try std.fmt.allocPrintZ(allocator, "{s}/" ++ fb_prefix_fmt ++ process_variable_fmt, .{
             prefix,
             ring_position,
             zenohSanitize(try allocator.dupe(u8, subdevice_name)),
@@ -694,7 +730,7 @@ pub fn processVariableNameZ(
             zenohSanitize(try allocator.dupe(u8, entry_description)),
         });
     } else {
-        name = try std.fmt.allocPrintZ(allocator, "subdevices/{}/{s}/{s}/0x{x:04}/{s}/0x{x:02}/{s}", .{
+        name = try std.fmt.allocPrintZ(allocator, fb_prefix_fmt ++ process_variable_fmt, .{
             ring_position,
             zenohSanitize(try allocator.dupe(u8, subdevice_name)),
             direction_str,
