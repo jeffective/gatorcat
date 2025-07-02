@@ -110,6 +110,10 @@ The data is published in CBOR encoding.
 
 The subscribed keys accept CBOR encoded data.
 
+In the ENI file, the `pv_name` is the process variable name. gatorcat subscribes for outputs and publishes for input at this `pv_name`, you can apply a prefix on generation of this name.
+
+Similarly, there is a `pv_name_fb`. This is the process variable feedback channel. gatorcat publishes for both inputs and outputs at these keys to enable applications to see the results of their publishes to output channels.
+
 ## GatorCAT Module
 
 ### Examples
