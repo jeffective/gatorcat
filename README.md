@@ -46,9 +46,10 @@ See [doc](doc/README.md).
 
 ## TODO
 
+- [ ] sim: add sii
+- [ ] sim: better scan of physical memory
 - [ ] validate individual pdo types at runtime (not just size of pdos)
 - [ ] revise error handling
-- [x] python package: hello world
 - [ ] make a custom `@tagName` that requires the parameter to be exhaustive
 
 ## Sponsors
