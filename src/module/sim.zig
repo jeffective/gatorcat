@@ -135,6 +135,34 @@ pub const Subdevice = struct {
         return sub;
     }
 
+    fn writeDatagramToPhysicalMemory(self: *Subdevice, datagram: *const telegram.Datagram) void {
+        assert(datagram.data.len == datagram.header.length);
+        const start_addr = @as(usize, datagram.header.address.position.offset);
+        const end_exclusive: usize = start_addr + datagram.header.length;
+        const write_region = self.physical_memory[start_addr..end_exclusive];
+        for (datagram.data, write_region) |source, *dest| {
+            dest.* = source;
+        }
+    }
+    fn readPhysicalMemoryToDatagram(self: *const Subdevice, datagram: *const telegram.Datagram) void {
+        assert(datagram.data.len == datagram.header.length);
+        const start_addr = @as(usize, datagram.header.address.position.offset);
+        const end_exclusive: usize = start_addr + datagram.header.length;
+        const read_region = self.physical_memory[start_addr..end_exclusive];
+        for (datagram.data, read_region) |*dest, source| {
+            dest.* = source;
+        }
+    }
+    fn readPhysicalMemoryToDatagramBitwiseOr(self: *const Subdevice, datagram: *const telegram.Datagram) void {
+        assert(datagram.data.len == datagram.header.length);
+        const start_addr = @as(usize, datagram.header.address.position.offset);
+        const end_exclusive: usize = start_addr + datagram.header.length;
+        const read_region = self.physical_memory[start_addr..end_exclusive];
+        for (datagram.data, read_region) |*dest, source| {
+            dest.* |= source;
+        }
+    }
+
     pub fn processFrame(self: *Subdevice, frame: *Simulator.Frame) void {
         var scratch_datagrams: [15]telegram.Datagram = undefined;
         const ethernet_frame = telegram.EthernetFrame.deserialize(frame.slice(), &scratch_datagrams) catch return;
@@ -142,47 +170,71 @@ pub const Subdevice = struct {
         skip_datagram: for (datagrams) |*datagram| {
             // TODO: operate if address zero
             // increment address field
+            const station_address = readRegister(esc.StationAddressRegister, .station_address, &self.physical_memory);
+            const alias_enabled = readRegister(esc.DLControlRegister, .DL_control, &self.physical_memory).enable_alias_address;
             switch (datagram.header.command) {
-                .NOP => {}, // no operation
-                .BRD => {
-                    if (!validOffsetLen(
-                        datagram.header.address.position.offset,
-                        datagram.header.length,
-                    )) {
+                .NOP => continue :skip_datagram,
+                .BRD, .BWR => |command| {
+                    if (!validOffsetLen(datagram.header.address.position.offset, datagram.header.length)) {
                         continue :skip_datagram;
                     }
-                    assert(datagram.data.len == datagram.header.length);
-                    const start_addr = @as(usize, datagram.header.address.position.offset);
-                    const end_exclusive: usize = start_addr + datagram.header.length;
-
-                    const read_region = self.physical_memory[start_addr..end_exclusive];
-                    for (datagram.data, read_region) |*dest, source| {
-                        dest.* |= source;
+                    switch (command) {
+                        .BWR => self.writeDatagramToPhysicalMemory(datagram),
+                        .BRD => self.readPhysicalMemoryToDatagramBitwiseOr(datagram),
+                        else => unreachable,
                     }
                     datagram.wkc +%= 1;
-                    // subdevice shall increment the address
+                    // subdevice shall increment the address on confirmation
+                    // Ref: IEC 61158-3-12:2019 5.2.4, 5.3.4
+                    datagram.header.address.position.autoinc_address +%= 1;
+                },
+                .APWR, .APRD => |command| {
+                    if (!validOffsetLen(datagram.header.address.position.offset, datagram.header.length)) {
+                        continue :skip_datagram;
+                    }
+                    if (datagram.header.address.position.autoinc_address == 0) {
+                        switch (command) {
+                            .APWR => self.writeDatagramToPhysicalMemory(datagram),
+                            .APRD => self.readPhysicalMemoryToDatagram(datagram),
+                            else => unreachable,
+                        }
+                        datagram.wkc +%= 1;
+                    }
+                    // subdevice shall always increment the address
                     // Ref: IEC 61158-3-12:2019 5.2.4
                     datagram.header.address.position.autoinc_address +%= 1;
                 },
-                .BWR => {
-                    if (!validOffsetLen(
-                        datagram.header.address.position.offset,
-                        datagram.header.length,
-                    )) {
+                .FPWR, .FPRD => |command| {
+                    if (!validOffsetLen(datagram.header.address.station.offset, datagram.header.length)) {
                         continue :skip_datagram;
                     }
-                    assert(datagram.data.len == datagram.header.length);
-                    const start_addr = @as(usize, datagram.header.address.position.offset);
-                    const end_exclusive: usize = start_addr + datagram.header.length;
-
-                    const write_region = self.physical_memory[start_addr..end_exclusive];
-                    for (datagram.data, write_region) |source, *dest| {
-                        dest.* = source;
+                    if (datagram.header.address.station.station_address == station_address.configured_station_address or
+                        (alias_enabled and datagram.header.address.station.station_address == station_address.configured_station_alias))
+                    {
+                        switch (command) {
+                            .FPWR => self.writeDatagramToPhysicalMemory(datagram),
+                            .FPRD => self.readPhysicalMemoryToDatagram(datagram),
+                            else => unreachable,
+                        }
+                        datagram.wkc +%= 1;
                     }
-                    datagram.wkc +%= 1;
                 },
-
-                else => {}, // TODO
+                .FPRW,
+                .ARMW,
+                .LWR,
+                .LRD,
+                .LRW,
+                .APRW,
+                .BRW,
+                .FRMW,
+                => |non_implemented| {
+                    std.log.err("TODO: implement datagram header command: {s}", .{@tagName(non_implemented)});
+                    continue :skip_datagram;
+                },
+                _ => |value| {
+                    std.log.err("Invalid datagram header command: {}", .{@intFromEnum(value)});
+                    continue :skip_datagram;
+                },
             }
         }
         var new_frame = Simulator.Frame{};

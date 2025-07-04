@@ -39,6 +39,12 @@ pub fn Exhaustive(@"enum": type) type {
     type_info.@"enum".is_exhaustive = true;
     return @Type(type_info);
 }
+pub fn NonExhaustive(@"enum": type) type {
+    comptime assert(@typeInfo(@"enum").@"enum".is_exhaustive == true);
+    var type_info = @typeInfo(@"enum");
+    type_info.@"enum".is_exhaustive = false;
+    return @Type(type_info);
+}
 
 test Exhaustive {
     const MyEnum = enum(u8) {

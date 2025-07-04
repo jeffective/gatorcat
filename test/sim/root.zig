@@ -38,4 +38,5 @@ test {
     defer md.deinit(stack_fba.allocator());
 
     try md.busInit(5_000_000);
+    // try md.busPreop(5_000_000);
 }

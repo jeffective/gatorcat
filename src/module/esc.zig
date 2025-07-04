@@ -182,9 +182,6 @@ pub const ALStateControl = enum(u4) {
     BOOT = 3,
     SAFEOP = 4,
     OP = 8,
-
-    /// dont use this value. This is just for simulator.
-    _none = 0,
 };
 
 /// AL Control Register
