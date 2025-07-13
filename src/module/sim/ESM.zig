@@ -7,6 +7,7 @@ const assert = std.debug.assert;
 
 const esc = @import("../esc.zig");
 const gcat = @import("../root.zig");
+const logger = @import("../root.zig").logger;
 const sim = @import("../sim.zig");
 
 pub const ESM = @This();
@@ -39,7 +40,7 @@ pub fn initTick(self: *ESM, phys_mem: *sim.Subdevice.PhysMem) void {
     sim.writeRegister(LocalALControlRegister{
         .ack = false,
         .request_id = false,
-        .state = @enumFromInt(0),
+        .state = .INIT,
     }, .AL_control, phys_mem);
 }
 
@@ -62,7 +63,6 @@ const LocalALControlRegister = packed struct(u16) {
 
 pub fn tick(self: *ESM, phys_mem: *sim.Subdevice.PhysMem) void {
     const control = sim.readRegister(LocalALControlRegister, .AL_control, phys_mem);
-    defer sim.writeRegister(std.mem.zeroes(LocalALControlRegister), .AL_control, phys_mem);
     self.status = sim.readRegister(esc.ALStatusRegister, .AL_status, phys_mem);
     defer sim.writeRegister(self.status, .AL_status, phys_mem);
 
@@ -142,6 +142,8 @@ pub fn tick(self: *ESM, phys_mem: *sim.Subdevice.PhysMem) void {
                 self.status.state = .INIT;
                 self.status.status_code = .unknown_requested_state;
                 self.status.err = true;
+                logger.err("unknown requested state: {}", .{control.state});
+                break :done;
             }
             // 10
             // TODO: sm_chg
@@ -169,11 +171,15 @@ pub fn idInfo(self: *ESM, idRequested: bool) void {
 
 pub fn sm_settings_0_and_1_match(self: *ESM) bool {
     _ = self;
-    std.log.err("TODO: implement sm settings 0 and 1 match", .{});
+    std.log.warn("TODO: implement sm settings 0 and 1 match", .{});
     return true;
 }
 
 pub fn start_mbx_handler(self: *ESM) void {
     _ = self;
-    std.log.err("TODO: implement start mbx handler", .{});
+    std.log.warn("TODO: implement start mbx handler", .{});
+}
+
+test {
+    std.testing.refAllDecls(@This());
 }

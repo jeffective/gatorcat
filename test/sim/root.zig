@@ -2,9 +2,8 @@ const std = @import("std");
 const assert = std.debug.assert;
 const builtin = @import("builtin");
 
+const eni: gcat.ENI = @import("./eni.zon");
 const gcat = @import("gatorcat");
-
-const eni = @import("network_config.zig").eni;
 
 pub const std_options: std.Options = .{
     .log_level = .info,
@@ -19,6 +18,7 @@ test "ping simulator" {
 }
 
 test {
+    std.testing.log_level = .info;
     var simulator = try gcat.sim.Simulator.init(eni, std.testing.allocator, .{});
     defer simulator.deinit(std.testing.allocator);
 
@@ -38,5 +38,5 @@ test {
     defer md.deinit(stack_fba.allocator());
 
     try md.busInit(5_000_000);
-    // try md.busPreop(5_000_000);
+    try md.busPreop(5_000_000);
 }

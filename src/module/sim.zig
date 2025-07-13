@@ -8,6 +8,7 @@ const esc = @import("esc.zig");
 const logger = @import("root.zig").logger;
 const nic = @import("nic.zig");
 pub const ESM = @import("sim/ESM.zig");
+pub const SII = @import("sim/SII.zig");
 const telegram = @import("telegram.zig");
 const wire = @import("wire.zig");
 
@@ -113,23 +114,29 @@ pub const Simulator = struct {
 pub const Subdevice = struct {
     config: ENI.SubdeviceConfiguration,
     physical_memory: PhysMem,
+    eeprom: []const u8,
     esm: ESM,
+    sii: SII,
 
     pub const PhysMem = [4096]u8;
 
     pub fn init(config: ENI.SubdeviceConfiguration) Subdevice {
         var physical_memory: [4096]u8 = @splat(0);
+        var eeprom: []const u8 = &.{};
         if (config.sim) |sim| {
             if (sim.physical_memory.len == physical_memory.len) {
                 @memcpy(&physical_memory, sim.physical_memory);
             } else {
                 logger.err("Invalid physical memory length in eni.", .{});
             }
+            eeprom = sim.eeprom;
         }
         var sub = Subdevice{
             .config = config,
             .physical_memory = physical_memory,
+            .eeprom = eeprom,
             .esm = .{},
+            .sii = .{},
         };
         sub.initTick();
         return sub;
@@ -254,10 +261,12 @@ pub const Subdevice = struct {
 
     pub fn initTick(self: *Subdevice) void {
         self.esm.initTick(&self.physical_memory);
+        self.sii.initTick(&self.physical_memory);
     }
 
     pub fn tick(self: *Subdevice) void {
         self.esm.tick(&self.physical_memory);
+        self.sii.tick(&self.physical_memory, self.eeprom);
     }
 };
 
