@@ -133,23 +133,28 @@ pub fn sdoWrite(
             );
 
             if (in_content != .coe) {
+                logger.err("station_addr: {} returned incorrect protocol during COE write at index: {}, subindex: {}", .{ station_address, index, subindex });
                 return error.WrongProtocol;
             }
             switch (in_content.coe) {
                 .abort => {
+                    logger.err("station_addr: {} aborted COE write at index: {}, subindex: {}", .{ station_address, index, subindex });
                     return error.Aborted;
                 },
                 .segment => {
-                    return error.UnexpectedSegment;
+                    logger.err("station_addr: {} returned unexpected segment during COE write at index: {}, subindex: {}", .{ station_address, index, subindex });
+                    return error.WrongProtocol;
                 },
                 .normal => {
-                    return error.UnexpectedNormal;
+                    logger.err("station_addr: {} returned unexpected normal during COE write at index: {}, subindex: {}", .{ station_address, index, subindex });
+                    return error.WrongProtocol;
                 },
                 .emergency => {
+                    logger.err("station_addr: {} returned emergency during COE write at index: {}, subindex: {}", .{ station_address, index, subindex });
                     return error.Emergency;
                 },
                 .expedited => return,
-                else => return error.WrongProtocol, // TODO: is this correct?
+                else => return error.WrongProtocol,
             }
         },
     }
@@ -277,13 +282,13 @@ pub fn sdoRead(
                 },
                 .expedited => continue :state .expedited,
                 .segment => {
-                    return error.UnexpectedSegment;
+                    return error.WrongProtocol;
                 },
                 .normal => continue :state .normal,
                 .emergency => {
                     return error.Emergency;
                 },
-                else => return error.WrongProtocol, // TODO: is this correct?
+                else => return error.WrongProtocol,
             }
         },
         .expedited => {
