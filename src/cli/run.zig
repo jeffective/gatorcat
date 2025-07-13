@@ -178,7 +178,6 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
                 error.Aborted,
                 error.WrongProtocol,
                 error.MissedFragment,
-                error.InvalidMailboxContent,
                 error.ObjectDoesNotExist,
                 error.InvalidCoE,
                 error.EndOfStream,

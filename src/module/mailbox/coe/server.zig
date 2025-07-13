@@ -828,7 +828,7 @@ pub const GetObjectDescriptionResponse = struct {
         const object_code = try wire.packFromECatReader(coe.ObjectCode, reader);
 
         const name_length = try fbs.getEndPos() - try fbs.getPos();
-        if (name_length > max_name_length) return error.InvalidMailboxContent;
+        if (name_length > max_name_length) return error.InvalidMbxContent;
         assert(name_length <= max_name_length);
         var name_buf: [max_name_length]u8 = undefined;
         reader.readNoEof(name_buf[0..name_length]) catch |err| switch (err) {
@@ -921,7 +921,7 @@ pub const GetEntryDescriptionResponse = struct {
         const object_access = try wire.packFromECatReader(coe.ObjectAccess, reader);
 
         const data_length = try fbs.getEndPos() - try fbs.getPos();
-        if (data_length > max_data_length) return error.InvalidMailboxContent;
+        if (data_length > max_data_length) return error.InvalidMbxContent;
         assert(data_length <= max_data_length);
         var data_buf: [max_data_length]u8 = undefined;
         reader.readNoEof(data_buf[0..data_length]) catch |err| switch (err) {
