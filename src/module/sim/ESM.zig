@@ -9,6 +9,7 @@ const esc = @import("../esc.zig");
 const gcat = @import("../root.zig");
 const logger = @import("../root.zig").logger;
 const sim = @import("../sim.zig");
+const Subdevice = @import("Subdevice.zig");
 
 pub const ESM = @This();
 
@@ -36,8 +37,8 @@ sm_event_received: bool = false,
 id: u16 = 0, // TODO: this actually comes from EEPROM?
 
 pub fn initTick(self: *ESM, phys_mem: *sim.Subdevice.PhysMem) void {
-    sim.writeRegister(self.status, .AL_status, phys_mem);
-    sim.writeRegister(LocalALControlRegister{
+    Subdevice.writeRegister(self.status, .AL_status, phys_mem);
+    Subdevice.writeRegister(LocalALControlRegister{
         .ack = false,
         .request_id = false,
         .state = .INIT,
@@ -62,9 +63,9 @@ const LocalALControlRegister = packed struct(u16) {
 };
 
 pub fn tick(self: *ESM, phys_mem: *sim.Subdevice.PhysMem) void {
-    const control = sim.readRegister(LocalALControlRegister, .AL_control, phys_mem);
-    self.status = sim.readRegister(esc.ALStatusRegister, .AL_status, phys_mem);
-    defer sim.writeRegister(self.status, .AL_status, phys_mem);
+    const control = Subdevice.readRegister(LocalALControlRegister, .AL_control, phys_mem);
+    self.status = Subdevice.readRegister(esc.ALStatusRegister, .AL_status, phys_mem);
+    defer Subdevice.writeRegister(self.status, .AL_status, phys_mem);
 
     // TODO: implement ethercat state machine
     done: switch (self.status.state) {
