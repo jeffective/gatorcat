@@ -25,7 +25,6 @@ pub fn sdoWrite(
     mbx_timeout_us: u32,
     cnt: u3,
     config: mailbox.Configuration,
-    diag: ?*mailbox.InContent,
 ) !void {
     assert(cnt != 0);
     if (complete_access) {
@@ -134,34 +133,19 @@ pub fn sdoWrite(
             );
 
             if (in_content != .coe) {
-                if (diag) |diag_ptr| {
-                    diag_ptr.* = in_content;
-                }
                 return error.WrongProtocol;
             }
             switch (in_content.coe) {
                 .abort => {
-                    if (diag) |diag_ptr| {
-                        diag_ptr.* = in_content;
-                    }
                     return error.Aborted;
                 },
                 .segment => {
-                    if (diag) |diag_ptr| {
-                        diag_ptr.* = in_content;
-                    }
                     return error.UnexpectedSegment;
                 },
                 .normal => {
-                    if (diag) |diag_ptr| {
-                        diag_ptr.* = in_content;
-                    }
                     return error.UnexpectedNormal;
                 },
                 .emergency => {
-                    if (diag) |diag_ptr| {
-                        diag_ptr.* = in_content;
-                    }
                     return error.Emergency;
                 },
                 .expedited => return,
@@ -171,7 +155,6 @@ pub fn sdoWrite(
     }
 }
 
-// TODO: diag mailbox content?
 /// Read a packed type from an SDO.
 pub fn sdoReadPack(
     port: *Port,
