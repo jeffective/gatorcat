@@ -75,7 +75,7 @@ pub fn buildDocker(
 ) *std.Build.Step {
     const docker_builder = b.addExecutable(.{
         .name = "docker-builder",
-        .root_source_file = b.path("src/ci/release_docker.zig"),
+        .root_source_file = b.path("src/release_docker.zig"),
         .target = b.graph.host,
     });
     docker_builder.root_module.addAnonymousImport("build_zig_zon", .{ .root_source_file = b.path("build.zig.zon") });
