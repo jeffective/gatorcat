@@ -379,13 +379,13 @@ pub const InContent = union(enum) {
 
     pub fn deserialize(buf: []const u8) !InContent {
         switch (try identify(buf)) {
-            .expedited => return InContent{ .expedited = try server.Expedited.deserialize(buf) },
-            .normal => return InContent{ .normal = try server.Normal.deserialize(buf) },
-            .segment => return InContent{ .segment = try server.Segment.deserialize(buf) },
-            .abort => return InContent{ .abort = try server.Abort.deserialize(buf) },
-            .emergency => return InContent{ .emergency = try server.Emergency.deserialize(buf) },
-            .sdo_info_response => return InContent{ .sdo_info_response = try server.SDOInfoResponse.deserialize(buf) },
-            .sdo_info_error => return InContent{ .sdo_info_error = try server.SDOInfoError.deserialize(buf) },
+            .expedited => return InContent{ .expedited = server.Expedited.deserialize(buf) catch return error.InvalidMbxContent },
+            .normal => return InContent{ .normal = server.Normal.deserialize(buf) catch return error.InvalidMbxContent },
+            .segment => return InContent{ .segment = server.Segment.deserialize(buf) catch return error.InvalidMbxContent },
+            .abort => return InContent{ .abort = server.Abort.deserialize(buf) catch return error.InvalidMbxContent },
+            .emergency => return InContent{ .emergency = server.Emergency.deserialize(buf) catch return error.InvalidMbxContent },
+            .sdo_info_response => return InContent{ .sdo_info_response = server.SDOInfoResponse.deserialize(buf) catch return error.InvalidMbxContent },
+            .sdo_info_error => return InContent{ .sdo_info_error = server.SDOInfoError.deserialize(buf) catch return error.InvalidMbxContent },
         }
     }
 
@@ -393,13 +393,13 @@ pub const InContent = union(enum) {
     fn identify(buf: []const u8) !std.meta.Tag(InContent) {
         var fbs = std.io.fixedBufferStream(buf);
         const reader = fbs.reader();
-        const mbx_header = try wire.packFromECatReader(mailbox.Header, reader);
+        const mbx_header = wire.packFromECatReader(mailbox.Header, reader) catch return error.InvalidMbxContent;
 
         switch (mbx_header.type) {
             .CoE => {},
             else => return error.WrongMbxProtocol,
         }
-        const header = try wire.packFromECatReader(Header, reader);
+        const header = wire.packFromECatReader(Header, reader) catch return error.InvalidMbxContent;
 
         switch (header.service) {
             .tx_pdo => return error.NotImplemented,
@@ -407,7 +407,7 @@ pub const InContent = union(enum) {
             .tx_pdo_remote_request => return error.NotImplemented,
             .rx_pdo_remote_request => return error.NotImplemented,
             .sdo_info => {
-                const sdo_info_header = try wire.packFromECatReader(SDOInfoHeader, reader);
+                const sdo_info_header = wire.packFromECatReader(SDOInfoHeader, reader) catch return error.InvalidMbxContent;
                 return switch (sdo_info_header.opcode) {
                     .get_entry_description_response,
                     .get_object_description_response,
@@ -420,14 +420,14 @@ pub const InContent = union(enum) {
             },
 
             .sdo_request => {
-                const sdo_header = try wire.packFromECatReader(server.SDOHeader, reader);
+                const sdo_header = wire.packFromECatReader(server.SDOHeader, reader) catch return error.InvalidMbxContent;
                 return switch (sdo_header.command) {
                     .abort_transfer_request => .abort,
                     else => error.InvalidMbxContent,
                 };
             },
             .sdo_response => {
-                const sdo_header = try wire.packFromECatReader(server.SDOHeader, reader);
+                const sdo_header = wire.packFromECatReader(server.SDOHeader, reader) catch return error.InvalidMbxContent;
                 switch (sdo_header.command) {
                     .upload_segment_response => return .segment,
                     .download_segment_response => return .segment,
@@ -714,8 +714,12 @@ pub fn readSMComms(
         config,
     );
 
-    if (n_sm > 32) return error.InvalidSMComms;
+    if (n_sm > 32) {
+        logger.err("station_addr: {} has invalid number of sync managers: {}", .{ station_address, n_sm });
+        return error.InvalidCoE;
+    }
 
+    assert(n_sm <= 32);
     var sm_comms = SMComms{};
     for (0..n_sm) |sm_idx| {
         sm_comms.append(try sdoReadPack(
@@ -773,8 +777,12 @@ pub fn readSMChannel(
         config,
     );
 
-    if (n_pdo > 254) return error.InvalidSMChannel;
+    if (n_pdo > 254) {
+        logger.err("station_addr: {} returned invalid n pdos: {} for sm_idx: {}", .{ station_address, n_pdo, sm_idx });
+        return error.InvalidCoE;
+    }
 
+    assert(n_pdo <= 254);
     var channel = SMChannel{};
     for (0..n_pdo) |i| {
         const pdo_index = try sdoReadPack(
@@ -789,7 +797,10 @@ pub fn readSMChannel(
             cnt.nextCnt(),
             config,
         );
-        if (!isValidPDOIndex(pdo_index)) return error.InvalidSMChannelPDOIndex;
+        if (!isValidPDOIndex(pdo_index)) {
+            logger.err("station_addr: {} returned invalid pdo_index: {} for n_pdo: {}, sm_idx: {}", .{ station_address, pdo_index, i, sm_idx });
+            return error.InvalidCoE;
+        }
         channel.append(pdo_index) catch unreachable; // length already checked
     }
     return channel;
@@ -972,8 +983,12 @@ pub fn readPDOMapping(
     );
 
     var entries = PDOMapping.Entries{};
-    if (n_entries > entries.capacity()) return error.InvalidCoEEntries;
+    if (n_entries > entries.capacity()) {
+        logger.err("station_addr: {} reported invalid number of COE entries: {} for index: {}", .{ station_address, n_entries, index });
+        return error.InvalidCoE;
+    }
 
+    assert(n_entries <= entries.capacity());
     for (0..n_entries) |i| {
         entries.append(try sdoReadPack(
             port,
@@ -1041,7 +1056,9 @@ pub fn readSMPDOAssigns(
             },
         }
     }
-    try res.sortAndVerifyNonOverlapping();
+    res.sortAndVerifyNonOverlapping() catch |err| switch (err) {
+        error.OverlappingSM => return error.InvalidCoE,
+    };
     return res;
 }
 

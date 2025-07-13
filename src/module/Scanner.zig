@@ -656,7 +656,11 @@ pub fn readSubdeviceConfigurationLeaky(
         const reader = limited_reader.reader();
 
         const eeprom_content = try allocator.alloc(u8, sii_byte_length);
-        try reader.readNoEof(eeprom_content);
+        reader.readNoEof(eeprom_content) catch |err| switch (err) {
+            error.Timeout => return error.Timeout,
+            error.LinkError => return error.LinkError,
+            error.EndOfStream => return error.InvalidSII,
+        };
 
         const physical_memory = try allocator.create([4096]u8);
         physical_memory.* = @splat(0);

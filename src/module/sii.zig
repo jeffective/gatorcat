@@ -390,7 +390,11 @@ pub fn readSIIString(
         if (str_len % 2 == 0 and i != index - 1 and stream.isWordSeekable()) {
             stream.seekByWord(@divExact(str_len, 2));
         } else {
-            try reader.readNoEof(string_buf[0..str_len]);
+            reader.readNoEof(string_buf[0..str_len]) catch |err| switch (err) {
+                error.Timeout => return error.Timeout,
+                error.LinkError => return error.LinkError,
+                error.EndOfStream => return error.InvalidSII,
+            };
         }
     }
     var arr = SIIString{};
@@ -445,7 +449,7 @@ pub fn readFMMUCatagory(
     }
     assert(n_fmmu <= max_fmmu);
     for (0..n_fmmu) |_| {
-        res.append(try wire.packFromECatReader(FMMUFunction, reader)) catch |err| switch (err) {
+        res.append(wire.packFromECatReader(FMMUFunction, reader) catch return error.InvalidSII) catch |err| switch (err) {
             error.Overflow => unreachable,
         };
     }
@@ -491,7 +495,7 @@ pub fn readSMCatagory(
     }
     assert(n_sm <= max_sm);
     for (0..n_sm) |_| {
-        res.append(try wire.packFromECatReader(SyncM, reader)) catch |err| switch (err) {
+        res.append(wire.packFromECatReader(SyncM, reader) catch return error.InvalidSII) catch |err| switch (err) {
             error.Overflow => unreachable,
         };
     }
@@ -512,7 +516,7 @@ pub fn readGeneralCatagory(port: *Port, station_address: u16, recv_timeout_us: u
             "Subdevice station addr: 0x{x} has invalid eeprom sii general length: {}. Expected >= {}",
             .{ station_address, catagory.byte_length, @divExact(@bitSizeOf(CatagoryGeneral), 8) },
         );
-        return error.InvalidSubdeviceEEPROM;
+        return error.InvalidSII;
     }
 
     const general = try readSIIFP_ps(
@@ -650,7 +654,7 @@ pub fn readPDOs(
 
     // entries are 8 bytes, pdo header is 8 bytes, so
     // this should be a multiple of eight.
-    if (catagory.byte_length % 8 != 0) return error.InvalidEEPROM;
+    if (catagory.byte_length % 8 != 0) return error.InvalidSII;
 
     var stream = SIIStream.init(
         port,
@@ -678,13 +682,13 @@ pub fn readPDOs(
                 error.LinkError => return error.LinkError,
                 error.Timeout => return error.Timeout,
             };
-            if (pdo_header.n_entries > PDO.max_entries) return error.InvalidEEPROM;
+            if (pdo_header.n_entries > PDO.max_entries) return error.InvalidSII;
             entries_remaining = pdo_header.n_entries;
             continue :state .entries;
         },
         .entries => {
             if (entries_remaining == 0) continue :state .emit_pdo;
-            const entry = try wire.packFromECatReader(PDO.Entry, reader);
+            const entry = wire.packFromECatReader(PDO.Entry, reader) catch return error.InvalidSII;
             try entries.append(entry);
             entries_remaining -= 1;
             continue :state .entries;
@@ -726,7 +730,7 @@ pub fn findCatagoryFP(
 
     const reader = stream.reader();
     for (0..1000) |_| {
-        const catagory_header = try wire.packFromECatReader(CatagoryHeader, reader);
+        const catagory_header = wire.packFromECatReader(CatagoryHeader, reader) catch return error.InvalidSII;
 
         if (catagory_header.catagory_type == catagory) {
             // + 2 for catagory header, byte length = 2 * word length
@@ -745,7 +749,7 @@ pub fn findCatagoryFP(
     }
 }
 
-pub const readSII_ps_error = error{EndOfStream} || SIIStream.ReadError;
+pub const readSII_ps_error = error{InvalidSII} || SIIStream.ReadError;
 
 /// read a packed struct from SII, using station addressing
 pub fn readSIIFP_ps(
@@ -765,7 +769,11 @@ pub fn readSIIFP_ps(
         eeprom_timeout_us,
     );
     var reader = stream.reader();
-    try reader.readNoEof(&bytes);
+    reader.readNoEof(&bytes) catch |err| switch (err) {
+        error.EndOfStream => return error.InvalidSII,
+        error.Timeout => return error.Timeout,
+        error.LinkError => return error.LinkError,
+    };
     return wire.packFromECat(T, bytes);
 }
 
@@ -1167,7 +1175,7 @@ pub fn readSMPDOAssigns(
     for (sync_managers, 0..) |sm_config, sm_idx| {
         switch (sm_config.syncM_type) {
             .mailbox_in, .mailbox_out, .not_used_or_unknown => {},
-            _ => return error.InvalidEEPROM,
+            _ => return error.InvalidSII,
             .process_data_inputs, .process_data_outputs => {
                 try res.addSyncManager(sm_config, @intCast(sm_idx));
             },
@@ -1188,7 +1196,7 @@ pub fn readSMPDOAssigns(
 
         // entries are 8 bytes, pdo header is 8 bytes, so
         // this should be a multiple of eight.
-        if (catagory.byte_length % 8 != 0) return error.InvalidEEPROM;
+        if (catagory.byte_length % 8 != 0) return error.InvalidSII;
 
         var stream = SIIStream.init(
             port,
@@ -1212,7 +1220,7 @@ pub fn readSMPDOAssigns(
                     error.LinkError => return error.LinkError,
                     error.Timeout => return error.Timeout,
                 };
-                if (pdo_header.n_entries > PDO.max_entries) return error.InvalidEEPROM;
+                if (pdo_header.n_entries > PDO.max_entries) return error.InvalidSII;
                 current_sm_idx = pdo_header.syncM;
                 entries_remaining = pdo_header.n_entries;
                 if (pdo_header.isUsed()) continue :state .entries else continue :state .entries_skip;
@@ -1221,9 +1229,9 @@ pub fn readSMPDOAssigns(
                 assert(pdo_header.syncM < std.math.maxInt(u8));
                 assert(current_sm_idx < max_sm);
                 if (entries_remaining == 0) continue :state .pdo_header;
-                const entry = try wire.packFromECatReader(PDO.Entry, reader);
+                const entry = wire.packFromECatReader(PDO.Entry, reader) catch return error.InvalidSII;
                 entries_remaining -= 1;
-                try res.addPDOBitsToSM(
+                res.addPDOBitsToSM(
                     entry.bit_length,
                     current_sm_idx,
                     switch (catagory_type) {
@@ -1231,19 +1239,23 @@ pub fn readSMPDOAssigns(
                         .RXPDO => .output,
                         else => unreachable,
                     },
-                );
+                ) catch |err| switch (err) {
+                    error.SyncManagerNotFound, error.WrongDirection => return error.InvalidSII,
+                };
                 continue :state .entries;
             },
             .entries_skip => {
                 if (entries_remaining == 0) continue :state .pdo_header;
-                _ = try wire.packFromECatReader(PDO.Entry, reader);
+                _ = wire.packFromECatReader(PDO.Entry, reader) catch return error.InvalidSII;
                 entries_remaining -= 1;
                 continue :state .entries_skip;
             },
             .end => {},
         }
     }
-    try res.sortAndVerifyNonOverlapping();
+    res.sortAndVerifyNonOverlapping() catch |err| switch (err) {
+        error.OverlappingSM => return error.InvalidSII,
+    };
     return res;
 }
 
@@ -1272,7 +1284,7 @@ pub fn readPDOBitLengths(
 
     // entries are 8 bytes, pdo header is 8 bytes, so
     // this should be a multiple of eight.
-    if (catagory.byte_length % 8 != 0) return error.InvalidEEPROM;
+    if (catagory.byte_length % 8 != 0) return error.InvalidSII;
 
     var stream = SIIStream.init(
         port,
@@ -1300,20 +1312,20 @@ pub fn readPDOBitLengths(
                 error.LinkError => return error.LinkError,
                 error.Timeout => return error.Timeout,
             };
-            if (pdo_header.n_entries > PDO.max_entries) return error.InvalidEEPROM;
+            if (pdo_header.n_entries > PDO.max_entries) return error.InvalidSII;
             entries_remaining = pdo_header.n_entries;
             if (pdo_header.isUsed()) continue :state .entries else continue :state .entries_skip;
         },
         .entries => {
             if (entries_remaining == 0) continue :state .pdo_header;
-            const entry = try wire.packFromECatReader(PDO.Entry, reader);
+            const entry = wire.packFromECatReader(PDO.Entry, reader) catch return error.InvalidSII;
             entries_remaining -= 1;
             total_bit_length += entry.bit_length;
             continue :state .entries;
         },
         .entries_skip => {
             if (entries_remaining == 0) continue :state .pdo_header;
-            _ = try wire.packFromECatReader(PDO.Entry, reader);
+            _ = wire.packFromECatReader(PDO.Entry, reader) catch return error.InvalidSII;
             entries_remaining -= 1;
             continue :state .entries_skip;
         },

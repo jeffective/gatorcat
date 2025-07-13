@@ -169,7 +169,9 @@ pub const Expedited = struct {
         const sdo_header = try wire.packFromECatReader(SDOHeader, reader);
         const data_size: usize = sdo_header.getDataSize();
         var data = try std.BoundedArray(u8, 4).init(data_size);
-        try reader.readNoEof(data.slice());
+        reader.readNoEof(data.slice()) catch |err| switch (err) {
+            error.EndOfStream => return error.InvalidMbxContent,
+        };
 
         return Expedited{
             .mbx_header = mbx_header,
@@ -272,7 +274,9 @@ pub const Normal = struct {
 
         const data_length: u16 = mbx_header.length -| 10;
         var data = try std.BoundedArray(u8, data_max_size).init(data_length);
-        try reader.readNoEof(data.slice());
+        reader.readNoEof(data.slice()) catch |err| switch (err) {
+            error.EndOfStream => return error.InvalidMbxContent,
+        };
 
         return Normal{
             .mbx_header = mbx_header,
@@ -444,7 +448,9 @@ pub const Segment = struct {
                 @divExact(@bitSizeOf(SegmentHeader), 8));
         }
         var data = try std.BoundedArray(u8, data_max_size).init(data_size);
-        try reader.readNoEof(data.slice());
+        reader.readNoEof(data.slice()) catch |err| switch (err) {
+            error.EndOfStream => return error.InvalidMbxContent,
+        };
 
         return Segment{
             .mbx_header = mbx_header,
@@ -825,7 +831,9 @@ pub const GetObjectDescriptionResponse = struct {
         if (name_length > max_name_length) return error.InvalidMailboxContent;
         assert(name_length <= max_name_length);
         var name_buf: [max_name_length]u8 = undefined;
-        try reader.readNoEof(name_buf[0..name_length]);
+        reader.readNoEof(name_buf[0..name_length]) catch |err| switch (err) {
+            error.EndOfStream => return error.InvalidMbxContent,
+        };
         const name = std.BoundedArray(u8, max_name_length).fromSlice(name_buf[0..name_length]) catch unreachable;
 
         return GetObjectDescriptionResponse{
@@ -916,7 +924,9 @@ pub const GetEntryDescriptionResponse = struct {
         if (data_length > max_data_length) return error.InvalidMailboxContent;
         assert(data_length <= max_data_length);
         var data_buf: [max_data_length]u8 = undefined;
-        try reader.readNoEof(data_buf[0..data_length]);
+        reader.readNoEof(data_buf[0..data_length]) catch |err| switch (err) {
+            error.EndOfStream => return error.InvalidMbxContent,
+        };
         const data = std.BoundedArray(u8, max_data_length).fromSlice(data_buf[0..data_length]) catch unreachable;
 
         return GetEntryDescriptionResponse{

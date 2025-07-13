@@ -159,7 +159,7 @@ pub const Expedited = packed struct(u128) {
     pub fn deserialize(buf: []const u8) !Expedited {
         var fbs = std.io.fixedBufferStream(buf);
         var reader = fbs.reader();
-        return try wire.packFromECatReader(Expedited, &reader);
+        return wire.packFromECatReader(Expedited, &reader) catch return error.InvalidMbxContent;
     }
 
     pub fn serialize(self: Expedited, out: []u8) !usize {
@@ -256,7 +256,9 @@ pub const Normal = struct {
             u8,
             data_max_size,
         ).init(data_length);
-        try reader.readNoEof(data.slice());
+        reader.readNoEof(data.slice()) catch |err| switch (err) {
+            error.EndOfStream => return error.InvalidMbxContent,
+        };
 
         return Normal{
             .mbx_header = mbx_header,
@@ -432,7 +434,9 @@ pub const Segment = struct {
             u8,
             data_max_size,
         ).init(data_length);
-        try reader.readNoEof(data.slice());
+        reader.readNoEof(data.slice()) catch |err| switch (err) {
+            error.EndOfStream => return error.InvalidMbxContent,
+        };
 
         return Segment{
             .mbx_header = mbx_header,

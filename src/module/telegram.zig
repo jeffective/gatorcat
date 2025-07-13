@@ -359,7 +359,7 @@ pub const EthernetFrame = struct {
         if (ethernet_header.ether_type != .ETHERCAT) {
             return error.NotAnEtherCATFrame;
         }
-        const ethercat_header = try wire.packFromECatReader(EtherCATFrame.Header, reader);
+        const ethercat_header = wire.packFromECatReader(EtherCATFrame.Header, reader) catch return error.InvalidFrame;
         const bytes_remaining = try fbs_reading.getEndPos() - try fbs_reading.getPos();
         const bytes_total = try fbs_reading.getEndPos();
         if (bytes_total < min_frame_length) {
@@ -378,7 +378,7 @@ pub const EthernetFrame = struct {
             const header = wire.packFromECatReader(Datagram.Header, reader) catch return error.CurruptedFrame;
             fbs_reading.seekBy(header.length) catch return error.CurruptedFrame;
             const datagram_data: []u8 = received[try fbs_reading.getPos() - header.length .. try fbs_reading.getPos()];
-            const wkc = try wire.packFromECatReader(u16, reader);
+            const wkc = wire.packFromECatReader(u16, reader) catch return error.CurruptedFrame;
             scratch_datagrams[i] = Datagram{
                 .header = header,
                 .data = datagram_data,
