@@ -190,7 +190,7 @@ pub fn sdoReadPack(
     );
     if (n_bytes_read != bytes.len) {
         logger.err("expected pack size: {}, got {}", .{ bytes.len, n_bytes_read });
-        return error.WrongPackSize;
+        return error.InvalidMbxContent;
     }
     return wire.packFromECat(packed_type, bytes);
 }

@@ -179,7 +179,6 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
                 error.MbxTimeout,
                 error.Aborted,
                 error.WrongProtocol,
-                error.WrongPackSize,
                 error.InvalidSMComms,
                 error.InvalidSMChannel,
                 error.InvalidSMChannelPDOIndex,
@@ -296,7 +295,6 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
             error.InvalidMbxContent,
             error.MbxTimeout,
             error.Aborted,
-            error.WrongPackSize, // TODO: wtf is this?
             error.SMAssigns,
             error.OverlappingSM,
             error.NotEnoughFMMUs,
