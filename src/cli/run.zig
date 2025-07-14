@@ -157,7 +157,6 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
 
             break :blk scanner.readEni(allocator, args.preop_timeout_us, false, args.pv_name_prefix) catch |err| switch (err) {
                 error.LinkError,
-                error.Overflow,
                 error.NoSpaceLeft,
                 error.OutOfMemory,
                 error.RecvTimeout,
@@ -263,8 +262,6 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
         // TODO: wtf jeff reduce the number of errors!
         md.busSafeop(args.safeop_timeout_us) catch |err| switch (err) {
             error.LinkError,
-            error.Overflow,
-            error.NoSpaceLeft,
             error.CoENotSupported,
             error.CoECompleteAccessNotSupported,
             error.WrongProtocol,

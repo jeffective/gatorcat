@@ -377,7 +377,11 @@ pub fn readSIIString(
     );
     var reader = stream.reader();
 
-    const n_strings: u8 = try reader.readByte();
+    const n_strings: u8 = reader.readByte() catch |err| switch (err) {
+        error.EndOfStream => return error.InvalidSII,
+        error.Timeout => return error.Timeout,
+        error.LinkError => return error.LinkError,
+    };
 
     if (n_strings < index) {
         return null;
@@ -386,7 +390,11 @@ pub fn readSIIString(
     var string_buf: [255]u8 = undefined;
     var str_len: u8 = undefined;
     for (0..index) |i| {
-        str_len = try reader.readByte();
+        str_len = reader.readByte() catch |err| switch (err) {
+            error.EndOfStream => return error.InvalidSII,
+            error.Timeout => return error.Timeout,
+            error.LinkError => return error.LinkError,
+        };
         if (str_len % 2 == 0 and i != index - 1 and stream.isWordSeekable()) {
             stream.seekByWord(@divExact(str_len, 2));
         } else {
@@ -398,7 +406,10 @@ pub fn readSIIString(
         }
     }
     var arr = SIIString{};
-    try arr.appendSlice(string_buf[0..str_len]);
+    assert(str_len <= arr.capacity());
+    arr.appendSlice(string_buf[0..str_len]) catch |err| switch (err) {
+        error.Overflow => unreachable,
+    };
     return arr;
 }
 
@@ -468,13 +479,13 @@ pub fn readSMCatagory(
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
 ) !SMCatagory {
-    const catagory = try findCatagoryFP(
+    const catagory = (try findCatagoryFP(
         port,
         station_address,
         .sync_manager,
         recv_timeout_us,
         eeprom_timeout_us,
-    ) orelse return SMCatagory{};
+    )) orelse return SMCatagory{};
     const n_sm: u17 = std.math.divExact(u17, catagory.byte_length, @divExact(@bitSizeOf(SyncM), 8)) catch return error.InvalidSII;
     if (n_sm == 0) {
         return SMCatagory{};
@@ -689,12 +700,16 @@ pub fn readPDOs(
         .entries => {
             if (entries_remaining == 0) continue :state .emit_pdo;
             const entry = wire.packFromECatReader(PDO.Entry, reader) catch return error.InvalidSII;
-            try entries.append(entry);
+            entries.append(entry) catch |err| switch (err) {
+                error.Overflow => return error.InvalidSII,
+            };
             entries_remaining -= 1;
             continue :state .entries;
         },
         .emit_pdo => {
-            try pdos.append(.{ .header = pdo_header, .entries = entries });
+            pdos.append(.{ .header = pdo_header, .entries = entries }) catch |err| switch (err) {
+                error.Overflow => return error.InvalidSII,
+            };
             continue :state .pdo_header;
         },
     }
@@ -730,7 +745,11 @@ pub fn findCatagoryFP(
 
     const reader = stream.reader();
     for (0..1000) |_| {
-        const catagory_header = wire.packFromECatReader(CatagoryHeader, reader) catch return error.InvalidSII;
+        const catagory_header = wire.packFromECatReader(CatagoryHeader, reader) catch |err| switch (err) {
+            error.Timeout => return error.Timeout,
+            error.LinkError => return error.LinkError,
+            error.EndOfStream => return error.InvalidSII,
+        };
 
         if (catagory_header.catagory_type == catagory) {
             // + 2 for catagory header, byte length = 2 * word length
@@ -1177,7 +1196,9 @@ pub fn readSMPDOAssigns(
             .mailbox_in, .mailbox_out, .not_used_or_unknown => {},
             _ => return error.InvalidSII,
             .process_data_inputs, .process_data_outputs => {
-                try res.addSyncManager(sm_config, @intCast(sm_idx));
+                res.addSyncManager(sm_config, @intCast(sm_idx)) catch |err| switch (err) {
+                    error.Overflow => return error.InvalidSII,
+                };
             },
         }
     }
@@ -1350,7 +1371,9 @@ pub const FMMUConfiguration = struct {
         var res = FMMUConfiguration{ .inputs_area = inputs_area, .outputs_area = outputs_area };
 
         for (sm_assigns.data.slice()) |sm_assign| {
-            if (sm_assign.pdo_bit_length > 0) try res.addSM(sm_assign);
+            if (sm_assign.pdo_bit_length > 0) res.addSM(sm_assign) catch |err| switch (err) {
+                error.Overflow => return error.NotEnoughFMMUs,
+            };
         }
         return res;
     }

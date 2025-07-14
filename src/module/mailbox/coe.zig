@@ -294,7 +294,9 @@ pub fn sdoRead(
         .expedited => {
             assert(in_content == .coe);
             assert(in_content.coe == .expedited);
-            try writer.writeAll(in_content.coe.expedited.data.slice());
+            writer.writeAll(in_content.coe.expedited.data.slice()) catch |err| switch (err) {
+                error.NoSpaceLeft => return error.InvalidMbxContent,
+            };
             return fbs.getWritten().len;
         },
         .normal => {
@@ -302,7 +304,9 @@ pub fn sdoRead(
             assert(in_content.coe == .normal);
 
             const data: []u8 = in_content.coe.normal.data.slice();
-            try writer.writeAll(data);
+            writer.writeAll(data) catch |err| switch (err) {
+                error.NoSpaceLeft => return error.InvalidMbxContent,
+            };
             if (in_content.coe.normal.complete_size > data.len) {
                 continue :state .request_segment;
             }
@@ -1035,7 +1039,9 @@ pub fn readSMPDOAssigns(
             .mailbox_in, .mailbox_out, .not_used_or_unknown => {},
             _ => return error.SMAssigns,
             .process_data_inputs, .process_data_outputs => |direction| {
-                try res.addSyncManager(sm_config, @intCast(sm_idx));
+                res.addSyncManager(sm_config, @intCast(sm_idx)) catch |err| switch (err) {
+                    error.Overflow => return error.InvalidCoE,
+                };
 
                 const sm_pdo_assignment = try mailbox.coe.readSMChannel(port, station_address, recv_timeout_us, mbx_timeout_us, cnt, config, @intCast(sm_idx));
 
