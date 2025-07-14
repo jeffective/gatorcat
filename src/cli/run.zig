@@ -157,7 +157,6 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
 
             break :blk scanner.readEni(allocator, args.preop_timeout_us, false, args.pv_name_prefix) catch |err| switch (err) {
                 error.LinkError,
-                error.NoSpaceLeft,
                 error.OutOfMemory,
                 error.RecvTimeout,
                 error.Wkc,
@@ -179,7 +178,8 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
                 error.MissedFragment,
                 error.ObjectDoesNotExist,
                 error.InvalidCoE,
-                error.EndOfStream,
+                error.ObjectDescriptionTooBig,
+                error.EntryDescriptionTooBig,
                 => continue :bus_scan,
             };
         };

@@ -1223,7 +1223,7 @@ pub fn readObjectDescription(
     );
 
     var full_service_data_buffer: [4096]u8 = undefined; // TODO: this is arbitrary
-    const full_service_data = try readSDOInfoFragments(
+    const full_service_data = readSDOInfoFragments(
         port,
         station_address,
         recv_timeout_us,
@@ -1231,7 +1231,10 @@ pub fn readObjectDescription(
         config,
         .get_object_description_response,
         &full_service_data_buffer,
-    );
+    ) catch |err| switch (err) {
+        error.NoSpaceLeft => return error.ObjectDescriptionTooBig,
+        else => |err2| return err2,
+    };
     const response = try server.GetObjectDescriptionResponse.deserialize(full_service_data);
     if (response.index != index) return error.WrongProtocol;
     return response;
@@ -1260,7 +1263,7 @@ pub fn readEntryDescription(
     );
 
     var full_service_data_buffer: [4096]u8 = undefined; // TODO: this is arbitrary
-    const full_service_data = try readSDOInfoFragments(
+    const full_service_data = readSDOInfoFragments(
         port,
         station_address,
         recv_timeout_us,
@@ -1268,7 +1271,10 @@ pub fn readEntryDescription(
         config,
         .get_entry_description_response,
         &full_service_data_buffer,
-    );
+    ) catch |err| switch (err) {
+        error.NoSpaceLeft => return error.EntryDescriptionTooBig,
+        else => |err2| return err2,
+    };
     const response = try server.GetEntryDescriptionResponse.deserialize(full_service_data);
     if (response.index != index or response.subindex != subindex or response.value_info != value_info) return error.WrongProtocol;
     return response;

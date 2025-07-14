@@ -822,10 +822,10 @@ pub const GetObjectDescriptionResponse = struct {
     pub fn deserialize(buf: []const u8) !GetObjectDescriptionResponse {
         var fbs = std.io.fixedBufferStream(buf);
         const reader = fbs.reader();
-        const index = try wire.packFromECatReader(u16, reader);
-        const data_type = try wire.packFromECatReader(coe.DataTypeArea, reader);
-        const max_subindex = try wire.packFromECatReader(u8, reader);
-        const object_code = try wire.packFromECatReader(coe.ObjectCode, reader);
+        const index = wire.packFromECatReader(u16, reader) catch return error.InvalidMbxContent;
+        const data_type = wire.packFromECatReader(coe.DataTypeArea, reader) catch return error.InvalidMbxContent;
+        const max_subindex = wire.packFromECatReader(u8, reader) catch return error.InvalidMbxContent;
+        const object_code = wire.packFromECatReader(coe.ObjectCode, reader) catch return error.InvalidMbxContent;
 
         const name_length = try fbs.getEndPos() - try fbs.getPos();
         if (name_length > max_name_length) return error.InvalidMbxContent;
@@ -913,12 +913,12 @@ pub const GetEntryDescriptionResponse = struct {
         var fbs = std.io.fixedBufferStream(buf);
         const reader = fbs.reader();
 
-        const index = try wire.packFromECatReader(u16, reader);
-        const subindex = try wire.packFromECatReader(u8, reader);
-        const value_info = try wire.packFromECatReader(coe.ValueInfo, reader);
-        const data_type = try wire.packFromECatReader(coe.DataTypeArea, reader);
-        const bit_length = try wire.packFromECatReader(u16, reader);
-        const object_access = try wire.packFromECatReader(coe.ObjectAccess, reader);
+        const index = wire.packFromECatReader(u16, reader) catch return error.InvalidMbxContent;
+        const subindex = wire.packFromECatReader(u8, reader) catch return error.InvalidMbxContent;
+        const value_info = wire.packFromECatReader(coe.ValueInfo, reader) catch return error.InvalidMbxContent;
+        const data_type = wire.packFromECatReader(coe.DataTypeArea, reader) catch return error.InvalidMbxContent;
+        const bit_length = wire.packFromECatReader(u16, reader) catch return error.InvalidMbxContent;
+        const object_access = wire.packFromECatReader(coe.ObjectAccess, reader) catch return error.InvalidMbxContent;
 
         const data_length = try fbs.getEndPos() - try fbs.getPos();
         if (data_length > max_data_length) return error.InvalidMbxContent;
