@@ -314,7 +314,7 @@ pub fn transitionIP(
     // TODO: active ports
 
     // cant do startup parameters until mailbox is initialized
-    try self.doStartupParameters(port, .IP, recv_timeout_us);
+    self.doStartupParameters(port, .IP, recv_timeout_us) catch return error.StartupParametersFailed;
 }
 
 /// The maindevice should perform these tasks before commanding the PS transision.
@@ -359,7 +359,7 @@ pub fn transitionPS(
 
     // often, CoE is used to configure selected PDOs, this will effect the configuration of the
     // syncmanagers. So we will do the startup parameters before auto config of the SM.
-    try self.doStartupParameters(port, .PS, recv_timeout_us);
+    self.doStartupParameters(port, .PS, recv_timeout_us) catch return error.StartupParametersFailed;
 
     switch (self.config.auto_config) {
         .auto => {
@@ -471,7 +471,22 @@ pub fn transitionSO(
     port: *Port,
     recv_timeout_us: u32,
 ) !void {
-    try self.doStartupParameters(port, .SO, recv_timeout_us);
+    self.doStartupParameters(port, .SO, recv_timeout_us) catch |err| switch (err) {
+        error.MbxTimeout,
+        error.InvalidMbxConfiguration,
+        error.MbxOutFull,
+        error.InvalidMbxContent,
+        error.NotImplemented,
+        error.CoENotSupported,
+        error.CoECompleteAccessNotSupported,
+        error.Aborted,
+        error.WrongProtocol,
+        => return error.StartupParametersFailed,
+        error.LinkError => return error.LinkError,
+        error.Emergency => return error.Emergency,
+        error.Wkc => return error.Wkc,
+        error.RecvTimeout => return error.RecvTimeout,
+    };
 }
 
 pub fn doStartupParameters(
@@ -483,9 +498,10 @@ pub fn doStartupParameters(
     for (self.config.startup_parameters) |parameter| {
         // TODO: support reads?
         if (parameter.transition == transition) {
-            logger.info("station address: 0x{x}, doing startup parameter: {}", .{ stationAddressFromRingPos(self.runtime_info.ring_position), parameter });
+            const station_addr = stationAddressFromRingPos(self.runtime_info.ring_position);
+            logger.info("station address: 0x{x}, doing startup parameter: {}", .{ station_addr, parameter });
 
-            try self.sdoWrite(
+            self.sdoWrite(
                 port,
                 parameter.data,
                 parameter.index,
@@ -493,7 +509,10 @@ pub fn doStartupParameters(
                 parameter.complete_access,
                 recv_timeout_us,
                 parameter.timeout_us,
-            );
+            ) catch |err| {
+                logger.err("station_addr: 0x{x}, failed startup parameter: {}, error: {}", .{ station_addr, parameter, err });
+                return err;
+            };
         }
     }
 }

@@ -166,8 +166,6 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
                 error.UnexpectedSubdevice,
                 error.InvalidSII,
                 error.InvalidMbxConfiguration,
-                error.CoENotSupported,
-                error.CoECompleteAccessNotSupported,
                 error.Emergency,
                 error.NotImplemented,
                 error.MbxOutFull,
@@ -180,6 +178,7 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
                 error.InvalidCoE,
                 error.ObjectDescriptionTooBig,
                 error.EntryDescriptionTooBig,
+                error.StartupParametersFailed,
                 => continue :bus_scan,
             };
         };
@@ -228,23 +227,15 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
         md.busPreop(args.preop_timeout_us) catch |err| switch (err) {
             error.LinkError,
             error.InvalidSII,
-            error.CoENotSupported,
-            error.CoECompleteAccessNotSupported,
-            error.Aborted,
-            error.WrongProtocol,
-            error.InvalidMbxContent,
+            error.StartupParametersFailed,
             => return error.NonRecoverable,
             error.Wkc,
             error.StateChangeRefused,
             error.Timeout,
-            error.Emergency,
             error.RecvTimeout,
             error.StateChangeTimeout,
             error.InvalidMbxConfiguration,
             error.UnexpectedSubdevice,
-            error.NotImplemented,
-            error.MbxOutFull, //wtf is this?
-            error.MbxTimeout,
             => continue :bus_scan,
         };
 
@@ -262,8 +253,6 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
         // TODO: wtf jeff reduce the number of errors!
         md.busSafeop(args.safeop_timeout_us) catch |err| switch (err) {
             error.LinkError,
-            error.CoENotSupported,
-            error.CoECompleteAccessNotSupported,
             error.WrongProtocol,
             error.WrongDirection,
             error.SyncManagerNotFound,
@@ -286,26 +275,18 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
             error.InvalidOutputsBitLength,
             error.WrongInputsBitLength,
             error.WrongOutputsBitLength,
+            error.StartupParametersFailed,
             => return error.NonRecoverable,
             // => continue :bus_scan,
         };
 
         md.busOp(args.op_timeout_us) catch |err| switch (err) {
-            error.LinkError,
-            error.CoENotSupported,
-            error.CoECompleteAccessNotSupported,
-            error.NotImplemented,
-            error.Aborted,
-            error.WrongProtocol,
-            => return error.NonRecoverable,
+            error.LinkError => return error.NonRecoverable,
+            error.StartupParametersFailed,
             error.RecvTimeout,
             error.Wkc,
             error.StateChangeTimeout,
-            error.InvalidMbxConfiguration,
             error.Emergency,
-            error.MbxOutFull,
-            error.InvalidMbxContent,
-            error.MbxTimeout,
             => continue :bus_scan,
         };
 
