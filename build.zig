@@ -202,17 +202,23 @@ pub fn buildCli(
         .target = target,
         .optimize = optimize,
     }).module("zenoh");
+    const cli_module = b.createModule(.{
+        .optimize = optimize,
+        .target = target,
+        .error_tracing = true,
+        .root_source_file = b.path("src/cli/main.zig"),
+    });
+    cli_module.addImport("gatorcat", gatorcat_module);
+    cli_module.addImport("flags", flags_module);
+    cli_module.addImport("zenoh", zenoh_module);
+    cli_module.addImport("zbor", zbor_module);
+    cli_module.addAnonymousImport("build_zig_zon", .{ .root_source_file = b.path("build.zig.zon") });
+
     const cli = b.addExecutable(.{
         .name = exe_name,
-        .root_source_file = b.path("src/cli/main.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = cli_module,
     });
-    cli.root_module.addImport("gatorcat", gatorcat_module);
-    cli.root_module.addImport("flags", flags_module);
-    cli.root_module.addImport("zenoh", zenoh_module);
-    cli.root_module.addImport("zbor", zbor_module);
-    cli.root_module.addAnonymousImport("build_zig_zon", .{ .root_source_file = b.path("build.zig.zon") });
+
     if (target.result.os.tag == .windows) cli.linkLibC();
 
     const cli_install = b.addInstallArtifact(cli, .{ .dest_dir = dest_dir });

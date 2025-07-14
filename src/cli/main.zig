@@ -11,16 +11,29 @@ const run = @import("run.zig");
 const scan = @import("scan.zig");
 
 const build_zig_zon = @embedFile("build_zig_zon");
+
+var log_level: std.log.Level = .warn;
 pub const std_options: std.Options = .{
-    .log_level = .info,
+    .log_level = .debug, // effects comptime log level
+    .logFn = logFn,
 };
+fn logFn(
+    comptime message_level: std.log.Level,
+    comptime scope: @TypeOf(.enum_literal),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    if (@intFromEnum(message_level) <= @intFromEnum(log_level)) {
+        std.log.defaultLog(message_level, scope, format, args);
+    }
+}
 
 // CLI options
 const Flags = struct {
-    // Optional description of the program.
     pub const description =
         \\The GatorCAT CLI.
     ;
+    log_level: std.log.Level = .warn,
     // sub commands
     command: union(enum) {
         // scan bus
@@ -51,6 +64,8 @@ pub fn main() !void {
         error.PrintedHelp => std.process.exit(0),
         else => |scoped_err| return scoped_err,
     };
+
+    log_level = parsed_args.log_level;
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
