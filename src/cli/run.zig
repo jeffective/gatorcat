@@ -29,6 +29,7 @@ pub const Args = struct {
     rt_prio: ?i32 = null,
     verbose: bool = false,
     pv_name_prefix: ?[]const u8,
+    mlockall: bool = false,
 
     pub const ZenohLogLevel = enum { trace, debug, info, warn, @"error" };
 
@@ -49,6 +50,7 @@ pub const Args = struct {
         .rt_prio = "Set a real-time priority for this process. Does nothing on windows.",
         .verbose = "Enable verbose logs.",
         .pv_name_prefix = "Add a prefix (separated by /) to process variable names, if desired. Not applicable if eni file provided.",
+        .mlockall = "Do mlockall syscall to prevent this process' memory from being swapped. Improves real-time performance. Only applicable to linux.",
     };
 };
 
@@ -80,6 +82,12 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
         }
         const scheduler: std.os.linux.SCHED.Mode = @enumFromInt(std.os.linux.sched_getscheduler(0));
         std.log.warn("Scheduler: {s}", .{@tagName(scheduler)});
+
+        if (args.mlockall) {
+            // TODO: implement mlockall
+            std.log.err("mlockall is not implemented, exiting");
+            return error.NonRecoverable;
+        }
     }
 
     var raw_socket = gcat.nic.RawSocket.init(args.ifname) catch return error.NonRecoverable;
