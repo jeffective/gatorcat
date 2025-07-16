@@ -85,7 +85,7 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
 
         if (args.mlockall) {
             // TODO: implement mlockall
-            std.log.err("mlockall is not implemented, exiting");
+            std.log.err("mlockall is not implemented, exiting", .{});
             return error.NonRecoverable;
         }
     }
