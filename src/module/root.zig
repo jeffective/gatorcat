@@ -96,6 +96,11 @@ test "probe stack" {
     probeStack(2_000_000);
 }
 
+pub fn exhaustiveTagName(@"enum": anytype) [:0]const u8 {
+    comptime assert(@typeInfo(@TypeOf(@"enum")).@"enum".is_exhaustive == true);
+    return @tagName(@"enum");
+}
+
 /// Call deinit() on this to free it.
 pub fn Arena(comptime T: type) type {
     return struct {

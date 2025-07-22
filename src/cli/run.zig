@@ -80,8 +80,9 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
                 },
             }
         }
-        const scheduler: std.os.linux.SCHED.Mode = @enumFromInt(std.os.linux.sched_getscheduler(0));
-        std.log.warn("Scheduler: {s}", .{@tagName(scheduler)});
+        const scheduler: gcat.NonExhaustive(std.os.linux.SCHED.Mode) = @enumFromInt(std.os.linux.sched_getscheduler(0));
+        const scheduler_name = std.enums.tagName(gcat.NonExhaustive(std.os.linux.SCHED.Mode), scheduler) orelse "UNKNOWN";
+        std.log.warn("Scheduler: {s}", .{scheduler_name});
 
         if (args.mlockall) {
             switch (std.posix.errno(gcat.mlockall(.{ .CURRENT = true, .FUTURE = true }))) {
@@ -413,7 +414,7 @@ pub const ZenohHandler = struct {
         const allocator = arena.allocator();
 
         // TODO: set log level from cli
-        try zenoh.err(zenoh.c.zc_init_log_from_env_or(@tagName(log_level)));
+        try zenoh.err(zenoh.c.zc_init_log_from_env_or(gcat.exhaustiveTagName(log_level)));
 
         const config = try allocator.create(zenoh.c.z_owned_config_t);
         if (maybe_config_file) |config_file| {
@@ -443,11 +444,11 @@ pub const ZenohHandler = struct {
             for (subdevice.inputs) |input| {
                 for (input.entries) |entry| {
                     if (entry.pv_name) |pv_name| {
-                        std.log.warn("zenoh: declaring publisher: {s}, ethercat type: {s}", .{ pv_name, @tagName(entry.type) });
+                        std.log.warn("zenoh: declaring publisher: {s}, ethercat type: {s}", .{ pv_name, gcat.exhaustiveTagName(entry.type) });
                         try createPublisher(allocator, &pubs, session, pv_name);
                     }
                     if (entry.pv_name_fb) |pv_name_fb| {
-                        std.log.warn("zenoh: declaring publisher: {s}, ethercat type: {s}", .{ pv_name_fb, @tagName(entry.type) });
+                        std.log.warn("zenoh: declaring publisher: {s}, ethercat type: {s}", .{ pv_name_fb, gcat.exhaustiveTagName(entry.type) });
                         try createPublisher(allocator, &pubs, session, pv_name_fb);
                     }
                 }
@@ -455,7 +456,7 @@ pub const ZenohHandler = struct {
             for (subdevice.outputs) |output| {
                 for (output.entries) |entry| {
                     if (entry.pv_name_fb) |pv_name_fb| {
-                        std.log.warn("zenoh: declaring publisher: {s}, ethercat type: {s}", .{ pv_name_fb, @tagName(entry.type) });
+                        std.log.warn("zenoh: declaring publisher: {s}, ethercat type: {s}", .{ pv_name_fb, gcat.exhaustiveTagName(entry.type) });
                         try createPublisher(allocator, &pubs, session, pv_name_fb);
                     }
                 }
@@ -501,7 +502,7 @@ pub const ZenohHandler = struct {
                     errdefer zenoh.drop(zenoh.move(subscriber));
                     std.log.warn("zenoh: declared subscriber: {s}, ethercat type: {s}, bit_pos: {}", .{
                         entry.pv_name.?,
-                        @tagName(entry.type),
+                        gcat.exhaustiveTagName(entry.type),
                         bit_offset,
                     });
 
@@ -575,7 +576,7 @@ pub const ZenohHandler = struct {
 
         std.log.info("zenoh: received sample from key: {s}, type: {s}, bit_count: {}, bit_offset: {}", .{
             key_slice,
-            @tagName(ctx.type),
+            gcat.exhaustiveTagName(ctx.type),
             ctx.bit_count,
             ctx.bit_offset_in_process_data,
         });
@@ -909,7 +910,7 @@ pub const ZenohHandler = struct {
             .SYNC_PAR,
             .UNKNOWN,
             .VISIBLE_STRING,
-            => std.log.err("zenoh: keyexpr {s}, Unsupported type: {s}", .{ key_slice, @tagName(ctx.type) }),
+            => std.log.err("zenoh: keyexpr {s}, Unsupported type: {s}", .{ key_slice, gcat.exhaustiveTagName(ctx.type) }),
         }
     }
 

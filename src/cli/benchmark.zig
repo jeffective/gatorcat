@@ -52,8 +52,9 @@ pub fn benchmark(args: Args) !void {
             }
         }
 
-        const scheduler: std.os.linux.SCHED.Mode = @enumFromInt(std.os.linux.sched_getscheduler(0));
-        try writer.print("Scheduler: {s}\n", .{@tagName(scheduler)});
+        const scheduler: gcat.NonExhaustive(std.os.linux.SCHED.Mode) = @enumFromInt(std.os.linux.sched_getscheduler(0));
+        const scheduler_name = std.enums.tagName(gcat.NonExhaustive(std.os.linux.SCHED.Mode), scheduler) orelse "UNKNOWN";
+        try writer.print("Scheduler: {s}\n", .{scheduler_name});
     }
 
     try writer.print("benchmarking for {d:.2}s...\n", .{args.duration_s});

@@ -135,7 +135,7 @@ pub fn processFrame(self: *Subdevice, frame: *Simulator.Frame) void {
             .BRW,
             .FRMW,
             => |non_implemented| {
-                std.log.err("TODO: implement datagram header command: {s}", .{@tagName(non_implemented)});
+                std.log.err("TODO: implement datagram header command: {s}", .{std.enums.tagName(@TypeOf(non_implemented), non_implemented) orelse unreachable});
                 continue :skip_datagram;
             },
             _ => |value| {
