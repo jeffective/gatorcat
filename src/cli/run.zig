@@ -84,9 +84,30 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
         std.log.warn("Scheduler: {s}", .{@tagName(scheduler)});
 
         if (args.mlockall) {
-            // TODO: implement mlockall
-            std.log.err("mlockall is not implemented, exiting", .{});
-            return error.NonRecoverable;
+            switch (std.posix.errno(gcat.mlockall(.{ .CURRENT = true, .FUTURE = true }))) {
+                .SUCCESS => {
+                    std.log.warn("mlockall successful", .{});
+                    gcat.probeStack(1 * 1024 * 1024);
+                    std.log.warn("stack probe successful", .{});
+                },
+                else => |e| {
+                    std.log.err("failed to lock memory: {}", .{e});
+                    return error.NonRecoverable;
+                },
+            }
+        }
+    }
+
+    defer {
+        if (builtin.os.tag == .linux and args.mlockall) {
+            switch (std.posix.errno(gcat.munlockall())) {
+                .SUCCESS => {
+                    std.log.info("unlocked memory", .{});
+                },
+                else => |e| {
+                    std.log.err("failed to unlock memory: {}", .{e});
+                },
+            }
         }
     }
 
