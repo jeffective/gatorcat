@@ -51,11 +51,11 @@ See [doc](doc/README.md).
 
 ## TODO for Zig 0.15
 
-- [] linked list api change
-- [] remove bounded array
-- [] remove array multiplication
-- [] writergate
-- [] std.io?
+- [ ] linked list api change
+- [ ] remove bounded array
+- [ ] remove array multiplication
+- [ ] writergate
+- [ ] std.io?
 
 ## Sponsors
 
