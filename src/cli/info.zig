@@ -3,7 +3,6 @@
 //! Prints as much information about the subdevices as possible in markdown format.
 
 const std = @import("std");
-
 const gcat = @import("gatorcat");
 
 pub const Args = struct {
@@ -677,7 +676,7 @@ fn printSubdeviceCoePDOs(
 
             try writer.print("| 0x{x}    | {x:02} | {s:<48} | {s:<16} |     |\n", .{ index, object_description.max_subindex, object_description.name.slice(), std.enums.tagName(gcat.mailbox.coe.DataTypeArea, object_description.data_type) orelse "INVALID" });
 
-            for (1..object_description.max_subindex + 1) |subindex| {
+            for (1..@as(u9, object_description.max_subindex) + 1) |subindex| {
                 const entry_description = gcat.mailbox.coe.readEntryDescription(
                     port,
                     station_address,
