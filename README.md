@@ -57,6 +57,7 @@ See [doc](doc/README.md).
 - [ ] writergate
 - [ ] std.io?
 - [ ] delete everything in stdx
+- [ ] refactor / rename all instances of fbs
 
 ## Sponsors
 

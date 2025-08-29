@@ -1,6 +1,8 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
+const stdx = @import("../../stdx.zig");
+
 const mailbox = @import("../../mailbox.zig");
 const wire = @import("../../wire.zig");
 const coe = @import("../coe.zig");
@@ -71,7 +73,7 @@ pub const Expedited = struct {
     mbx_header: mailbox.Header,
     coe_header: coe.Header,
     sdo_header: SDOHeader,
-    data: std.BoundedArray(u8, 4),
+    data: stdx.BoundedArray(u8, 4),
 
     pub fn initDownloadResponse(
         cnt: u3,
@@ -162,15 +164,16 @@ pub const Expedited = struct {
     }
 
     pub fn deserialize(buf: []const u8) !Expedited {
-        var fbs = std.io.fixedBufferStream(buf);
-        const reader = fbs.reader();
+        var fbs = std.Io.Reader.fixed(buf);
+        const reader = &fbs;
         const mbx_header = try wire.packFromECatReader(mailbox.Header, reader);
         const coe_header = try wire.packFromECatReader(coe.Header, reader);
         const sdo_header = try wire.packFromECatReader(SDOHeader, reader);
         const data_size: usize = sdo_header.getDataSize();
-        var data = try std.BoundedArray(u8, 4).init(data_size);
-        reader.readNoEof(data.slice()) catch |err| switch (err) {
+        var data = try stdx.BoundedArray(u8, 4).init(data_size);
+        reader.readSliceAll(data.slice()) catch |err| switch (err) {
             error.EndOfStream => return error.InvalidMbxContent,
+            error.ReadFailed => unreachable,
         };
 
         return Expedited{
@@ -216,7 +219,7 @@ pub const Normal = struct {
     coe_header: coe.Header,
     sdo_header: SDOHeader,
     complete_size: u32,
-    data: std.BoundedArray(u8, data_max_size),
+    data: stdx.BoundedArray(u8, data_max_size),
 
     pub const data_max_size = mailbox.max_size - 16;
 
@@ -263,8 +266,8 @@ pub const Normal = struct {
     }
 
     pub fn deserialize(buf: []const u8) !Normal {
-        var fbs = std.io.fixedBufferStream(buf);
-        const reader = fbs.reader();
+        var fbs = std.io.Reader.fixed(buf);
+        const reader = &fbs;
         const mbx_header = try wire.packFromECatReader(mailbox.Header, reader);
         const coe_header = try wire.packFromECatReader(coe.Header, reader);
         const sdo_header = try wire.packFromECatReader(SDOHeader, reader);
@@ -273,9 +276,10 @@ pub const Normal = struct {
         if (mbx_header.length < 10) return error.InvalidMbxContent;
 
         const data_length: u16 = mbx_header.length -| 10;
-        var data = try std.BoundedArray(u8, data_max_size).init(data_length);
-        reader.readNoEof(data.slice()) catch |err| switch (err) {
+        var data = try stdx.BoundedArray(u8, data_max_size).init(data_length);
+        reader.readSliceAll(data.slice()) catch |err| switch (err) {
             error.EndOfStream => return error.InvalidMbxContent,
+            error.ReadFailed => unreachable,
         };
 
         return Normal{
@@ -332,7 +336,7 @@ pub const Segment = struct {
     mbx_header: mailbox.Header,
     coe_header: coe.Header,
     seg_header: SegmentHeader,
-    data: std.BoundedArray(u8, data_max_size),
+    data: stdx.BoundedArray(u8, data_max_size),
 
     const data_max_size = mailbox.max_size - 9;
 
@@ -420,8 +424,8 @@ pub const Segment = struct {
         };
     }
     pub fn deserialize(buf: []const u8) !Segment {
-        var fbs = std.io.fixedBufferStream(buf);
-        const reader = fbs.reader();
+        var fbs = std.Io.Reader.fixed(buf);
+        const reader = &fbs;
         const mbx_header = try wire.packFromECatReader(mailbox.Header, reader);
         const coe_header = try wire.packFromECatReader(coe.Header, reader);
         const seg_header = try wire.packFromECatReader(SegmentHeader, reader);
@@ -447,8 +451,8 @@ pub const Segment = struct {
                 @divExact(@bitSizeOf(coe.Header), 8) -
                 @divExact(@bitSizeOf(SegmentHeader), 8));
         }
-        var data = try std.BoundedArray(u8, data_max_size).init(data_size);
-        reader.readNoEof(data.slice()) catch |err| switch (err) {
+        var data = try stdx.BoundedArray(u8, data_max_size).init(data_size);
+        reader.readSliceAll(data.slice()) catch |err| switch (err) {
             error.EndOfStream => return error.InvalidMbxContent,
         };
 
@@ -631,7 +635,7 @@ pub const SDOInfoResponse = struct {
     sdo_info_header: coe.SDOInfoHeader,
     service_data: ServiceData,
 
-    pub const ServiceData = std.BoundedArray(u8, service_data_max_length);
+    pub const ServiceData = stdx.BoundedArray(u8, service_data_max_length);
     pub const service_data_max_length = 1474;
 
     pub fn init(

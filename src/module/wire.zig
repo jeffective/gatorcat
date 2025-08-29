@@ -133,10 +133,10 @@ test "eCatFromPack" {
 
 /// Read a packed struct, int, or float from a reader containing
 /// EtherCAT (little endian) data into host endian representation.
-pub fn packFromECatReader(comptime T: type, reader: anytype) !T {
+pub fn packFromECatReader(comptime T: type, reader: *std.Io.Reader) !T {
     comptime assert(isECatPackable(T));
     var bytes: [@divExact(@bitSizeOf(T), 8)]u8 = undefined;
-    try reader.readNoEof(&bytes);
+    try reader.readSliceAll(&bytes);
     return packFromECat(T, bytes);
 }
 

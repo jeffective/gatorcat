@@ -376,13 +376,12 @@ pub fn readSIIString(
         catagory.word_address,
         recv_timeout_us,
         eeprom_timeout_us,
+        &.{},
     );
-    var reader = stream.reader();
 
-    const n_strings: u8 = reader.readByte() catch |err| switch (err) {
+    const n_strings: u8 = stream.reader.takeByte() catch |err| switch (err) {
         error.EndOfStream => return error.InvalidSII,
-        error.Timeout => return error.Timeout,
-        error.LinkError => return error.LinkError,
+        error.ReadFailed => return error.ReadFailed,
     };
 
     if (n_strings < index) {
@@ -392,17 +391,15 @@ pub fn readSIIString(
     var string_buf: [255]u8 = undefined;
     var str_len: u8 = undefined;
     for (0..index) |i| {
-        str_len = reader.readByte() catch |err| switch (err) {
+        str_len = stream.reader.takeByte() catch |err| switch (err) {
             error.EndOfStream => return error.InvalidSII,
-            error.Timeout => return error.Timeout,
-            error.LinkError => return error.LinkError,
+            error.ReadFailed => return error.ReadFailed,
         };
         if (str_len % 2 == 0 and i != index - 1 and stream.isWordSeekable()) {
             stream.seekByWord(@divExact(str_len, 2));
         } else {
-            reader.readNoEof(string_buf[0..str_len]) catch |err| switch (err) {
-                error.Timeout => return error.Timeout,
-                error.LinkError => return error.LinkError,
+            stream.reader.readSliceAll(string_buf[0..str_len]) catch |err| switch (err) {
+                error.ReadFailed => return error.ReadFailed,
                 error.EndOfStream => return error.InvalidSII,
             };
         }
@@ -499,16 +496,15 @@ pub fn readSMCatagory(
         catagory.word_address,
         recv_timeout_us,
         eeprom_timeout_us,
+        &.{},
     );
-    var limited_reader = std.io.limitedReader(stream.reader(), catagory.byte_length);
-    const reader = limited_reader.reader();
     var res = SMCatagory{};
     if (n_sm > max_sm) {
         return error.InvalidSII;
     }
     assert(n_sm <= max_sm);
     for (0..n_sm) |_| {
-        res.append(wire.packFromECatReader(SyncM, reader) catch return error.InvalidSII) catch |err| switch (err) {
+        res.append(wire.packFromECatReader(SyncM, &stream.reader) catch return error.InvalidSII) catch |err| switch (err) {
             error.Overflow => unreachable,
         };
     }
@@ -743,13 +739,12 @@ pub fn findCatagoryFP(
         word_address,
         recv_timeout_us,
         eeprom_timeout_us,
+        &.{},
     );
 
-    const reader = stream.reader();
     for (0..1000) |_| {
-        const catagory_header = wire.packFromECatReader(CatagoryHeader, reader) catch |err| switch (err) {
-            error.Timeout => return error.Timeout,
-            error.LinkError => return error.LinkError,
+        const catagory_header = wire.packFromECatReader(CatagoryHeader, &stream.reader) catch |err| switch (err) {
+            error.ReadFailed => return error.ReadFailed,
             error.EndOfStream => return error.InvalidSII,
         };
 
@@ -788,12 +783,11 @@ pub fn readSIIFP_ps(
         eeprom_address,
         recv_timeout_us,
         eeprom_timeout_us,
+        &.{},
     );
-    var reader = stream.reader();
-    reader.readNoEof(&bytes) catch |err| switch (err) {
+    stream.reader.readSliceAll(&bytes) catch |err| switch (err) {
         error.EndOfStream => return error.InvalidSII,
-        error.Timeout => return error.Timeout,
-        error.LinkError => return error.LinkError,
+        error.ReadFailed => return error.ReadFailed,
     };
     return wire.packFromECat(T, bytes);
 }
@@ -808,12 +802,17 @@ pub const SIIStream = struct {
     last_four_bytes: [4]u8 = .{ 0, 0, 0, 0 },
     remainder: u8 = 0,
 
+    reader: std.Io.Reader,
+
+    const ReadError = std.Io.Reader.Error;
+
     pub fn init(
         port: *Port,
         station_address: u16,
         eeprom_address: u16,
         recv_timeout_us: u32,
         eeprom_timeout_us: u32,
+        buffer: []u8,
     ) SIIStream {
         return SIIStream{
             .port = port,
@@ -821,46 +820,48 @@ pub const SIIStream = struct {
             .eeprom_address = eeprom_address,
             .recv_timeout_us = recv_timeout_us,
             .eeprom_timeout_us = eeprom_timeout_us,
+            .reader = .{
+                .vtable = &.{
+                    .stream = SIIStream.stream,
+                },
+                .buffer = buffer,
+                .seek = 0,
+                .end = 0,
+            },
         };
     }
 
-    pub const ReadError = error{
-        Timeout,
-        LinkError,
-    };
+    fn stream(io_reader: *std.Io.Reader, w: *std.Io.Writer, limit: std.Io.Limit) std.Io.Reader.StreamError!usize {
+        const self: *SIIStream = @alignCast(@fieldParentPtr("reader", io_reader));
+        var n_bytes_remaining = limit.minInt(4);
+        if (n_bytes_remaining == 0) return 0;
+        assert(n_bytes_remaining > 0);
+        assert(n_bytes_remaining <= 4);
 
-    // pub fn reader(self: *SIIStream) std.io.AnyReader {
-    //     return .{ .context = self, .readFn = read };
-    // }
-
-    pub fn reader(self: *SIIStream) std.io.GenericReader(*@This(), ReadError, read) {
-        return .{ .context = self };
-    }
-
-    fn read(self: *SIIStream, buf: []u8) ReadError!usize {
         if (self.remainder == 0) {
-            self.last_four_bytes = try readSII4ByteFP(
+            self.last_four_bytes = readSII4ByteFP(
                 self.port,
                 self.station_address,
                 self.eeprom_address, // eeprom address is WORD address
                 self.recv_timeout_us,
                 self.eeprom_timeout_us,
-            );
-            // self.eeprom_address += 2;
-
+            ) catch |err| switch (err) {
+                error.Timeout => return error.ReadFailed,
+                error.LinkError => return error.ReadFailed,
+            };
             self.remainder = 4;
         }
 
-        var fbs = std.io.fixedBufferStream(buf);
-        var writer = fbs.writer();
-
-        while (self.remainder != 0) {
-            writer.writeByte(self.last_four_bytes[4 - self.remainder]) catch return fbs.getWritten().len;
+        var n_bytes_written: usize = 0;
+        defer assert(n_bytes_written <= 4);
+        while (self.remainder > 0 and n_bytes_remaining > 0) {
+            try w.writeByte(self.last_four_bytes[4 - self.remainder]);
             self.remainder -= 1;
-
+            n_bytes_written += 1;
+            n_bytes_remaining -= 1;
             if (self.remainder % 2 == 0) self.eeprom_address += 1;
         } else {
-            return fbs.getWritten().len;
+            return n_bytes_written;
         }
         unreachable;
     }
@@ -872,7 +873,7 @@ pub const SIIStream = struct {
     pub fn seekByWord(self: *SIIStream, amt: u16) void {
         assert(self.isWordSeekable());
         self.eeprom_address += amt;
-        self.remainder = 0; // next call to read will always read eeprom
+        self.remainder = 0; // next call to read will read eeprom
     }
 };
 

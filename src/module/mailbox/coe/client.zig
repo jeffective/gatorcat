@@ -1,6 +1,8 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
+const stdx = @import("../../stdx.zig");
+
 const mailbox = @import("../../mailbox.zig");
 const wire = @import("../../wire.zig");
 const coe = @import("../coe.zig");
@@ -191,7 +193,7 @@ pub const Normal = struct {
     coe_header: coe.Header,
     sdo_header: SDOHeader,
     complete_size: u32,
-    data: std.BoundedArray(u8, data_max_size),
+    data: stdx.BoundedArray(u8, data_max_size),
 
     pub const data_max_size = mailbox.max_size - 16;
 
@@ -235,7 +237,7 @@ pub const Normal = struct {
                 .subindex = subindex,
             },
             .complete_size = complete_size,
-            .data = std.BoundedArray(
+            .data = stdx.BoundedArray(
                 u8,
                 data_max_size,
             ).fromSlice(data) catch unreachable,
@@ -324,7 +326,7 @@ pub const Segment = struct {
     mbx_header: mailbox.Header,
     coe_header: coe.Header,
     seg_header: SDOSegmentHeaderClient,
-    data: std.BoundedArray(u8, data_max_size),
+    data: stdx.BoundedArray(u8, data_max_size),
 
     pub const data_max_size = mailbox.max_size - 9;
 
