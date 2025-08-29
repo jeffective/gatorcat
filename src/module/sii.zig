@@ -10,6 +10,8 @@ const Timer = std.time.Timer;
 const ns_per_us = std.time.ns_per_us;
 const assert = std.debug.assert;
 
+const stdx = @import("stdx.zig");
+
 const esc = @import("esc.zig");
 const logger = @import("root.zig").logger;
 const nic = @import("nic.zig");
@@ -347,7 +349,7 @@ pub fn escSMsFromSIISMs(sii_sms: []const SyncM) esc.SMRegister {
     return res;
 }
 
-pub const SIIString = std.BoundedArray(u8, 255);
+pub const SIIString = stdx.BoundedArray(u8, 255);
 
 pub fn readSIIString(
     port: *Port,
@@ -471,7 +473,7 @@ pub fn readFMMUCatagory(
 ///
 /// Ref: IEC 61158-6-12:2019 6.7.2
 pub const max_sm = 32;
-pub const SMCatagory = std.BoundedArray(SyncM, max_sm);
+pub const SMCatagory = stdx.BoundedArray(SyncM, max_sm);
 
 pub fn readSMCatagory(
     port: *Port,

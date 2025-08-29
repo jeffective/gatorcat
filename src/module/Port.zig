@@ -30,7 +30,7 @@ const Port = @This();
 
 link_layer: nic.LinkLayer,
 settings: Settings,
-transactions: Transactions,
+transactions: std.DoublyLinkedList,
 transactions_mutex: std.Thread.Mutex = .{},
 
 pub const Settings = struct {
@@ -38,8 +38,10 @@ pub const Settings = struct {
     dest_mac_address: u48 = 0xABCD_EF12_3456,
 };
 
-pub const Transactions = std.DoublyLinkedList(TransactionDatagram);
-pub const Transaction = Transactions.Node;
+pub const Transaction = struct {
+    data: TransactionDatagram,
+    node: std.DoublyLinkedList.Node = .{},
+};
 
 pub const TransactionDatagram = struct {
     send_datagram: telegram.Datagram,
@@ -80,7 +82,7 @@ pub fn init(link_layer: nic.LinkLayer, settings: Settings) Port {
 }
 
 pub fn deinit(self: *Port) void {
-    assert(self.transactions.len == 0); // leaked transaction;
+    assert(self.transactions.len() == 0); // leaked transaction;
 }
 
 /// Caller owns responsibilty to release transactions after successful return from this function.
@@ -125,7 +127,7 @@ fn sendTransaction(self: *Port, transaction: *Transaction) error{LinkError}!void
     {
         self.transactions_mutex.lock();
         defer self.transactions_mutex.unlock();
-        self.transactions.append(transaction);
+        self.transactions.append(&transaction.node);
         transaction.data.released = false;
     }
     errdefer self.releaseTransactions(transaction[0..1]);
@@ -188,11 +190,11 @@ fn findPutDatagramLocked(self: *Port, datagram: telegram.Datagram) void {
     self.transactions_mutex.lock();
     defer self.transactions_mutex.unlock();
 
-    var current: ?*Transaction = self.transactions.first;
-    while (current) |node| : (current = node.next) {
+    var current: ?*Transaction = if (self.transactions.first) |first| @alignCast(@fieldParentPtr("node", first)) else null;
+    while (current) |node| : (current = if (node.node.next) |next| @alignCast(@fieldParentPtr("node", next)) else null) {
         if (node.data.done) continue;
         if (compareDatagramIdentity(datagram, node.data.send_datagram)) {
-            defer self.transactions.remove(node);
+            defer self.transactions.remove(&node.node);
             defer node.data.released = true;
             defer node.data.done = true;
             node.data.recv_datagram.header = datagram.header;
@@ -257,7 +259,7 @@ pub fn releaseTransactions(self: *Port, transactions: []Transaction) void {
     defer self.transactions_mutex.unlock();
     for (transactions) |*transaction| {
         if (!transaction.data.released) {
-            self.transactions.remove(transaction);
+            self.transactions.remove(&transaction.node);
             transaction.data.released = true;
         }
         assert(transaction.data.released == true);

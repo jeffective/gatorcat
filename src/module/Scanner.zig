@@ -344,9 +344,9 @@ pub fn readSubdeviceConfigurationLeaky(
         }
     }
 
-    var inputs = std.ArrayList(ENI.SubdeviceConfiguration.PDO).init(allocator);
+    var inputs = std.ArrayList(ENI.SubdeviceConfiguration.PDO).empty;
     defer inputs.deinit();
-    var outputs = std.ArrayList(ENI.SubdeviceConfiguration.PDO).init(allocator);
+    var outputs = std.ArrayList(ENI.SubdeviceConfiguration.PDO).empty;
     defer outputs.deinit();
 
     var fake_process_data: [1]u8 = .{0};

@@ -56,6 +56,7 @@ See [doc](doc/README.md).
 - [ ] remove array multiplication
 - [ ] writergate
 - [ ] std.io?
+- [ ] delete everything in stdx
 
 ## Sponsors
 
