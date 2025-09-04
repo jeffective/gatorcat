@@ -48,14 +48,6 @@ See [doc](doc/README.md).
 
 - [ ] validate individual pdo types at runtime (not just size of pdos)
 - [ ] revise error handling
-
-## TODO for Zig 0.15
-
-- [ ] linked list api change
-- [ ] remove bounded array
-- [ ] remove array multiplication
-- [ ] writergate
-- [ ] std.io?
 - [ ] delete everything in stdx
 - [ ] refactor / rename all instances of fbs
 
