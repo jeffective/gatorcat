@@ -1,6 +1,8 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
+const stdx = @import("stdx.zig");
+
 const pdi = @import("pdi.zig");
 
 const esc = @This();
@@ -878,7 +880,7 @@ test "FMMUAttributes addBits" {
 /// Ref: IEC 61158-4-12:2019 6.6.2
 pub const max_fmmu = 16;
 
-pub const FMMUArray = std.BoundedArray(FMMUAttributes, max_fmmu);
+pub const FMMUArray = stdx.BoundedArray(FMMUAttributes, max_fmmu);
 
 /// FMMU Register
 ///

@@ -265,10 +265,11 @@ pub fn readEniLeaky(
     sim: bool,
     pv_name_prefix: ?[]const u8,
 ) !ENI {
-    var subdevice_configs = std.ArrayList(gcat.ENI.SubdeviceConfiguration).init(allocator);
-    defer subdevice_configs.deinit();
+    var subdevice_configs = std.ArrayList(gcat.ENI.SubdeviceConfiguration).empty;
+    defer subdevice_configs.deinit(allocator);
     const num_subdevices = try self.countSubdevices();
     for (0..num_subdevices) |i| {
+        logger.debug("scanning ENI for subdevice at position: {}", .{i});
         const config = try self.readSubdeviceConfigurationLeaky(
             allocator,
             @intCast(i),
@@ -276,9 +277,9 @@ pub fn readEniLeaky(
             sim,
             pv_name_prefix,
         );
-        try subdevice_configs.append(config);
+        try subdevice_configs.append(allocator, config);
     }
-    return gcat.ENI{ .subdevices = try subdevice_configs.toOwnedSlice() };
+    return gcat.ENI{ .subdevices = try subdevice_configs.toOwnedSlice(allocator) };
 }
 
 pub fn readSubdeviceConfiguration(
@@ -344,10 +345,10 @@ pub fn readSubdeviceConfigurationLeaky(
         }
     }
 
-    var inputs = std.ArrayList(ENI.SubdeviceConfiguration.PDO).init(allocator);
-    defer inputs.deinit();
-    var outputs = std.ArrayList(ENI.SubdeviceConfiguration.PDO).init(allocator);
-    defer outputs.deinit();
+    var inputs = std.ArrayList(ENI.SubdeviceConfiguration.PDO).empty;
+    defer inputs.deinit(allocator);
+    var outputs = std.ArrayList(ENI.SubdeviceConfiguration.PDO).empty;
+    defer outputs.deinit(allocator);
 
     var fake_process_data: [1]u8 = .{0};
     var subdevice = Subdevice.init(
@@ -428,12 +429,12 @@ pub fn readSubdeviceConfigurationLeaky(
                     pdo_index,
                 );
 
-                var entries = std.ArrayList(ENI.SubdeviceConfiguration.PDO.Entry).init(allocator);
-                defer entries.deinit();
+                var entries = std.ArrayList(ENI.SubdeviceConfiguration.PDO.Entry).empty;
+                defer entries.deinit(allocator);
 
                 for (pdo_mapping.entries.slice()) |entry| {
                     if (entry.isGap()) {
-                        try entries.append(ENI.SubdeviceConfiguration.PDO.Entry{
+                        try entries.append(allocator, ENI.SubdeviceConfiguration.PDO.Entry{
                             .description = null,
                             .index = 0,
                             .subindex = 0,
@@ -483,7 +484,7 @@ pub fn readSubdeviceConfigurationLeaky(
                                 true,
                             );
                         }
-                        try entries.append(ENI.SubdeviceConfiguration.PDO.Entry{
+                        try entries.append(allocator, ENI.SubdeviceConfiguration.PDO.Entry{
                             .description = try allocator.dupeZ(u8, entry_description.data.slice()),
                             .index = entry_description.index,
                             .subindex = entry_description.subindex,
@@ -502,19 +503,21 @@ pub fn readSubdeviceConfigurationLeaky(
                 switch (sm_comm_type) {
                     .input => {
                         try inputs.append(
+                            allocator,
                             ENI.SubdeviceConfiguration.PDO{
                                 .name = try allocator.dupeZ(u8, object_description.name.slice()),
                                 .index = pdo_index,
-                                .entries = try entries.toOwnedSlice(),
+                                .entries = try entries.toOwnedSlice(allocator),
                             },
                         );
                     },
                     .output => {
                         try outputs.append(
+                            allocator,
                             ENI.SubdeviceConfiguration.PDO{
                                 .name = try allocator.dupeZ(u8, object_description.name.slice()),
                                 .index = pdo_index,
-                                .entries = try entries.toOwnedSlice(),
+                                .entries = try entries.toOwnedSlice(allocator),
                             },
                         );
                     },
@@ -527,6 +530,7 @@ pub fn readSubdeviceConfigurationLeaky(
         const directions: []const pdi.Direction = &.{ .input, .output };
         for (directions) |direction| {
             const sii_pdos = try sii.readPDOs(
+                allocator,
                 self.port,
                 station_address,
                 direction,
@@ -534,7 +538,7 @@ pub fn readSubdeviceConfigurationLeaky(
                 self.settings.eeprom_timeout_us,
             );
 
-            const pdos: []const sii.PDO = sii_pdos.slice();
+            const pdos: []const sii.PDO = sii_pdos;
 
             for (pdos) |pdo| {
                 var pdo_name: ?[:0]const u8 = null;
@@ -548,8 +552,8 @@ pub fn readSubdeviceConfigurationLeaky(
                     pdo_name = try allocator.dupeZ(u8, pdo_name_array.slice());
                 }
 
-                var entries = std.ArrayList(ENI.SubdeviceConfiguration.PDO.Entry).init(allocator);
-                defer entries.deinit();
+                var entries = std.ArrayList(ENI.SubdeviceConfiguration.PDO.Entry).empty;
+                defer entries.deinit(allocator);
 
                 const sii_entries: []const sii.PDO.Entry = pdo.entries.slice();
                 for (sii_entries) |entry| {
@@ -596,7 +600,7 @@ pub fn readSubdeviceConfigurationLeaky(
                         );
                     }
 
-                    try entries.append(ENI.SubdeviceConfiguration.PDO.Entry{
+                    try entries.append(allocator, ENI.SubdeviceConfiguration.PDO.Entry{
                         .index = entry.index,
                         .subindex = entry.subindex,
                         .bits = entry.bit_length,
@@ -610,19 +614,21 @@ pub fn readSubdeviceConfigurationLeaky(
                 switch (direction) {
                     .input => {
                         try inputs.append(
+                            allocator,
                             ENI.SubdeviceConfiguration.PDO{
                                 .name = pdo_name orelse "",
                                 .index = pdo.header.index,
-                                .entries = try entries.toOwnedSlice(),
+                                .entries = try entries.toOwnedSlice(allocator),
                             },
                         );
                     },
                     .output => {
                         try outputs.append(
+                            allocator,
                             ENI.SubdeviceConfiguration.PDO{
                                 .name = pdo_name orelse "",
                                 .index = pdo.header.index,
-                                .entries = try entries.toOwnedSlice(),
+                                .entries = try entries.toOwnedSlice(allocator),
                             },
                         );
                     },
@@ -643,22 +649,20 @@ pub fn readSubdeviceConfigurationLeaky(
         const sii_byte_length: u64 = (@as(u64, eeprom_info.size) + 1) * 1024 / 8;
         logger.info("stations addr: 0x{x:04}, Reading full eeprom size: {} B", .{ station_address, sii_byte_length });
 
+        var buffer: [1024]u8 = undefined;
         var sii_stream = gcat.sii.SIIStream.init(
             self.port,
             station_address,
             0,
             self.settings.recv_timeout_us,
             self.settings.eeprom_timeout_us,
+            &buffer,
         );
-
-        const sii_reader = sii_stream.reader();
-        var limited_reader = std.io.limitedReader(sii_reader, sii_byte_length);
-        const reader = limited_reader.reader();
+        const reader = &sii_stream.reader;
 
         const eeprom_content = try allocator.alloc(u8, sii_byte_length);
-        reader.readNoEof(eeprom_content) catch |err| switch (err) {
-            error.Timeout => return error.Timeout,
-            error.LinkError => return error.LinkError,
+        reader.readSliceAll(eeprom_content) catch |err| switch (err) {
+            error.ReadFailed => return error.ReadFailed,
             error.EndOfStream => return error.InvalidSII,
         };
 
@@ -680,8 +684,8 @@ pub fn readSubdeviceConfigurationLeaky(
             .product_code = info.product_code,
             .revision_number = info.revision_number,
         },
-        .inputs = try inputs.toOwnedSlice(),
-        .outputs = try outputs.toOwnedSlice(),
+        .inputs = try inputs.toOwnedSlice(allocator),
+        .outputs = try outputs.toOwnedSlice(allocator),
         .sim = sim_result,
     };
     return res;
@@ -723,26 +727,36 @@ pub fn processVariableNameZ(
     var name: [:0]const u8 = undefined;
     const fb_prefix_fmt = if (is_fb) "maindevice/pdi/" else "";
     if (maybe_prefix) |prefix| {
-        name = try std.fmt.allocPrintZ(allocator, "{s}/" ++ fb_prefix_fmt ++ process_variable_fmt, .{
-            prefix,
-            ring_position,
-            zenohSanitize(try allocator.dupe(u8, subdevice_name)),
-            direction_str,
-            pdo_idx,
-            zenohSanitize(try allocator.dupe(u8, pdo_name)),
-            entry_idx,
-            zenohSanitize(try allocator.dupe(u8, entry_description)),
-        });
+        name = try std.fmt.allocPrintSentinel(
+            allocator,
+            "{s}/" ++ fb_prefix_fmt ++ process_variable_fmt,
+            .{
+                prefix,
+                ring_position,
+                zenohSanitize(try allocator.dupe(u8, subdevice_name)),
+                direction_str,
+                pdo_idx,
+                zenohSanitize(try allocator.dupe(u8, pdo_name)),
+                entry_idx,
+                zenohSanitize(try allocator.dupe(u8, entry_description)),
+            },
+            0,
+        );
     } else {
-        name = try std.fmt.allocPrintZ(allocator, fb_prefix_fmt ++ process_variable_fmt, .{
-            ring_position,
-            zenohSanitize(try allocator.dupe(u8, subdevice_name)),
-            direction_str,
-            pdo_idx,
-            zenohSanitize(try allocator.dupe(u8, pdo_name)),
-            entry_idx,
-            zenohSanitize(try allocator.dupe(u8, entry_description)),
-        });
+        name = try std.fmt.allocPrintSentinel(
+            allocator,
+            fb_prefix_fmt ++ process_variable_fmt,
+            .{
+                ring_position,
+                zenohSanitize(try allocator.dupe(u8, subdevice_name)),
+                direction_str,
+                pdo_idx,
+                zenohSanitize(try allocator.dupe(u8, pdo_name)),
+                entry_idx,
+                zenohSanitize(try allocator.dupe(u8, entry_description)),
+            },
+            0,
+        );
     }
 
     return name;

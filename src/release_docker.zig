@@ -8,7 +8,7 @@ const RunResult = std.process.Child.RunResult;
 const ChildProcess = std.process.Child;
 const assert = std.debug.assert;
 
-const build_zig_zon = @embedFile("build_zig_zon");
+const gatorcat_version: []const u8 = @import("build_zig_zon").version;
 
 /// Customization of std.process.Child.run:
 ///     - allows writing to stdin
@@ -113,21 +113,21 @@ pub fn main() !void {
         .Unknown => return error.Unknown,
     }
 
-    const version_str = try std.fmt.allocPrint(allocator, "{}", .{getVersionFromZon()});
+    const version_str = try std.fmt.allocPrint(allocator, "{s}", .{gatorcat_version});
     const version_str_nl = try std.fmt.allocPrint(allocator, "{s}\n", .{version_str});
     const tag = try std.fmt.allocPrint(allocator, "ghcr.io/jeffective/gatorcat:{s}", .{version_str});
 
     const dockerfile_fmt =
         \\FROM scratch AS build-amd64
-        \\COPY zig-out/release/gatorcat-{}-x86_64-linux-musl gatorcat
+        \\COPY zig-out/release/gatorcat-{s}-x86_64-linux-musl gatorcat
         \\FROM scratch AS build-arm64
-        \\COPY zig-out/release/gatorcat-{}-aarch64-linux-musl gatorcat
+        \\COPY zig-out/release/gatorcat-{s}-aarch64-linux-musl gatorcat
         \\ARG TARGETARCH
         \\FROM build-${{TARGETARCH}}
         \\ENTRYPOINT ["/gatorcat"]
     ;
 
-    const dockerfile = try std.fmt.allocPrint(allocator, dockerfile_fmt, .{ getVersionFromZon(), getVersionFromZon() });
+    const dockerfile = try std.fmt.allocPrint(allocator, dockerfile_fmt, .{ gatorcat_version, gatorcat_version });
 
     const docker_build_arm64 = try runWithStdin(.{
         .allocator = allocator,
@@ -243,24 +243,4 @@ pub fn main() !void {
             .Unknown => return error.Unknown,
         }
     }
-}
-
-fn getVersionFromZon() std.SemanticVersion {
-    var buffer: [10 * build_zig_zon.len]u8 = undefined;
-    var fba = std.heap.FixedBufferAllocator.init(&buffer);
-    const version = std.zon.parse.fromSlice(
-        struct { version: []const u8 },
-        fba.allocator(),
-        build_zig_zon,
-        null,
-        .{ .ignore_unknown_fields = true },
-    ) catch @panic("Invalid build.zig.zon!");
-    const semantic_version = std.SemanticVersion.parse(version.version) catch @panic("Invalid version!");
-    return std.SemanticVersion{
-        .major = semantic_version.major,
-        .minor = semantic_version.minor,
-        .patch = semantic_version.patch,
-        .build = null, // dont return pointers to stack memory
-        .pre = null, // dont return pointers to stack memory
-    };
 }

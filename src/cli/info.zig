@@ -23,7 +23,6 @@ pub const Args = struct {
 };
 
 pub fn info(allocator: std.mem.Allocator, args: Args) !void {
-    _ = allocator;
     var raw_socket = try gcat.nic.RawSocket.init(args.ifname);
     defer raw_socket.deinit();
 
@@ -33,8 +32,8 @@ pub fn info(allocator: std.mem.Allocator, args: Args) !void {
     try port.ping(args.recv_timeout_us);
 
     var scanner = gcat.Scanner.init(port, .{ .eeprom_timeout_us = args.eeprom_timeout_us, .recv_timeout_us = args.recv_timeout_us });
-    var std_out = std.io.getStdOut();
-    const writer = std_out.writer();
+    var std_out = std.fs.File.stdout().writer(&.{});
+    const writer = &std_out.interface;
 
     const num_subdevices = try scanner.countSubdevices();
     std.log.warn("detected {} subdevices", .{num_subdevices});
@@ -54,10 +53,12 @@ pub fn info(allocator: std.mem.Allocator, args: Args) !void {
     // summary table
     try writer.print("## Bus Summary\n\n", .{});
     try printBusSummaryTable(writer, port, args.recv_timeout_us, args.eeprom_timeout_us, num_subdevices);
+
     // detailed info on each subdevice
     if (args.ring_position) |position| {
         try printSubdeviceDetails(writer, port, args.recv_timeout_us, args.eeprom_timeout_us, @intCast(position));
         try printSubdeviceSIIPDOs(
+            allocator,
             writer,
             port,
             args.recv_timeout_us,
@@ -68,8 +69,10 @@ pub fn info(allocator: std.mem.Allocator, args: Args) !void {
         try printSubdeviceCoePDOs(writer, port, args.recv_timeout_us, args.mbx_timeout_us, &subdevice);
     } else {
         for (0..num_subdevices) |i| {
+            defer std.log.info("scanned subdevice: {}/{}", .{ i, num_subdevices });
             try printSubdeviceDetails(writer, port, args.recv_timeout_us, args.eeprom_timeout_us, @intCast(i));
             try printSubdeviceSIIPDOs(
+                allocator,
                 writer,
                 port,
                 args.recv_timeout_us,
@@ -327,17 +330,17 @@ fn printSubdeviceDetails(
             try writer.print("    control:\n", .{});
             inline for (std.meta.fields(gcat.esc.SyncManagerControlRegister)) |field| {
                 if (comptime std.mem.eql(u8, field.name, "reserved")) continue;
-                try writer.print("        {s:<26}  {:<5}\n", .{ field.name, @field(sm.control, field.name) });
+                try writer.print("        {s:<26}  {}\n", .{ field.name, @field(sm.control, field.name) });
             }
             try writer.print("    status:\n", .{});
             inline for (std.meta.fields(gcat.esc.SyncManagerActivateRegister)) |field| {
                 if (comptime std.mem.eql(u8, field.name, "reserved")) continue;
-                try writer.print("        {s:<26}  {:<5}\n", .{ field.name, @field(sm.status, field.name) });
+                try writer.print("        {s:<26}  {}\n", .{ field.name, @field(sm.status, field.name) });
             }
             try writer.print("    enable:\n", .{});
             inline for (std.meta.fields(gcat.sii.EnableSyncMangager)) |field| {
                 if (comptime std.mem.eql(u8, field.name, "reserved")) continue;
-                try writer.print("        {s:<26}  {:<5}\n", .{ field.name, @field(sm.enable_sync_manager, field.name) });
+                try writer.print("        {s:<26}  {}\n", .{ field.name, @field(sm.enable_sync_manager, field.name) });
             }
             try writer.print("\n", .{});
         }
@@ -349,6 +352,7 @@ fn printSubdeviceDetails(
 }
 
 fn printSubdeviceSIIPDOs(
+    allocator: std.mem.Allocator,
     writer: anytype,
     port: *gcat.Port,
     recv_timeout_us: u32,
@@ -374,20 +378,24 @@ fn printSubdeviceSIIPDOs(
     try writer.print("\n", .{});
 
     const input_pdos = try gcat.sii.readPDOs(
+        allocator,
         port,
         station_address,
         .input,
         recv_timeout_us,
         eeprom_timeout_us,
     );
+    defer allocator.free(input_pdos);
 
     const output_pdos = try gcat.sii.readPDOs(
+        allocator,
         port,
         station_address,
         .output,
         recv_timeout_us,
         eeprom_timeout_us,
     );
+    defer allocator.free(output_pdos);
 
     try writer.writeAll("#### SII Catagory: TxPDOs\n\n");
 
@@ -412,7 +420,7 @@ fn printSubdeviceSIIPDOs(
 
 fn printPDOTable(
     writer: anytype,
-    pdos: gcat.sii.PDOs,
+    pdos: []const gcat.sii.PDO,
     port: *gcat.Port,
     station_address: u16,
     recv_timeout_us: u32,
@@ -436,7 +444,7 @@ fn printPDOTable(
     }
     try writer.print("|\n", .{});
 
-    const pdo_slice: []const gcat.sii.PDO = pdos.slice();
+    const pdo_slice: []const gcat.sii.PDO = pdos;
 
     for (pdo_slice) |pdo| {
         var pdo_name: []const u8 = "";

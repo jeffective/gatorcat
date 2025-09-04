@@ -56,6 +56,8 @@ See [doc](doc/README.md).
 - [ ] remove array multiplication
 - [ ] writergate
 - [ ] std.io?
+- [ ] delete everything in stdx
+- [ ] refactor / rename all instances of fbs
 
 ## Sponsors
 

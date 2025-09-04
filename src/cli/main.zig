@@ -10,7 +10,7 @@ const read_eeprom = @import("read_eeprom.zig");
 const run = @import("run.zig");
 const scan = @import("scan.zig");
 
-const build_zig_zon = @embedFile("build_zig_zon");
+const gatorcat_version: []const u8 = @import("build_zig_zon").version;
 
 var log_level: std.log.Level = .warn;
 pub const std_options: std.Options = .{
@@ -60,10 +60,7 @@ pub fn main() !void {
     const args = try std.process.argsAlloc(args_allocator.allocator());
     defer std.process.argsFree(args_allocator.allocator(), args);
 
-    const parsed_args = flags.parse(args, "gatorcat", Flags, .{}) catch |err| switch (err) {
-        error.PrintedHelp => std.process.exit(0),
-        else => |scoped_err| return scoped_err,
-    };
+    const parsed_args = flags.parse(args, "gatorcat", Flags, .{});
 
     log_level = parsed_args.log_level;
 
@@ -76,26 +73,10 @@ pub fn main() !void {
         .read_eeprom => |read_eeprom_args| try read_eeprom.read_eeprom(gpa.allocator(), read_eeprom_args),
         .run => |run_args| try run.run(gpa.allocator(), run_args),
         .info => |info_args| try info.info(gpa.allocator(), info_args),
-        .version => try std.io.getStdOut().writer().print("{}\n", .{getVersionFromZon()}),
+        .version => {
+            var std_out = std.fs.File.stdout().writer(&.{});
+            const writer = &std_out.interface;
+            try writer.print("{s}\n", .{gatorcat_version});
+        },
     }
-}
-
-fn getVersionFromZon() std.SemanticVersion {
-    var buffer: [10 * build_zig_zon.len]u8 = undefined;
-    var fba = std.heap.FixedBufferAllocator.init(&buffer);
-    const version = std.zon.parse.fromSlice(
-        struct { version: []const u8 },
-        fba.allocator(),
-        build_zig_zon,
-        null,
-        .{ .ignore_unknown_fields = true },
-    ) catch @panic("Invalid build.zig.zon!");
-    const semantic_version = std.SemanticVersion.parse(version.version) catch @panic("Invalid version!");
-    return std.SemanticVersion{
-        .major = semantic_version.major,
-        .minor = semantic_version.minor,
-        .patch = semantic_version.patch,
-        .build = null, // dont return pointers to stack memory
-        .pre = null, // dont return pointers to stack memory
-    };
 }

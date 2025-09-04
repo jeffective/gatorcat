@@ -10,6 +10,8 @@ const Timer = std.time.Timer;
 const ns_per_us = std.time.ns_per_us;
 const assert = std.debug.assert;
 
+const stdx = @import("stdx.zig");
+
 const esc = @import("esc.zig");
 const logger = @import("root.zig").logger;
 const nic = @import("nic.zig");
@@ -347,7 +349,7 @@ pub fn escSMsFromSIISMs(sii_sms: []const SyncM) esc.SMRegister {
     return res;
 }
 
-pub const SIIString = std.BoundedArray(u8, 255);
+pub const SIIString = stdx.BoundedArray(u8, 255);
 
 pub fn readSIIString(
     port: *Port,
@@ -368,19 +370,19 @@ pub fn readSIIString(
         eeprom_timeout_us,
     ) orelse return null;
 
+    var buffer: [1024]u8 = undefined;
     var stream = SIIStream.init(
         port,
         station_address,
         catagory.word_address,
         recv_timeout_us,
         eeprom_timeout_us,
+        &buffer,
     );
-    var reader = stream.reader();
 
-    const n_strings: u8 = reader.readByte() catch |err| switch (err) {
+    const n_strings: u8 = stream.reader.takeByte() catch |err| switch (err) {
         error.EndOfStream => return error.InvalidSII,
-        error.Timeout => return error.Timeout,
-        error.LinkError => return error.LinkError,
+        error.ReadFailed => return error.ReadFailed,
     };
 
     if (n_strings < index) {
@@ -390,17 +392,15 @@ pub fn readSIIString(
     var string_buf: [255]u8 = undefined;
     var str_len: u8 = undefined;
     for (0..index) |i| {
-        str_len = reader.readByte() catch |err| switch (err) {
+        str_len = stream.reader.takeByte() catch |err| switch (err) {
             error.EndOfStream => return error.InvalidSII,
-            error.Timeout => return error.Timeout,
-            error.LinkError => return error.LinkError,
+            error.ReadFailed => return error.ReadFailed,
         };
-        if (str_len % 2 == 0 and i != index - 1 and stream.isWordSeekable()) {
-            stream.seekByWord(@divExact(str_len, 2));
+        if (str_len % 2 == 0 and i != index - 1) {
+            try stream.reader.discardAll(str_len);
         } else {
-            reader.readNoEof(string_buf[0..str_len]) catch |err| switch (err) {
-                error.Timeout => return error.Timeout,
-                error.LinkError => return error.LinkError,
+            stream.reader.readSliceAll(string_buf[0..str_len]) catch |err| switch (err) {
+                error.ReadFailed => return error.ReadFailed,
                 error.EndOfStream => return error.InvalidSII,
             };
         }
@@ -410,6 +410,7 @@ pub fn readSIIString(
     arr.appendSlice(string_buf[0..str_len]) catch |err| switch (err) {
         error.Overflow => unreachable,
     };
+    logger.debug("station addr: 0x{x}, read SII string index {}: {s}", .{ station_address, index, arr.slice() });
     return arr;
 }
 
@@ -417,7 +418,7 @@ pub fn readSIIString(
 ///
 /// Ref: IEC 61158-4-12:2019 6.6.1
 pub const max_fmmu = 16;
-pub const FMMUCatagory = std.BoundedArray(FMMUFunction, max_fmmu);
+pub const FMMUCatagory = stdx.BoundedArray(FMMUFunction, max_fmmu);
 
 pub fn readFMMUCatagory(
     port: *Port,
@@ -444,23 +445,24 @@ pub fn readFMMUCatagory(
         assert(res.len == 0);
         return res;
     }
-
+    var buffer: [1024]u8 = undefined;
     var stream = SIIStream.init(
         port,
         station_address,
         catagory.word_address,
         recv_timeout_us,
         eeprom_timeout_us,
+        &buffer,
     );
-    var limited_reader = std.io.limitedReader(stream.reader(), catagory.byte_length);
-    const reader = limited_reader.reader();
+    const reader = &stream.reader;
 
     if (n_fmmu > max_fmmu) {
         return error.InvalidSII;
     }
     assert(n_fmmu <= max_fmmu);
     for (0..n_fmmu) |_| {
-        res.append(wire.packFromECatReader(FMMUFunction, reader) catch return error.InvalidSII) catch |err| switch (err) {
+        const fmmu_function = try wire.packFromECatReader(FMMUFunction, reader);
+        res.append(fmmu_function) catch |err| switch (err) {
             error.Overflow => unreachable,
         };
     }
@@ -471,7 +473,7 @@ pub fn readFMMUCatagory(
 ///
 /// Ref: IEC 61158-6-12:2019 6.7.2
 pub const max_sm = 32;
-pub const SMCatagory = std.BoundedArray(SyncM, max_sm);
+pub const SMCatagory = stdx.BoundedArray(SyncM, max_sm);
 
 pub fn readSMCatagory(
     port: *Port,
@@ -491,22 +493,22 @@ pub fn readSMCatagory(
         return SMCatagory{};
     }
     assert(n_sm > 0);
+    var buffer: [1024]u8 = undefined;
     var stream = SIIStream.init(
         port,
         station_address,
         catagory.word_address,
         recv_timeout_us,
         eeprom_timeout_us,
+        &buffer,
     );
-    var limited_reader = std.io.limitedReader(stream.reader(), catagory.byte_length);
-    const reader = limited_reader.reader();
     var res = SMCatagory{};
     if (n_sm > max_sm) {
         return error.InvalidSII;
     }
     assert(n_sm <= max_sm);
     for (0..n_sm) |_| {
-        res.append(wire.packFromECatReader(SyncM, reader) catch return error.InvalidSII) catch |err| switch (err) {
+        res.append(wire.packFromECatReader(SyncM, &stream.reader) catch return error.InvalidSII) catch |err| switch (err) {
             error.Overflow => unreachable,
         };
     }
@@ -514,6 +516,7 @@ pub fn readSMCatagory(
 }
 
 pub fn readGeneralCatagory(port: *Port, station_address: u16, recv_timeout_us: u32, eeprom_timeout_us: u32) !?CatagoryGeneral {
+    logger.debug("station addr: 0x{x}, reading SII general catagory", .{station_address});
     const catagory = try findCatagoryFP(
         port,
         station_address,
@@ -543,7 +546,7 @@ pub fn readGeneralCatagory(port: *Port, station_address: u16, recv_timeout_us: u
 
 pub const PDO = struct {
     header: Header,
-    entries: std.BoundedArray(
+    entries: stdx.BoundedArray(
         Entry,
         max_entries,
     ),
@@ -626,7 +629,7 @@ comptime {
     assert(max_rxpdos == 0x1BFF - 0x1A00 + 1);
 }
 
-pub const PDOs = std.BoundedArray(PDO, max_txpdos);
+pub const PDOs = stdx.BoundedArray(PDO, max_txpdos);
 
 /// Calculate the bit length of a given set of PDOs ignoring un-used PDOs.
 pub fn pdoBitLength(pdos: []const PDO) u32 {
@@ -643,15 +646,20 @@ pub fn pdoBitLength(pdos: []const PDO) u32 {
 
 /// Read the full set of PDOs from the eeprom.
 ///
-/// Warning: this uses about 1 MB of stack memory.
+/// Returns error if number of pdos exceeds max_txpdos.
+///
+/// Caller owns returned memory.
 pub fn readPDOs(
+    allocator: std.mem.Allocator,
     port: *Port,
     station_address: u16,
     direction: pdi.Direction,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) !PDOs {
-    var pdos = std.BoundedArray(PDO, max_txpdos){};
+) ![]PDO {
+    logger.debug("station addr: 0x{x}, reading SII PDOs: {}", .{ station_address, direction });
+    var pdos = std.ArrayList(PDO).empty;
+    errdefer pdos.deinit(allocator);
     const catagory = try findCatagoryFP(
         port,
         station_address,
@@ -661,58 +669,66 @@ pub fn readPDOs(
         },
         recv_timeout_us,
         eeprom_timeout_us,
-    ) orelse return pdos;
+    ) orelse return &.{};
 
     // entries are 8 bytes, pdo header is 8 bytes, so
     // this should be a multiple of eight.
     if (catagory.byte_length % 8 != 0) return error.InvalidSII;
+    const n_headers_n_entries = @divExact(catagory.byte_length, 8);
+    std.log.debug("station addr: 0x{x}, n_header_n_entries: {}", .{ station_address, n_headers_n_entries });
 
+    var buffer: [1024]u8 = undefined;
     var stream = SIIStream.init(
         port,
         station_address,
         catagory.word_address,
         recv_timeout_us,
         eeprom_timeout_us,
+        &buffer,
     );
-    var limited_reader = std.io.limitedReader(stream.reader(), catagory.byte_length);
-    const reader = limited_reader.reader();
+    const reader = &stream.reader;
 
-    const State = enum {
-        entries,
-        pdo_header,
-        emit_pdo,
-    };
-    var entries = std.BoundedArray(PDO.Entry, PDO.max_entries){};
+    var state: enum { pdo_header, entries } = .pdo_header;
+    var entries = stdx.BoundedArray(PDO.Entry, PDO.max_entries){};
     var pdo_header: PDO.Header = undefined;
     var entries_remaining: u8 = 0;
-    state: switch (State.pdo_header) {
-        .pdo_header => {
-            entries.clear();
-            pdo_header = wire.packFromECatReader(PDO.Header, reader) catch |err| switch (err) {
-                error.EndOfStream => return pdos,
-                error.LinkError => return error.LinkError,
-                error.Timeout => return error.Timeout,
-            };
-            if (pdo_header.n_entries > PDO.max_entries) return error.InvalidSII;
-            entries_remaining = pdo_header.n_entries;
-            continue :state .entries;
-        },
-        .entries => {
-            if (entries_remaining == 0) continue :state .emit_pdo;
-            const entry = wire.packFromECatReader(PDO.Entry, reader) catch return error.InvalidSII;
-            entries.append(entry) catch |err| switch (err) {
-                error.Overflow => return error.InvalidSII,
-            };
-            entries_remaining -= 1;
-            continue :state .entries;
-        },
-        .emit_pdo => {
-            pdos.append(.{ .header = pdo_header, .entries = entries }) catch |err| switch (err) {
-                error.Overflow => return error.InvalidSII,
-            };
-            continue :state .pdo_header;
-        },
+    for (0..n_headers_n_entries) |_| {
+        assert(entries_remaining <= PDO.max_entries);
+        switch (state) {
+            .pdo_header => {
+                assert(entries_remaining == 0);
+                entries.clear();
+                pdo_header = try wire.packFromECatReader(PDO.Header, reader);
+                if (pdo_header.n_entries > PDO.max_entries) return error.InvalidSII;
+                entries_remaining = pdo_header.n_entries;
+                state = .entries;
+                std.log.debug("station addr: 0x{x}, pdo header: {}", .{ station_address, pdo_header });
+                continue;
+            },
+            .entries => {
+                const entry = try wire.packFromECatReader(PDO.Entry, reader);
+                entries.append(entry) catch |err| switch (err) {
+                    error.Overflow => unreachable, // see length check in .pdo_header
+                };
+                entries_remaining -= 1;
+                if (entries_remaining == 0) {
+                    try pdos.append(allocator, .{ .header = pdo_header, .entries = entries });
+                    state = .pdo_header;
+                    continue;
+                } else {
+                    state = .entries;
+                    std.log.debug("station addr: 0x{x}, entry: {}", .{ station_address, entry });
+                    continue;
+                }
+            },
+        }
     }
+    if (entries_remaining != 0) {
+        std.log.err("station addr: 0x{x}, invalid SII. remaining entries: {}", .{ station_address, entries_remaining });
+        return error.InvalidSII;
+    }
+    if (pdos.items.len > max_txpdos) return error.InvalidSII;
+    return try pdos.toOwnedSlice(allocator);
 }
 
 pub const FindCatagoryResult = struct {
@@ -735,31 +751,31 @@ pub fn findCatagoryFP(
 
     // there shouldn't be more than 1000 catagories..right??
     const word_address: u16 = @intFromEnum(ParameterMap.first_catagory_header);
+    var buffer: [1024]u8 = undefined;
     var stream = SIIStream.init(
         port,
         station_address,
         word_address,
         recv_timeout_us,
         eeprom_timeout_us,
+        &buffer,
     );
 
-    const reader = stream.reader();
     for (0..1000) |_| {
-        const catagory_header = wire.packFromECatReader(CatagoryHeader, reader) catch |err| switch (err) {
-            error.Timeout => return error.Timeout,
-            error.LinkError => return error.LinkError,
+        const catagory_header = wire.packFromECatReader(CatagoryHeader, &stream.reader) catch |err| switch (err) {
+            error.ReadFailed => return error.ReadFailed,
             error.EndOfStream => return error.InvalidSII,
         };
 
         if (catagory_header.catagory_type == catagory) {
             // + 2 for catagory header, byte length = 2 * word length
             // return .{ .word_address = word_address + 2, .byte_length = word_address << 1 };
-            return .{ .word_address = stream.eeprom_address, .byte_length = catagory_header.word_size << 1 };
+            return .{ .word_address = @intCast(@divFloor(stream.position, 2)), .byte_length = catagory_header.word_size << 1 };
         } else if (catagory_header.catagory_type == .end_of_file) {
             return null;
         } else {
             //word_address += catagory_header.word_size + 2; // + 2 for catagory header
-            stream.seekByWord(catagory_header.word_size);
+            try stream.reader.discardAll(@as(u17, catagory_header.word_size) * 2);
             continue;
         }
         unreachable;
@@ -780,18 +796,18 @@ pub fn readSIIFP_ps(
     eeprom_timeout_us: u32,
 ) readSII_ps_error!T {
     var bytes: [@divExact(@bitSizeOf(T), 8)]u8 = undefined;
+    var buffer: [1024]u8 = undefined;
     var stream = SIIStream.init(
         port,
         station_address,
         eeprom_address,
         recv_timeout_us,
         eeprom_timeout_us,
+        &buffer,
     );
-    var reader = stream.reader();
-    reader.readNoEof(&bytes) catch |err| switch (err) {
+    stream.reader.readSliceAll(&bytes) catch |err| switch (err) {
         error.EndOfStream => return error.InvalidSII,
-        error.Timeout => return error.Timeout,
-        error.LinkError => return error.LinkError,
+        error.ReadFailed => return error.ReadFailed,
     };
     return wire.packFromECat(T, bytes);
 }
@@ -801,10 +817,10 @@ pub const SIIStream = struct {
     station_address: u16,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-    eeprom_address: u16, // WORD (2-byte) address
+    position: u17, // byte address
+    reader: std.Io.Reader,
 
-    last_four_bytes: [4]u8 = .{ 0, 0, 0, 0 },
-    remainder: u8 = 0,
+    const ReadError = std.Io.Reader.Error;
 
     pub fn init(
         port: *Port,
@@ -812,75 +828,60 @@ pub const SIIStream = struct {
         eeprom_address: u16,
         recv_timeout_us: u32,
         eeprom_timeout_us: u32,
+        buffer: []u8,
     ) SIIStream {
         return SIIStream{
             .port = port,
             .station_address = station_address,
-            .eeprom_address = eeprom_address,
+            .position = @as(u17, eeprom_address) * 2,
             .recv_timeout_us = recv_timeout_us,
             .eeprom_timeout_us = eeprom_timeout_us,
+            .reader = .{
+                .vtable = &.{
+                    .stream = SIIStream.stream,
+                    .discard = SIIStream.discard,
+                },
+                .buffer = buffer,
+                .seek = 0,
+                .end = 0,
+            },
         };
     }
 
-    pub const ReadError = error{
-        Timeout,
-        LinkError,
-    };
+    fn stream(io_reader: *std.Io.Reader, w: *std.Io.Writer, limit: std.Io.Limit) std.Io.Reader.StreamError!usize {
+        const self: *SIIStream = @alignCast(@fieldParentPtr("reader", io_reader));
+        const four_bytes = readSII4ByteFP(
+            self.port,
+            self.station_address,
+            @intCast(@divFloor(self.position, 2)), // eeprom address is WORD address
+            self.recv_timeout_us,
+            self.eeprom_timeout_us,
+        ) catch |err| switch (err) {
+            error.Timeout => return error.ReadFailed,
+            error.LinkError => return error.ReadFailed,
+        };
 
-    // pub fn reader(self: *SIIStream) std.io.AnyReader {
-    //     return .{ .context = self, .readFn = read };
-    // }
-
-    pub fn reader(self: *SIIStream) std.io.GenericReader(*@This(), ReadError, read) {
-        return .{ .context = self };
-    }
-
-    fn read(self: *SIIStream, buf: []u8) ReadError!usize {
-        if (self.remainder == 0) {
-            self.last_four_bytes = try readSII4ByteFP(
-                self.port,
-                self.station_address,
-                self.eeprom_address, // eeprom address is WORD address
-                self.recv_timeout_us,
-                self.eeprom_timeout_us,
-            );
-            // self.eeprom_address += 2;
-
-            self.remainder = 4;
+        if (self.position % 2 != 0) {
+            const n_written = try w.write(limit.sliceConst(four_bytes[1..]));
+            self.position += @intCast(n_written);
+            return n_written;
         }
-
-        var fbs = std.io.fixedBufferStream(buf);
-        var writer = fbs.writer();
-
-        while (self.remainder != 0) {
-            writer.writeByte(self.last_four_bytes[4 - self.remainder]) catch return fbs.getWritten().len;
-            self.remainder -= 1;
-
-            if (self.remainder % 2 == 0) self.eeprom_address += 1;
-        } else {
-            return fbs.getWritten().len;
-        }
-        unreachable;
+        const n_written = try w.write(limit.sliceConst(&four_bytes));
+        self.position += @intCast(n_written);
+        return n_written;
     }
 
-    pub fn isWordSeekable(self: *const SIIStream) bool {
-        return self.remainder % 2 == 0;
-    }
-
-    pub fn seekByWord(self: *SIIStream, amt: u16) void {
-        assert(self.isWordSeekable());
-        self.eeprom_address += amt;
-        self.remainder = 0; // next call to read will always read eeprom
+    fn discard(r: *std.Io.Reader, limit: std.Io.Limit) std.Io.Reader.Error!usize {
+        const self: *SIIStream = @alignCast(@fieldParentPtr("reader", r));
+        assert(r.seek == r.end);
+        r.seek = 0;
+        r.end = 0;
+        const n = limit.toInt() orelse 64;
+        self.position += @as(u17, @intCast(n));
+        assert(n <= @intFromEnum(limit));
+        return n;
     }
 };
-
-pub fn seek(address: u16, amount: u15) u16 {
-    return address +% amount;
-}
-
-test {
-    try std.testing.expectEqual(@as(u16, 3), seek(0, 3));
-}
 
 pub const ReadSIIError = error{
     Timeout,
@@ -895,7 +896,6 @@ pub fn readSII4ByteFP(
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
 ) ReadSIIError![4]u8 {
-
     // set eeprom access to main device
     port.fpwrPackWkc(
         esc.SIIAccessRegisterCompact{
@@ -1008,6 +1008,7 @@ pub fn readSII4ByteFP(
         error.RecvTimeout => return error.Timeout,
         error.Wkc => return error.Timeout,
     };
+    logger.debug("station_addr: 0x{x}, read eeprom word addr: 0x{x}, content(hex): {x}", .{ station_address, eeprom_address, data });
     return data;
 }
 
@@ -1024,7 +1025,7 @@ pub const SMPDOAssign = struct {
 };
 
 pub const SMPDOAssigns = struct {
-    data: std.BoundedArray(SMPDOAssign, max_sm) = .{},
+    data: stdx.BoundedArray(SMPDOAssign, max_sm) = .{},
 
     pub const Totals = struct {
         inputs_bit_length: u32 = 0,
@@ -1118,8 +1119,8 @@ pub const SMPDOAssigns = struct {
         esc_sm: esc.SyncManagerAttributes,
     };
 
-    pub fn dumpESCSMs(self: *const SMPDOAssigns) std.BoundedArray(ESCSM, max_sm) {
-        var res = std.BoundedArray(ESCSM, max_sm){};
+    pub fn dumpESCSMs(self: *const SMPDOAssigns) stdx.BoundedArray(ESCSM, max_sm) {
+        var res = stdx.BoundedArray(ESCSM, max_sm){};
         for (self.data.slice()) |sm_assign| {
             res.append(
                 ESCSM{
@@ -1218,61 +1219,79 @@ pub fn readSMPDOAssigns(
         // entries are 8 bytes, pdo header is 8 bytes, so
         // this should be a multiple of eight.
         if (catagory.byte_length % 8 != 0) return error.InvalidSII;
+        const n_headers_n_entries = @divExact(catagory.byte_length, 8);
 
+        var buffer: [1024]u8 = undefined;
         var stream = SIIStream.init(
             port,
             station_address,
             catagory.word_address,
             recv_timeout_us,
             eeprom_timeout_us,
+            &buffer,
         );
-        var limited_reader = std.io.limitedReader(stream.reader(), catagory.byte_length);
-        const reader = limited_reader.reader();
+        const reader = &stream.reader;
 
         var pdo_header: PDO.Header = undefined;
         var entries_remaining: u8 = 0;
         var current_sm_idx: u8 = 0;
-        const State = enum { pdo_header, entries, entries_skip, end };
-        state: switch (State.pdo_header) {
-            .pdo_header => {
-                assert(entries_remaining == 0);
-                pdo_header = wire.packFromECatReader(PDO.Header, reader) catch |err| switch (err) {
-                    error.EndOfStream => continue :state .end,
-                    error.LinkError => return error.LinkError,
-                    error.Timeout => return error.Timeout,
-                };
-                if (pdo_header.n_entries > PDO.max_entries) return error.InvalidSII;
-                current_sm_idx = pdo_header.syncM;
-                entries_remaining = pdo_header.n_entries;
-                if (pdo_header.isUsed()) continue :state .entries else continue :state .entries_skip;
-            },
-            .entries => {
-                assert(pdo_header.syncM < std.math.maxInt(u8));
-                assert(current_sm_idx < max_sm);
-                if (entries_remaining == 0) continue :state .pdo_header;
-                const entry = wire.packFromECatReader(PDO.Entry, reader) catch return error.InvalidSII;
-                entries_remaining -= 1;
-                res.addPDOBitsToSM(
-                    entry.bit_length,
-                    current_sm_idx,
-                    switch (catagory_type) {
-                        .TXPDO => .input,
-                        .RXPDO => .output,
-                        else => unreachable,
-                    },
-                ) catch |err| switch (err) {
-                    error.SyncManagerNotFound, error.WrongDirection => return error.InvalidSII,
-                };
-                continue :state .entries;
-            },
-            .entries_skip => {
-                if (entries_remaining == 0) continue :state .pdo_header;
-                _ = wire.packFromECatReader(PDO.Entry, reader) catch return error.InvalidSII;
-                entries_remaining -= 1;
-                continue :state .entries_skip;
-            },
-            .end => {},
+        var state: enum { pdo_header, entries, entries_skip } = .pdo_header;
+        for (0..n_headers_n_entries) |_| {
+            assert(entries_remaining <= PDO.max_entries);
+            switch (state) {
+                .pdo_header => {
+                    assert(entries_remaining == 0);
+                    pdo_header = try wire.packFromECatReader(PDO.Header, reader);
+                    if (pdo_header.n_entries > PDO.max_entries) return error.InvalidSII;
+                    current_sm_idx = pdo_header.syncM;
+                    entries_remaining = pdo_header.n_entries;
+                    if (pdo_header.isUsed()) {
+                        state = .entries;
+                        continue;
+                    } else {
+                        state = .entries_skip;
+                        continue;
+                    }
+                },
+                .entries => {
+                    assert(pdo_header.syncM < std.math.maxInt(u8));
+                    assert(current_sm_idx < max_sm);
+
+                    const entry = wire.packFromECatReader(PDO.Entry, reader) catch return error.InvalidSII;
+                    entries_remaining -= 1;
+                    res.addPDOBitsToSM(
+                        entry.bit_length,
+                        current_sm_idx,
+                        switch (catagory_type) {
+                            .TXPDO => .input,
+                            .RXPDO => .output,
+                            else => unreachable,
+                        },
+                    ) catch |err| switch (err) {
+                        error.SyncManagerNotFound, error.WrongDirection => return error.InvalidSII,
+                    };
+                    if (entries_remaining == 0) {
+                        state = .pdo_header;
+                        continue;
+                    } else {
+                        state = .entries;
+                        continue;
+                    }
+                },
+                .entries_skip => {
+                    _ = wire.packFromECatReader(PDO.Entry, reader) catch return error.InvalidSII;
+                    entries_remaining -= 1;
+                    if (entries_remaining == 0) {
+                        state = .pdo_header;
+                        continue;
+                    } else {
+                        state = .entries_skip;
+                        continue;
+                    }
+                },
+            }
         }
+        if (entries_remaining != 0) return error.InvalidSII;
     }
     res.sortAndVerifyNonOverlapping() catch |err| switch (err) {
         error.OverlappingSM => return error.InvalidSII,
@@ -1306,51 +1325,65 @@ pub fn readPDOBitLengths(
     // entries are 8 bytes, pdo header is 8 bytes, so
     // this should be a multiple of eight.
     if (catagory.byte_length % 8 != 0) return error.InvalidSII;
+    const n_headers_n_entries = @divExact(catagory.byte_length, 8);
 
+    var buffer: [1024]u8 = undefined;
     var stream = SIIStream.init(
         port,
         station_address,
         catagory.word_address,
         recv_timeout_us,
         eeprom_timeout_us,
+        &buffer,
     );
-    var limited_reader = std.io.limitedReader(stream.reader(), catagory.byte_length);
-    const reader = limited_reader.reader();
+    const reader = &stream.reader;
 
-    const State = enum {
-        pdo_header,
-        entries,
-        entries_skip,
-    };
+    var state: enum { pdo_header, entries, entries_skip } = .pdo_header;
     var pdo_header: PDO.Header = undefined;
     var entries_remaining: u8 = 0;
     var total_bit_length: u32 = 0;
-    state: switch (State.pdo_header) {
-        .pdo_header => {
-            assert(entries_remaining == 0);
-            pdo_header = wire.packFromECatReader(PDO.Header, reader) catch |err| switch (err) {
-                error.EndOfStream => return total_bit_length,
-                error.LinkError => return error.LinkError,
-                error.Timeout => return error.Timeout,
-            };
-            if (pdo_header.n_entries > PDO.max_entries) return error.InvalidSII;
-            entries_remaining = pdo_header.n_entries;
-            if (pdo_header.isUsed()) continue :state .entries else continue :state .entries_skip;
-        },
-        .entries => {
-            if (entries_remaining == 0) continue :state .pdo_header;
-            const entry = wire.packFromECatReader(PDO.Entry, reader) catch return error.InvalidSII;
-            entries_remaining -= 1;
-            total_bit_length += entry.bit_length;
-            continue :state .entries;
-        },
-        .entries_skip => {
-            if (entries_remaining == 0) continue :state .pdo_header;
-            _ = wire.packFromECatReader(PDO.Entry, reader) catch return error.InvalidSII;
-            entries_remaining -= 1;
-            continue :state .entries_skip;
-        },
+    for (0..n_headers_n_entries) |_| {
+        assert(entries_remaining <= PDO.max_entries);
+        switch (state) {
+            .pdo_header => {
+                assert(entries_remaining == 0);
+                pdo_header = try wire.packFromECatReader(PDO.Header, reader);
+                if (pdo_header.n_entries > PDO.max_entries) return error.InvalidSII;
+                entries_remaining = pdo_header.n_entries;
+                if (pdo_header.isUsed()) {
+                    state = .entries;
+                } else {
+                    state = .entries_skip;
+                }
+                continue;
+            },
+            .entries => {
+                const entry = wire.packFromECatReader(PDO.Entry, reader) catch return error.InvalidSII;
+                entries_remaining -= 1;
+                total_bit_length += entry.bit_length;
+                if (entries_remaining == 0) {
+                    state = .pdo_header;
+                    continue;
+                } else {
+                    state = .entries;
+                    continue;
+                }
+            },
+            .entries_skip => {
+                try reader.discardAll(comptime @divExact(@bitSizeOf(PDO.Entry), 8));
+                entries_remaining -= 1;
+                if (entries_remaining == 0) {
+                    state = .pdo_header;
+                    continue;
+                } else {
+                    state = .entries_skip;
+                    continue;
+                }
+            },
+        }
     }
+    if (entries_remaining != 0) return error.InvalidSII;
+    return total_bit_length;
 }
 
 pub const FMMUConfiguration = struct {

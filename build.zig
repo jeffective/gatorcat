@@ -1,6 +1,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+const gatorcat_version: []const u8 = @import("build.zig.zon").version;
+
 const build_zig_zon = @embedFile("build.zig.zon");
 
 pub fn build(b: *std.Build) void {
@@ -73,10 +75,13 @@ pub fn buildDocker(
     step: *std.Build.Step,
     installs: std.ArrayList(*std.Build.Step.InstallArtifact),
 ) *std.Build.Step {
-    const docker_builder = b.addExecutable(.{
-        .name = "docker-builder",
+    const docker_builder_mod = b.createModule(.{
         .root_source_file = b.path("src/release_docker.zig"),
         .target = b.graph.host,
+    });
+    const docker_builder = b.addExecutable(.{
+        .name = "docker-builder",
+        .root_module = docker_builder_mod,
     });
     docker_builder.root_module.addAnonymousImport("build_zig_zon", .{ .root_source_file = b.path("build.zig.zon") });
     const run = b.addRunArtifact(docker_builder);
@@ -95,10 +100,9 @@ pub fn buildSimTest(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
 ) void {
+    const sim_mod = b.createModule(.{ .root_source_file = b.path("test/sim/root.zig"), .target = target, .optimize = optimize });
     const sim_test = b.addTest(.{
-        .root_source_file = b.path("test/sim/root.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = sim_mod,
     });
     sim_test.root_module.addImport("gatorcat", gatorcat_module);
     const run_sim_test = b.addRunArtifact(sim_test);
@@ -114,12 +118,12 @@ pub fn buildExamples(
 ) void {
 
     // example: simple
-    const simple_example = b.addExecutable(.{
-        .name = "simple",
+    const simple_example_mod = b.createModule(.{
+        .root_source_file = b.path("doc/examples/simple/main.zig"),
         .target = target,
         .optimize = optimize,
-        .root_source_file = b.path("doc/examples/simple/main.zig"),
     });
+    const simple_example = b.addExecutable(.{ .name = "simple", .root_module = simple_example_mod });
     simple_example.root_module.addImport("gatorcat", gatorcat_module);
     // using addInstallArtifact here so it only installs for the example step
     const example_install = b.addInstallArtifact(simple_example, .{});
@@ -127,11 +131,14 @@ pub fn buildExamples(
     if (target.result.os.tag == .windows) simple_example.linkLibC();
 
     // example: simple2
-    const simple2_example = b.addExecutable(.{
-        .name = "simple2",
+    const simple2_example_mod = b.createModule(.{
+        .root_source_file = b.path("doc/examples/simple2/main.zig"),
         .target = target,
         .optimize = optimize,
-        .root_source_file = b.path("doc/examples/simple2/main.zig"),
+    });
+    const simple2_example = b.addExecutable(.{
+        .name = "simple2",
+        .root_module = simple2_example_mod,
     });
     simple2_example.root_module.addImport("gatorcat", gatorcat_module);
     // using addInstallArtifact here so it only installs for the example step
@@ -140,11 +147,14 @@ pub fn buildExamples(
     if (target.result.os.tag == .windows) simple2_example.linkLibC();
 
     // example: simple3
-    const simple3_example = b.addExecutable(.{
-        .name = "simple3",
+    const simple3_example_mod = b.createModule(.{
+        .root_source_file = b.path("doc/examples/simple3/main.zig"),
         .target = target,
         .optimize = optimize,
-        .root_source_file = b.path("doc/examples/simple3/main.zig"),
+    });
+    const simple3_example = b.addExecutable(.{
+        .name = "simple3",
+        .root_module = simple3_example_mod,
     });
     simple3_example.root_module.addImport("gatorcat", gatorcat_module);
     // using addInstallArtifact here so it only installs for the example step
@@ -153,11 +163,14 @@ pub fn buildExamples(
     if (target.result.os.tag == .windows) simple3_example.linkLibC();
 
     // example: simple4
-    const simple4_example = b.addExecutable(.{
-        .name = "simple4",
+    const simple4_example_mod = b.createModule(.{
+        .root_source_file = b.path("doc/examples/simple4/main.zig"),
         .target = target,
         .optimize = optimize,
-        .root_source_file = b.path("doc/examples/simple4/main.zig"),
+    });
+    const simple4_example = b.addExecutable(.{
+        .name = "simple4",
+        .root_module = simple4_example_mod,
     });
     simple4_example.root_module.addImport("gatorcat", gatorcat_module);
     // using addInstallArtifact here so it only installs for the example step
@@ -172,10 +185,13 @@ pub fn buildTest(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
 ) void {
-    const root_unit_tests = b.addTest(.{
+    const root_unit_tests_mod = b.createModule(.{
         .root_source_file = b.path("src/module/root.zig"),
         .target = target,
         .optimize = optimize,
+    });
+    const root_unit_tests = b.addTest(.{
+        .root_module = root_unit_tests_mod,
     });
     const run_root_unit_tests = b.addRunArtifact(root_unit_tests);
     step.dependOn(&run_root_unit_tests.step);
@@ -236,7 +252,7 @@ pub fn buildRelease(
         .{ .cpu_arch = .x86_64, .os_tag = .windows, .abi = .gnu },
     };
 
-    var installs = std.ArrayList(*std.Build.Step.InstallArtifact).init(b.allocator);
+    var installs = std.ArrayList(*std.Build.Step.InstallArtifact).empty;
 
     for (targets) |target| {
         const options: struct {
@@ -265,6 +281,7 @@ pub fn buildRelease(
         }
         const triple = target.zigTriple(b.allocator) catch @panic("oom");
         try installs.append(
+            b.allocator,
             buildCli(
                 b,
                 step,
@@ -272,29 +289,9 @@ pub fn buildRelease(
                 options.optimize,
                 gatorcat_module,
                 .{ .override = .{ .custom = "release" } },
-                try std.fmt.allocPrint(b.allocator, "gatorcat-{}-{s}", .{ getVersionFromZon(), triple }),
+                try std.fmt.allocPrint(b.allocator, "gatorcat-{s}-{s}", .{ gatorcat_version, triple }),
             ),
         );
     }
     return installs;
-}
-
-fn getVersionFromZon() std.SemanticVersion {
-    var buffer: [10 * build_zig_zon.len]u8 = undefined;
-    var fba = std.heap.FixedBufferAllocator.init(&buffer);
-    const version = std.zon.parse.fromSlice(
-        struct { version: []const u8 },
-        fba.allocator(),
-        build_zig_zon,
-        null,
-        .{ .ignore_unknown_fields = true },
-    ) catch @panic("Invalid build.zig.zon!");
-    const semantic_version = std.SemanticVersion.parse(version.version) catch @panic("Invalid version!");
-    return std.SemanticVersion{
-        .major = semantic_version.major,
-        .minor = semantic_version.minor,
-        .patch = semantic_version.patch,
-        .build = null, // dont return pointers to stack memory
-        .pre = null, // dont return pointers to stack memory
-    };
 }

@@ -33,7 +33,8 @@ pub fn read_eeprom(allocator: std.mem.Allocator, args: Args) !void {
     try port.ping(args.recv_timeout_us);
 
     var scanner = gcat.Scanner.init(port, .{ .eeprom_timeout_us = args.eeprom_timeout_us, .recv_timeout_us = args.recv_timeout_us });
-    var writer = std.io.getStdOut().writer();
+    var std_out = std.fs.File.stdout().writer(&.{});
+    const writer = &std_out.interface;
 
     const num_subdevices = try scanner.countSubdevices();
     try writer.print("Detected {} subdevices.\n", .{num_subdevices});
@@ -57,22 +58,21 @@ pub fn read_eeprom(allocator: std.mem.Allocator, args: Args) !void {
     const sii_byte_length: u64 = (@as(u64, eeprom_info.size) + 1) * 1024 / 8;
     try writer.print("Found EEPROM size: {} KiBit ({} bytes).\n", .{ eeprom_info.size + 1, sii_byte_length });
 
+    var buffer: [4]u8 = undefined;
     var sii_stream = gcat.sii.SIIStream.init(
         port,
         station_address,
         0,
         args.recv_timeout_us,
         args.eeprom_timeout_us,
+        &buffer,
     );
-
-    const sii_reader = sii_stream.reader();
-    var limited_reader = std.io.limitedReader(sii_reader, sii_byte_length);
-    const reader = limited_reader.reader();
+    const reader = &sii_stream.reader;
 
     try writer.print("Reading EEPROM...\n", .{});
     const eeprom_content = try allocator.alloc(u8, sii_byte_length);
     defer allocator.free(eeprom_content);
-    try reader.readNoEof(eeprom_content);
+    try reader.readSliceAll(eeprom_content);
 
     try writer.print("EEPROM Content:\n", .{});
     for (eeprom_content, 0..) |content, i| {
