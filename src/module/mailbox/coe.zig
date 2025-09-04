@@ -5,6 +5,8 @@ const Timer = std.time.Timer;
 const ns_per_us = std.time.ns_per_us;
 const assert = std.debug.assert;
 
+const stdx = @import("../stdx.zig");
+
 const mailbox = @import("../mailbox.zig");
 const nic = @import("../nic.zig");
 const Port = @import("../Port.zig");
@@ -395,15 +397,14 @@ pub const InContent = union(enum) {
 
     /// Identify what kind of CoE content is in MailboxIn
     fn identify(buf: []const u8) !std.meta.Tag(InContent) {
-        var fbs = std.io.fixedBufferStream(buf);
-        const reader = fbs.reader();
-        const mbx_header = wire.packFromECatReader(mailbox.Header, reader) catch return error.InvalidMbxContent;
+        var fbs = std.Io.Reader.fixed(buf);
+        const mbx_header = wire.packFromECatReader(mailbox.Header, &fbs) catch return error.InvalidMbxContent;
 
         switch (mbx_header.type) {
             .CoE => {},
             else => return error.WrongMbxProtocol,
         }
-        const header = wire.packFromECatReader(Header, reader) catch return error.InvalidMbxContent;
+        const header = wire.packFromECatReader(Header, &fbs) catch return error.InvalidMbxContent;
 
         switch (header.service) {
             .tx_pdo => return error.NotImplemented,
@@ -411,7 +412,7 @@ pub const InContent = union(enum) {
             .tx_pdo_remote_request => return error.NotImplemented,
             .rx_pdo_remote_request => return error.NotImplemented,
             .sdo_info => {
-                const sdo_info_header = wire.packFromECatReader(SDOInfoHeader, reader) catch return error.InvalidMbxContent;
+                const sdo_info_header = wire.packFromECatReader(SDOInfoHeader, &fbs) catch return error.InvalidMbxContent;
                 return switch (sdo_info_header.opcode) {
                     .get_entry_description_response,
                     .get_object_description_response,
@@ -424,14 +425,14 @@ pub const InContent = union(enum) {
             },
 
             .sdo_request => {
-                const sdo_header = wire.packFromECatReader(server.SDOHeader, reader) catch return error.InvalidMbxContent;
+                const sdo_header = wire.packFromECatReader(server.SDOHeader, &fbs) catch return error.InvalidMbxContent;
                 return switch (sdo_header.command) {
                     .abort_transfer_request => .abort,
                     else => error.InvalidMbxContent,
                 };
             },
             .sdo_response => {
-                const sdo_header = wire.packFromECatReader(server.SDOHeader, reader) catch return error.InvalidMbxContent;
+                const sdo_header = wire.packFromECatReader(server.SDOHeader, &fbs) catch return error.InvalidMbxContent;
                 switch (sdo_header.command) {
                     .upload_segment_response => return .segment,
                     .download_segment_response => return .segment,
@@ -695,7 +696,7 @@ pub const SMComm = enum(u8) {
     _,
 };
 
-pub const SMComms = std.BoundedArray(SMComm, max_sm);
+pub const SMComms = stdx.BoundedArray(SMComm, max_sm);
 
 pub fn readSMComms(
     port: *Port,
@@ -755,7 +756,7 @@ pub fn isValidPDOIndex(index: u16) bool {
 /// Note: the spec uses both the terms "channel" and "PDO assignment"
 /// to refer to this structure. Its purpose is to assign PDOs to this
 /// sync manager.
-pub const SMChannel = std.BoundedArray(u16, 254);
+pub const SMChannel = stdx.BoundedArray(u16, 254);
 
 pub fn readSMChannel(
     port: *Port,
@@ -931,7 +932,7 @@ pub const max_sm = 32;
 pub const PDOMapping = struct {
     entries: Entries,
 
-    pub const Entries = std.BoundedArray(Entry, 254);
+    pub const Entries = stdx.BoundedArray(Entry, 254);
 
     /// PDO Mapping Entry
     ///

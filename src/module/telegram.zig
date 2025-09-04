@@ -348,27 +348,27 @@ pub const EthernetFrame = struct {
         /// lifetime must exceed return value
         scratch_datagrams: *[15]Datagram,
     ) !EthernetFrame {
-        var fbs_reading = std.io.fixedBufferStream(received);
-        const reader = fbs_reading.reader();
+        var fbs_reading = std.Io.Reader.fixed(received);
+        const reader = &fbs_reading;
 
         const ethernet_header = Header{
-            .dest_mac = try reader.readInt(u48, big),
-            .src_mac = try reader.readInt(u48, big),
-            .ether_type = @enumFromInt(try reader.readInt(u16, big)),
+            .dest_mac = try reader.takeInt(u48, big),
+            .src_mac = try reader.takeInt(u48, big),
+            .ether_type = @enumFromInt(try reader.takeInt(u16, big)),
         };
         if (ethernet_header.ether_type != .ETHERCAT) {
             return error.NotAnEtherCATFrame;
         }
         const ethercat_header = wire.packFromECatReader(EtherCATFrame.Header, reader) catch return error.InvalidFrame;
-        const bytes_remaining = try fbs_reading.getEndPos() - try fbs_reading.getPos();
-        const bytes_total = try fbs_reading.getEndPos();
+        const bytes_remaining = fbs_reading.end - fbs_reading.seek;
+        const bytes_total = fbs_reading.end;
         if (bytes_total < min_frame_length) {
             return error.InvalidFrameLengthTooSmall;
         }
         if (ethercat_header.length > bytes_remaining) {
             logger.debug(
                 "length field: {}, remaining: {}, end pos: {}",
-                .{ ethercat_header.length, bytes_remaining, try fbs_reading.getEndPos() },
+                .{ ethercat_header.length, bytes_remaining, fbs_reading.end },
             );
             return error.InvalidEtherCATHeader;
         }
@@ -376,8 +376,8 @@ pub const EthernetFrame = struct {
         var scratch_datagrams_used: usize = 0;
         reading_datagrams: for (0..15) |i| {
             const header = wire.packFromECatReader(Datagram.Header, reader) catch return error.CurruptedFrame;
-            fbs_reading.seekBy(header.length) catch return error.CurruptedFrame;
-            const datagram_data: []u8 = received[try fbs_reading.getPos() - header.length .. try fbs_reading.getPos()];
+            reader.discardAll(header.length) catch return error.CurruptedFrame;
+            const datagram_data: []u8 = received[fbs_reading.seek - header.length .. fbs_reading.seek];
             const wkc = wire.packFromECatReader(u16, reader) catch return error.CurruptedFrame;
             scratch_datagrams[i] = Datagram{
                 .header = header,

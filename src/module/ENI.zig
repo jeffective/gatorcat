@@ -505,7 +505,7 @@ pub fn fromFile(allocator: std.mem.Allocator, file_path: []const u8, max_bytes: 
         file_path,
         max_bytes,
         null,
-        1,
+        .@"1",
         0,
     );
     const eni = try std.zon.parse.fromSlice(gcat.ENI, arena.allocator(), eni_bytes, null, .{});
@@ -522,7 +522,7 @@ pub fn fromFileJson(allocator: std.mem.Allocator, file_path: []const u8, max_byt
         file_path,
         max_bytes,
         null,
-        1,
+        .@"1",
         0,
     );
     const eni = try std.json.parseFromSliceLeaky(gcat.ENI, arena.allocator(), eni_bytes, .{});

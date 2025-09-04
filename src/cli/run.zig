@@ -186,13 +186,14 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
             };
 
             break :blk scanner.readEni(allocator, args.preop_timeout_us, false, args.pv_name_prefix) catch |err| switch (err) {
+                error.EndOfStream,
+                error.ReadFailed,
                 error.LinkError,
                 error.OutOfMemory,
                 error.RecvTimeout,
                 error.Wkc,
                 error.StateChangeRefused,
                 error.StateChangeTimeout,
-                error.Timeout,
                 error.UnexpectedSubdevice,
                 error.InvalidSII,
                 error.InvalidMbxConfiguration,
@@ -256,12 +257,13 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
 
         md.busPreop(args.preop_timeout_us) catch |err| switch (err) {
             error.LinkError,
+            error.ReadFailed,
+            error.EndOfStream,
             error.InvalidSII,
             error.StartupParametersFailed,
             => return error.NonRecoverable,
             error.Wkc,
             error.StateChangeRefused,
-            error.Timeout,
             error.RecvTimeout,
             error.StateChangeTimeout,
             error.InvalidMbxConfiguration,
@@ -282,6 +284,8 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
 
         // TODO: wtf jeff reduce the number of errors!
         md.busSafeop(args.safeop_timeout_us) catch |err| switch (err) {
+            error.EndOfStream,
+            error.ReadFailed,
             error.LinkError,
             error.WrongProtocol,
             error.WrongDirection,
@@ -289,7 +293,6 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
             error.RecvTimeout,
             error.Wkc,
             error.StateChangeTimeout,
-            error.Timeout,
             error.InvalidCoE,
             error.InvalidSII,
             error.InvalidMbxConfiguration,

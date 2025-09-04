@@ -28,7 +28,8 @@ pub fn benchmark(args: Args) !void {
     var port = gcat.Port.init(raw_socket.linkLayer(), .{});
     defer port.deinit();
     try port.ping(args.recv_timeout_us);
-    var writer = std.io.getStdOut().writer();
+    var std_out = std.fs.File.stdout().writer(&.{});
+    const writer = &std_out.interface;
     if (builtin.os.tag == .linux) {
         if (args.affinity) |affinity| {
             // using pid = 0 means this process will have the scheduler set.

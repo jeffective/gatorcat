@@ -3,6 +3,8 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
+const stdx = @import("stdx.zig");
+
 const ENI = @import("ENI.zig");
 const esc = @import("esc.zig");
 const logger = @import("root.zig").logger;
@@ -31,7 +33,7 @@ pub const Simulator = struct {
     /// simulated subdevices
     subdevices: []Subdevice,
 
-    pub const Frame = std.BoundedArray(u8, telegram.max_frame_length);
+    pub const Frame = stdx.BoundedArray(u8, telegram.max_frame_length);
 
     pub const Options = struct {
         max_simultaneous_frames_in_flight: usize = 256,
@@ -47,12 +49,12 @@ pub const Simulator = struct {
 
         const in_frames_slice = try arena.allocator().alloc(Frame, options.max_simultaneous_frames_in_flight);
         const in_frames = try arena.allocator().create(std.ArrayList(Frame));
-        in_frames.* = std.ArrayList(Frame).fromOwnedSlice(std.testing.failing_allocator, in_frames_slice);
+        in_frames.* = std.ArrayList(Frame).fromOwnedSlice(in_frames_slice);
         in_frames.shrinkRetainingCapacity(0);
 
         const out_frames_slice = try arena.allocator().alloc(Frame, options.max_simultaneous_frames_in_flight);
         const out_frames = try arena.allocator().create(std.ArrayList(Frame));
-        out_frames.* = std.ArrayList(Frame).fromOwnedSlice(std.testing.failing_allocator, out_frames_slice);
+        out_frames.* = std.ArrayList(Frame).fromOwnedSlice(out_frames_slice);
         out_frames.shrinkRetainingCapacity(0);
 
         const subdevices = try arena.allocator().alloc(Subdevice, eni.subdevices.len);
@@ -77,7 +79,7 @@ pub const Simulator = struct {
     pub fn send(ctx: *anyopaque, bytes: []const u8) std.posix.SendError!void {
         const self: *Simulator = @ptrCast(@alignCast(ctx));
         const frame = Frame.fromSlice(bytes) catch return error.MessageTooBig;
-        self.in_frames.append(frame) catch return error.SystemResources;
+        self.in_frames.append(std.testing.failing_allocator, frame) catch return error.SystemResources;
     }
 
     // execute one tick in the simulator, return a frame if available

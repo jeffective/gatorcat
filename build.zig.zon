@@ -1,16 +1,16 @@
 .{
     .name = .gatorcat,
-    .version = "0.3.10",
+    .version = "0.3.11",
     .fingerprint = 0xb9356c7c4de9ca59, // Changing this has security and trust implications.
-    .minimum_zig_version = "0.14.1",
+    .minimum_zig_version = "0.15.1",
     .dependencies = .{
         .flags = .{
-            .url = "git+https://github.com/n0s4/flags#0e2491d8e6d2be38dc0c2ce8e103469886e468bb",
-            .hash = "flags-0.10.0-a_9h3kR2AABNAfaPGRyOOGmWsfv12Hk6JQPTX4MM446s",
+            .url = "git+https://github.com/jeffective/flags?ref=update-zig-0.15.1#34faaa5b4c58e14d3241c567b4fcdc2e8b36ea24",
+            .hash = "flags-0.10.0-a_9h3pxvAADK9fDQw0ONVfZJNBUViUWBYq8uha0IP9zn",
         },
         .zenoh = .{
-            .url = "git+https://github.com/jeffective/zenoh-zig#2b34a27a97aeda2b38c7a9cba9f72a3f406e3095",
-            .hash = "zenoh-1.3.4-QDbMY420AACP2-YTF6esmKintDLIT6Bp5DBWRRTrbP4f",
+            .url = "git+https://github.com/jeffective/zenoh-zig.git#f771ec7290cb9286293c4a2793c42d24a4d0c3a4",
+            .hash = "zenoh-1.5.0-QDbMY8C6AAChwFIRRA5HMHWLfJAhm_U8MoRIqhw4vbxx",
         },
         .zbor = .{
             .url = "git+https://github.com/r4gus/zbor.git#d575ecf6cb5a797c1992d03591c25c8d0bb9b2cc",

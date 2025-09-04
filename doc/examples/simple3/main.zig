@@ -70,7 +70,10 @@ pub fn main() !void {
         if (print_timer.read() > std.time.ns_per_s * 1) {
             print_timer.reset();
             std.log.warn("frames/s: {}", .{cycle_count});
-            try std.zon.stringify.serialize(md.getProcessImage(eni), .{}, std.io.getStdOut().writer());
+            @setEvalBranchQuota(30000);
+            var std_out = std.fs.File.stdout().writer(&.{});
+            const writer = &std_out.interface;
+            try std.zon.stringify.serialize(md.getProcessImage(eni), .{}, writer);
             // std.debug.print("process image: {any}\n", .{md.getProcessImage(eni)});
             cycle_count = 0;
         }
