@@ -54,11 +54,6 @@ pub const SubdeviceConfiguration = struct {
             bits: u16,
             /// Description as provided from the subdevice.
             description: ?[:0]const u8 = null,
-            /// Full name of the process variable in the process image.
-            pv_name: ?[:0]const u8 = null,
-            /// Full name of the process variable in the process image, but second representation to enable
-            /// zenoh feedback (publish outputs on zenoh).
-            pv_name_fb: ?[:0]const u8 = null,
 
             pub fn isGap(self: Entry) bool {
                 return self.index == 0;
@@ -464,13 +459,13 @@ pub fn initSubdevicesFromENI(eni: ENI, subdevices: []Subdevice, process_image: [
 }
 
 /// Returns the number of input process image variables.
-/// Only variables with names are counted.
+/// Only variables that are not gaps are counted.
 pub fn nInputs(self: ENI) u32 {
     var result: u32 = 0;
     for (self.subdevices) |subdevice| {
         for (subdevice.inputs) |input| {
             for (input.entries) |entry| {
-                if (entry.pv_name) |_| {
+                if (!entry.isGap()) |_| {
                     result += 1;
                 }
             }
@@ -480,13 +475,13 @@ pub fn nInputs(self: ENI) u32 {
 }
 
 /// Returns the number of output process image variables.
-/// Only variables with names are counted.
+/// Only variables that are not gaps are counted.
 pub fn nOutputs(self: ENI) u32 {
     var result: u32 = 0;
     for (self.subdevices) |subdevice| {
         for (subdevice.outputs) |output| {
             for (output.entries) |entry| {
-                if (entry.pv_name) |_| {
+                if (entry.isGap()) |_| {
                     result += 1;
                 }
             }
