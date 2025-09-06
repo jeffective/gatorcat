@@ -28,7 +28,6 @@ pub const Args = struct {
     eni_file_json: ?[:0]const u8 = null,
     rt_prio: ?i32 = null,
     verbose: bool = false,
-    pv_name_prefix: ?[]const u8,
     mlockall: bool = false,
 
     pub const ZenohLogLevel = enum { trace, debug, info, warn, @"error" };
@@ -49,7 +48,6 @@ pub const Args = struct {
         .eni_file_json = "Same as --eni-file but as JSON.",
         .rt_prio = "Set a real-time priority for this process. Does nothing on windows.",
         .verbose = "Enable verbose logs.",
-        .pv_name_prefix = "Add a prefix (separated by /) to process variable names, if desired. Not applicable if eni file provided.",
         .mlockall = "Do mlockall syscall to prevent this process' memory from being swapped. Improves real-time performance. Only applicable to linux.",
     };
 };
@@ -85,7 +83,7 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
         std.log.warn("Scheduler: {s}", .{scheduler_name});
 
         if (args.mlockall) {
-            switch (std.posix.errno(gcat.mlockall(.{ .CURRENT = true, .FUTURE = true }))) {
+            switch (std.posix.errno(std.os.linux.mlockall(.{ .CURRENT = true, .FUTURE = true }))) {
                 .SUCCESS => {
                     std.log.warn("mlockall successful", .{});
                     gcat.probeStack(1 * 1024 * 1024);
@@ -101,7 +99,7 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
 
     defer {
         if (builtin.os.tag == .linux and args.mlockall) {
-            switch (std.posix.errno(gcat.munlockall())) {
+            switch (std.posix.errno(std.os.linux.munlockall())) {
                 .SUCCESS => {
                     std.log.info("unlocked memory", .{});
                 },
@@ -185,7 +183,7 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
                 error.RecvTimeout, error.Wkc => continue :bus_scan,
             };
 
-            break :blk scanner.readEni(allocator, args.preop_timeout_us, false, args.pv_name_prefix) catch |err| switch (err) {
+            break :blk scanner.readEni(allocator, args.preop_timeout_us, false) catch |err| switch (err) {
                 error.EndOfStream,
                 error.ReadFailed,
                 error.LinkError,
@@ -384,29 +382,6 @@ pub const ZenohHandler = struct {
     pubs: std.StringArrayHashMap(zenoh.c.z_owned_publisher_t),
     subs: *const std.StringArrayHashMap(SubscriberClosure),
 
-    fn createPublisher(
-        allocator: std.mem.Allocator,
-        pubs: *std.StringArrayHashMap(zenoh.c.z_owned_publisher_t),
-        session: *zenoh.c.z_owned_session_t,
-        key: [:0]const u8,
-    ) !void {
-        var publisher: zenoh.c.z_owned_publisher_t = undefined;
-        const view_keyexpr = try allocator.create(zenoh.c.z_view_keyexpr_t);
-        const result = zenoh.c.z_view_keyexpr_from_str(view_keyexpr, key.ptr);
-        try zenoh.err(result);
-        var publisher_options: zenoh.c.z_publisher_options_t = undefined;
-        zenoh.c.z_publisher_options_default(&publisher_options);
-        publisher_options.congestion_control = zenoh.c.Z_CONGESTION_CONTROL_DROP;
-        const result2 = zenoh.c.z_declare_publisher(zenoh.loan(session), &publisher, zenoh.loan(view_keyexpr), &publisher_options);
-        try zenoh.err(result2);
-        errdefer zenoh.drop(zenoh.move(&publisher));
-        const put_result = try pubs.getOrPutValue(key, publisher);
-        if (put_result.found_existing) {
-            std.log.err("duplicate key found: {s}", .{key});
-            return error.PVNameConflict;
-        } // TODO: assert this?
-    }
-
     /// Lifetime of md must be past deinit.
     /// Lifetime of eni must be past deinit.
     pub fn init(p_allocator: std.mem.Allocator, eni: gcat.ENI, maybe_config_file: ?[:0]const u8, md: *const gcat.MainDevice, log_level: Args.ZenohLogLevel) !ZenohHandler {
@@ -547,6 +522,29 @@ pub const ZenohHandler = struct {
         bit_count: u16,
         bit_offset_in_process_data: u32,
     };
+
+    fn createPublisher(
+        allocator: std.mem.Allocator,
+        pubs: *std.StringArrayHashMap(zenoh.c.z_owned_publisher_t),
+        session: *zenoh.c.z_owned_session_t,
+        key: [:0]const u8,
+    ) !void {
+        var publisher: zenoh.c.z_owned_publisher_t = undefined;
+        const view_keyexpr = try allocator.create(zenoh.c.z_view_keyexpr_t);
+        const result = zenoh.c.z_view_keyexpr_from_str(view_keyexpr, key.ptr);
+        try zenoh.err(result);
+        var publisher_options: zenoh.c.z_publisher_options_t = undefined;
+        zenoh.c.z_publisher_options_default(&publisher_options);
+        publisher_options.congestion_control = zenoh.c.Z_CONGESTION_CONTROL_DROP;
+        const result2 = zenoh.c.z_declare_publisher(zenoh.loan(session), &publisher, zenoh.loan(view_keyexpr), &publisher_options);
+        try zenoh.err(result2);
+        errdefer zenoh.drop(zenoh.move(&publisher));
+        const put_result = try pubs.getOrPutValue(key, publisher);
+        if (put_result.found_existing) {
+            std.log.err("duplicate key found: {s}", .{key});
+            return error.PVNameConflict;
+        } // TODO: assert this?
+    }
 
     // TODO: get more type safety here for subs_ctx?
     // TODO: refactor naming of subs_context?

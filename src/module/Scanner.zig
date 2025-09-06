@@ -240,7 +240,6 @@ pub fn readEni(
     /// Read information for simulator.
     /// Not required unless you are running the simulator.
     sim: bool,
-    pv_name_prefix: ?[]const u8,
 ) !gcat.Arena(ENI) {
     const arena = try allocator.create(std.heap.ArenaAllocator);
     errdefer allocator.destroy(arena);
@@ -252,7 +251,6 @@ pub fn readEni(
             arena.allocator(),
             state_change_timeout_us,
             sim,
-            pv_name_prefix,
         ),
     };
 }
@@ -263,7 +261,6 @@ pub fn readEniLeaky(
     allocator: std.mem.Allocator,
     state_change_timeout_us: u32,
     sim: bool,
-    pv_name_prefix: ?[]const u8,
 ) !ENI {
     var subdevice_configs = std.ArrayList(gcat.ENI.SubdeviceConfiguration).empty;
     defer subdevice_configs.deinit(allocator);
@@ -275,7 +272,6 @@ pub fn readEniLeaky(
             @intCast(i),
             state_change_timeout_us,
             sim,
-            pv_name_prefix,
         );
         try subdevice_configs.append(allocator, config);
     }
@@ -288,7 +284,6 @@ pub fn readSubdeviceConfiguration(
     ring_position: u16,
     state_change_timeout_us: u32,
     sim: bool,
-    pv_name_prefix: ?[]const u8,
 ) !gcat.Arena(ENI.SubdeviceConfiguration) {
     const arena = try allocator.create(std.heap.ArenaAllocator);
     errdefer allocator.destroy(arena);
@@ -301,7 +296,6 @@ pub fn readSubdeviceConfiguration(
             ring_position,
             state_change_timeout_us,
             sim,
-            pv_name_prefix,
         ),
     };
 }
@@ -314,7 +308,6 @@ pub fn readSubdeviceConfigurationLeaky(
     ring_position: u16,
     state_change_timeout_us: u32,
     sim: bool,
-    pv_name_prefix: ?[]const u8,
 ) !ENI.SubdeviceConfiguration {
     const station_address = Subdevice.stationAddressFromRingPos(ring_position);
     const info = try sii.readSIIFP_ps(
@@ -453,37 +446,7 @@ pub fn readSubdeviceConfigurationLeaky(
                             entry.subindex,
                             .description_only,
                         );
-                        var pv_name: ?[:0]const u8 = null;
-                        var pv_name_fb: ?[:0]const u8 = null;
-                        if (entry.index == 0 and entry.subindex == 0) {
-                            pv_name = null;
-                            pv_name_fb = null;
-                        } else {
-                            pv_name = try processVariableNameZ(
-                                allocator,
-                                ring_position,
-                                if (sm_comm_type == .input) .input else .output,
-                                entry.index,
-                                entry.subindex,
-                                name,
-                                try allocator.dupeZ(u8, object_description.name.slice()),
-                                try allocator.dupeZ(u8, entry_description.data.slice()),
-                                pv_name_prefix,
-                                false,
-                            );
-                            pv_name_fb = try processVariableNameZ(
-                                allocator,
-                                ring_position,
-                                if (sm_comm_type == .input) .input else .output,
-                                entry.index,
-                                entry.subindex,
-                                name,
-                                try allocator.dupeZ(u8, object_description.name.slice()),
-                                try allocator.dupeZ(u8, entry_description.data.slice()),
-                                pv_name_prefix,
-                                true,
-                            );
-                        }
+
                         try entries.append(allocator, ENI.SubdeviceConfiguration.PDO.Entry{
                             .description = try allocator.dupeZ(u8, entry_description.data.slice()),
                             .index = entry_description.index,
@@ -495,8 +458,6 @@ pub fn readSubdeviceConfigurationLeaky(
                             .bits = entry.bit_length,
                             // TODO: there is probably a bettter function for this
                             .type = std.meta.intToEnum(gcat.Exhaustive(coe.DataTypeArea), @as(u16, @intFromEnum(entry_description.data_type))) catch .UNKNOWN,
-                            .pv_name = pv_name,
-                            .pv_name_fb = pv_name_fb,
                         });
                     }
                 }
@@ -567,47 +528,12 @@ pub fn readSubdeviceConfigurationLeaky(
                     )) |entry_name_array| {
                         entry_name = try allocator.dupeZ(u8, entry_name_array.slice());
                     }
-
-                    var pv_name: ?[:0]const u8 = null;
-                    var pv_name_fb: ?[:0]const u8 = null;
-                    if (entry.index == 0 and entry.subindex == 0) {
-                        pv_name = null;
-                        pv_name_fb = null;
-                    } else {
-                        pv_name = try processVariableNameZ(
-                            allocator,
-                            ring_position,
-                            direction,
-                            entry.index,
-                            entry.subindex,
-                            name,
-                            pdo_name orelse "",
-                            entry_name orelse "",
-                            pv_name_prefix,
-                            false,
-                        );
-                        pv_name_fb = try processVariableNameZ(
-                            allocator,
-                            ring_position,
-                            direction,
-                            entry.index,
-                            entry.subindex,
-                            name,
-                            pdo_name orelse "",
-                            entry_name orelse "",
-                            pv_name_prefix,
-                            true,
-                        );
-                    }
-
                     try entries.append(allocator, ENI.SubdeviceConfiguration.PDO.Entry{
                         .index = entry.index,
                         .subindex = entry.subindex,
                         .bits = entry.bit_length,
                         .type = std.meta.intToEnum(gcat.Exhaustive(coe.DataTypeArea), entry.data_type) catch .UNKNOWN,
                         .description = entry_name,
-                        .pv_name = pv_name,
-                        .pv_name_fb = pv_name_fb,
                     });
                 }
 
@@ -706,81 +632,6 @@ pub fn readFullPhysicalMemory(
             1,
         );
     }
-}
-
-pub const process_variable_fmt = "subdevices/{}/{s}/{s}/0x{x:04}/{s}/0x{x:02}/{s}";
-
-/// Produces a unique process image variable name.
-pub fn processVariableNameZ(
-    allocator: std.mem.Allocator,
-    ring_position: u16,
-    direction: pdi.Direction,
-    pdo_idx: u16,
-    entry_idx: u16,
-    subdevice_name: []const u8,
-    pdo_name: []const u8,
-    entry_description: []const u8,
-    maybe_prefix: ?[]const u8,
-    comptime is_fb: bool,
-) error{OutOfMemory}![:0]const u8 {
-    const direction_str: []const u8 = if (direction == .input) "inputs" else "outputs";
-    var name: [:0]const u8 = undefined;
-    const fb_prefix_fmt = if (is_fb) "maindevice/pdi/" else "";
-    if (maybe_prefix) |prefix| {
-        name = try std.fmt.allocPrintSentinel(
-            allocator,
-            "{s}/" ++ fb_prefix_fmt ++ process_variable_fmt,
-            .{
-                prefix,
-                ring_position,
-                zenohSanitize(try allocator.dupe(u8, subdevice_name)),
-                direction_str,
-                pdo_idx,
-                zenohSanitize(try allocator.dupe(u8, pdo_name)),
-                entry_idx,
-                zenohSanitize(try allocator.dupe(u8, entry_description)),
-            },
-            0,
-        );
-    } else {
-        name = try std.fmt.allocPrintSentinel(
-            allocator,
-            fb_prefix_fmt ++ process_variable_fmt,
-            .{
-                ring_position,
-                zenohSanitize(try allocator.dupe(u8, subdevice_name)),
-                direction_str,
-                pdo_idx,
-                zenohSanitize(try allocator.dupe(u8, pdo_name)),
-                entry_idx,
-                zenohSanitize(try allocator.dupe(u8, entry_description)),
-            },
-            0,
-        );
-    }
-
-    return name;
-}
-
-/// Sanitizes untrusted input in-place for inclusion into zenoh key expressions.
-pub fn zenohSanitize(str: []u8) []u8 {
-    // the encoding of strings in ethercat is IEC 8859-1,
-    // lets just normalize to 7-bit ascii.
-    for (str) |*char| {
-        if (!std.ascii.isAscii(char.*)) {
-            char.* = '_';
-        }
-    }
-    // *, $, ?, # prohibited by zenoh
-    // / is separator
-    _ = std.mem.replace(u8, str, "*", "_", str);
-    _ = std.mem.replace(u8, str, "$", "_", str);
-    _ = std.mem.replace(u8, str, "?", "_", str);
-    _ = std.mem.replace(u8, str, "#", "_", str);
-    _ = std.mem.replace(u8, str, "/", "_", str);
-    // no whitespace (personal preference)
-    _ = std.mem.replace(u8, str, " ", "_", str);
-    return str;
 }
 
 pub fn broadcastALStatusCheck(

@@ -63,29 +63,6 @@ test Exhaustive {
     try std.testing.expectEqual(2, @intFromEnum(NewEnum.two));
 }
 
-// TODO: remove once this it is in std
-// https://github.com/ziglang/zig/issues/24471
-pub const MCL = if (native_arch.isSPARC() or native_arch.isPowerPC()) packed struct(u32) {
-    _0: u13 = 0,
-    CURRENT: bool = false,
-    FUTURE: bool = false,
-    ONFAULT: bool = false,
-    _4: u16 = 0,
-} else packed struct(u32) {
-    CURRENT: bool = false,
-    FUTURE: bool = false,
-    ONFAULT: bool = false,
-    _3: u29 = 0,
-};
-
-pub fn mlockall(flags: MCL) usize {
-    return std.os.linux.syscall1(.mlockall, @as(u32, @bitCast(flags)));
-}
-
-pub fn munlockall() usize {
-    return std.os.linux.syscall0(.munlockall);
-}
-
 pub noinline fn probeStack(comptime size: usize) void {
     var big: [size]u8 = undefined;
     const big_ptr: *volatile [size]u8 = &big;

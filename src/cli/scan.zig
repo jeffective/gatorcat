@@ -47,7 +47,7 @@ pub fn scan(allocator: std.mem.Allocator, args: Args) !void {
 
     if (args.ring_position) |ring_position| {
         std.log.info("scanning single subdevice at position: {}", .{ring_position});
-        const subdevice_eni = try scanner.readSubdeviceConfiguration(allocator, ring_position, args.PREOP_timeout_us, args.sim, args.pv_name_prefix);
+        const subdevice_eni = try scanner.readSubdeviceConfiguration(allocator, ring_position, args.PREOP_timeout_us, args.sim);
         defer subdevice_eni.deinit();
         var std_out = std.fs.File.stdout().writer(&.{});
         const writer = &std_out.interface;
@@ -61,7 +61,7 @@ pub fn scan(allocator: std.mem.Allocator, args: Args) !void {
         }
     } else {
         std.log.info("scanning all subdevices...", .{});
-        const eni = try scanner.readEni(allocator, args.PREOP_timeout_us, args.sim, args.pv_name_prefix);
+        const eni = try scanner.readEni(allocator, args.PREOP_timeout_us, args.sim);
         defer eni.deinit();
         std.log.info("scan completed", .{});
 
