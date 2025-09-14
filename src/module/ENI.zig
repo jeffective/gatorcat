@@ -22,7 +22,7 @@ subdevices: []const SubdeviceConfiguration,
 
 pub const SubdeviceConfiguration = struct {
     /// ex. "EL7031-0030"
-    name: []const u8 = &.{},
+    name: ?[]const u8 = null,
     identity: sii.SubdeviceIdentity,
     /// SDO startup parameters
     startup_parameters: []const StartupParameter = &.{},
