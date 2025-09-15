@@ -9,6 +9,7 @@ const builtin = @import("builtin");
 const gcat = @import("gatorcat");
 const zbor = @import("zbor");
 const zenoh = @import("zenoh");
+const Config = @import("Config.zig");
 
 pub const Args = struct {
     ifname: [:0]const u8,
@@ -24,8 +25,8 @@ pub const Args = struct {
     zenoh_config_default: bool = false,
     zenoh_config_file: ?[:0]const u8 = null,
     zenoh_log_level: ZenohLogLevel = .@"error",
-    eni_file: ?[:0]const u8 = null,
-    eni_file_json: ?[:0]const u8 = null,
+    config_file: ?[:0]const u8 = null,
+    config_file_json: ?[:0]const u8 = null,
     rt_prio: ?i32 = null,
     verbose: bool = false,
     mlockall: bool = false,
@@ -44,8 +45,8 @@ pub const Args = struct {
         .cycle_time_us = "Cycle time in microseconds. Example: 10000",
         .zenoh_config_default = "Enable zenoh and use the default zenoh configuration.",
         .zenoh_config_file = "Enable zenoh and use this file path for the zenoh configuration. Example: path/to/comfig.json5",
-        .eni_file = "Path to ethercat nework information file (as ZON). See output of `gatorcat scan` for an example.",
-        .eni_file_json = "Same as --eni-file but as JSON.",
+        .config_file = "Path to config file (as ZON). See output of `gatorcat scan` for an example.",
+        .config_file_json = "Same as --config-file but as JSON.",
         .rt_prio = "Set a real-time priority for this process. Does nothing on windows.",
         .verbose = "Enable verbose logs.",
         .mlockall = "Do mlockall syscall to prevent this process' memory from being swapped. Improves real-time performance. Only applicable to linux.",
@@ -58,8 +59,8 @@ pub const RunError = error{
 };
 
 pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
-    if (args.eni_file_json != null and args.eni_file != null) {
-        std.log.err("only one of --eni-file and --eni-file-json is allowed", .{});
+    if (args.config_file_json != null and args.config_file != null) {
+        std.log.err("only one of --config-file and --config-file-json is allowed", .{});
         return error.NonRecoverable;
     }
     if (builtin.os.tag == .linux) {
@@ -152,16 +153,16 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
             break :blk selected_cycle_time;
         };
 
-        const eni = blk: {
-            if (args.eni_file) |eni_file_path| {
-                const eni = gcat.ENI.fromFile(allocator, eni_file_path, 1e9) catch return error.NonRecoverable;
-                std.log.warn("Loaded ENI: {s}", .{eni_file_path});
-                break :blk eni;
+        const config = blk: {
+            if (args.config_file) |config_file_path| {
+                const config = Config.fromFile(allocator, config_file_path, 1e9) catch return error.NonRecoverable;
+                std.log.warn("Loaded config: {s}", .{config_file_path});
+                break :blk config;
             }
-            if (args.eni_file_json) |eni_file_path| {
-                const eni = gcat.ENI.fromFileJson(allocator, eni_file_path, 1e9) catch return error.NonRecoverable;
-                std.log.warn("Loaded ENI: {s}", .{eni_file_path});
-                break :blk eni;
+            if (args.config_file_json) |config_file_path| {
+                const config = Config.fromFileJson(allocator, config_file_path, 1e9) catch return error.NonRecoverable;
+                std.log.warn("Loaded config: {s}", .{config_file_path});
+                break :blk config;
             }
             std.log.warn("Scanning bus...", .{});
             var scanner = gcat.Scanner.init(&port, .{
@@ -183,7 +184,12 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
                 error.RecvTimeout, error.Wkc => continue :bus_scan,
             };
 
-            break :blk scanner.readEni(allocator, args.preop_timeout_us, false) catch |err| switch (err) {
+            const arena = allocator.create(std.heap.ArenaAllocator) catch return error.NonRecoverable;
+            errdefer allocator.destroy(arena);
+            arena.* = .init(allocator);
+            errdefer arena.deinit();
+
+            const eni = scanner.readEniLeaky(arena.allocator(), args.preop_timeout_us, false) catch |err| switch (err) {
                 error.EndOfStream,
                 error.ReadFailed,
                 error.LinkError,
@@ -210,15 +216,16 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
                 error.StartupParametersFailed,
                 => continue :bus_scan,
             };
+            break :blk gcat.Arena(Config){ .arena = arena, .value = Config{ .eni = eni } };
         };
 
-        defer eni.deinit();
+        defer config.deinit();
 
         var md = gcat.MainDevice.init(
             allocator,
             &port,
             .{ .eeprom_timeout_us = args.eeprom_timeout_us, .mbx_timeout_us = args.mbx_timeout_us, .recv_timeout_us = args.recv_timeout_us },
-            eni.value,
+            config.value.eni,
         ) catch |err| switch (err) {
             error.OutOfMemory => return error.NonRecoverable,
         };

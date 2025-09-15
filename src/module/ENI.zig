@@ -329,8 +329,9 @@ pub fn ImageType(config: SubdeviceConfiguration, ring_position: u16) std.builtin
             .is_tuple = false,
         },
     });
+    comptime assert(config.name != null);
     return std.builtin.Type.StructField{
-        .name = std.fmt.comptimePrint("s{}_{s}", .{ ring_position, config.name }),
+        .name = std.fmt.comptimePrint("s{}_{s}", .{ ring_position, config.name.? }),
         .alignment = 0,
         .default_value_ptr = null,
         .is_comptime = false,
@@ -465,7 +466,7 @@ pub fn nInputs(self: ENI) u32 {
     for (self.subdevices) |subdevice| {
         for (subdevice.inputs) |input| {
             for (input.entries) |entry| {
-                if (!entry.isGap()) |_| {
+                if (!entry.isGap()) {
                     result += 1;
                 }
             }
@@ -481,7 +482,7 @@ pub fn nOutputs(self: ENI) u32 {
     for (self.subdevices) |subdevice| {
         for (subdevice.outputs) |output| {
             for (output.entries) |entry| {
-                if (entry.isGap()) |_| {
+                if (entry.isGap()) {
                     result += 1;
                 }
             }

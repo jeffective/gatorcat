@@ -24,7 +24,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Output",
-                    .pv_name = "subdevices/1/EL2008/outputs/0x7000/Channel_1/0x01/Output",
                 }},
                 .name = "Channel 1",
             },
@@ -36,7 +35,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Output",
-                    .pv_name = "subdevices/1/EL2008/outputs/0x7010/Channel_2/0x01/Output",
                 }},
                 .name = "Channel 2",
             },
@@ -48,7 +46,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Output",
-                    .pv_name = "subdevices/1/EL2008/outputs/0x7020/Channel_3/0x01/Output",
                 }},
                 .name = "Channel 3",
             },
@@ -60,7 +57,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Output",
-                    .pv_name = "subdevices/1/EL2008/outputs/0x7030/Channel_4/0x01/Output",
                 }},
                 .name = "Channel 4",
             },
@@ -72,7 +68,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Output",
-                    .pv_name = "subdevices/1/EL2008/outputs/0x7040/Channel_5/0x01/Output",
                 }},
                 .name = "Channel 5",
             },
@@ -84,7 +79,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Output",
-                    .pv_name = "subdevices/1/EL2008/outputs/0x7050/Channel_6/0x01/Output",
                 }},
                 .name = "Channel 6",
             },
@@ -96,7 +90,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Output",
-                    .pv_name = "subdevices/1/EL2008/outputs/0x7060/Channel_7/0x01/Output",
                 }},
                 .name = "Channel 7",
             },
@@ -108,7 +101,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Output",
-                    .pv_name = "subdevices/1/EL2008/outputs/0x7070/Channel_8/0x01/Output",
                 }},
                 .name = "Channel 8",
             },
@@ -132,7 +124,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Underrange",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6000/TC_TxPDO-MapCh.1/0x01/Underrange",
                     },
                     .{
                         .index = 24576,
@@ -140,7 +131,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Overrange",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6000/TC_TxPDO-MapCh.1/0x02/Overrange",
                     },
                     .{
                         .index = 24576,
@@ -148,7 +138,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 1",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6000/TC_TxPDO-MapCh.1/0x03/Limit_1",
                     },
                     .{
                         .index = 24576,
@@ -156,7 +145,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 2",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6000/TC_TxPDO-MapCh.1/0x05/Limit_2",
                     },
                     .{
                         .index = 24576,
@@ -164,7 +152,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Error",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6000/TC_TxPDO-MapCh.1/0x07/Error",
                     },
                     .{ .bits = 7 },
                     .{
@@ -173,7 +160,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO State",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6000/TC_TxPDO-MapCh.1/0x0f/TxPDO_State",
                     },
                     .{
                         .index = 6144,
@@ -181,7 +167,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO Toggle",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x1800/TC_TxPDO-MapCh.1/0x09/TxPDO_Toggle",
                     },
                     .{
                         .index = 24576,
@@ -189,7 +174,6 @@
                         .type = .INTEGER16,
                         .bits = 16,
                         .description = "Value",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6000/TC_TxPDO-MapCh.1/0x11/Value",
                     },
                 },
                 .name = "TC TxPDO-MapCh.1",
@@ -203,7 +187,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Underrange",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6010/TC_TxPDO-MapCh.2/0x01/Underrange",
                     },
                     .{
                         .index = 24592,
@@ -211,7 +194,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Overrange",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6010/TC_TxPDO-MapCh.2/0x02/Overrange",
                     },
                     .{
                         .index = 24592,
@@ -219,7 +201,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 1",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6010/TC_TxPDO-MapCh.2/0x03/Limit_1",
                     },
                     .{
                         .index = 24592,
@@ -227,7 +208,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 2",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6010/TC_TxPDO-MapCh.2/0x05/Limit_2",
                     },
                     .{
                         .index = 24592,
@@ -235,7 +215,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Error",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6010/TC_TxPDO-MapCh.2/0x07/Error",
                     },
                     .{ .bits = 7 },
                     .{
@@ -244,7 +223,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO State",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6010/TC_TxPDO-MapCh.2/0x0f/TxPDO_State",
                     },
                     .{
                         .index = 6145,
@@ -252,7 +230,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO Toggle",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x1801/TC_TxPDO-MapCh.2/0x09/TxPDO_Toggle",
                     },
                     .{
                         .index = 24592,
@@ -260,7 +237,6 @@
                         .type = .INTEGER16,
                         .bits = 16,
                         .description = "Value",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6010/TC_TxPDO-MapCh.2/0x11/Value",
                     },
                 },
                 .name = "TC TxPDO-MapCh.2",
@@ -274,7 +250,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Underrange",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6020/TC_TxPDO-MapCh.3/0x01/Underrange",
                     },
                     .{
                         .index = 24608,
@@ -282,7 +257,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Overrange",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6020/TC_TxPDO-MapCh.3/0x02/Overrange",
                     },
                     .{
                         .index = 24608,
@@ -290,7 +264,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 1",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6020/TC_TxPDO-MapCh.3/0x03/Limit_1",
                     },
                     .{
                         .index = 24608,
@@ -298,7 +271,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 2",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6020/TC_TxPDO-MapCh.3/0x05/Limit_2",
                     },
                     .{
                         .index = 24608,
@@ -306,7 +278,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Error",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6020/TC_TxPDO-MapCh.3/0x07/Error",
                     },
                     .{ .bits = 7 },
                     .{
@@ -315,7 +286,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO State",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6020/TC_TxPDO-MapCh.3/0x0f/TxPDO_State",
                     },
                     .{
                         .index = 6146,
@@ -323,7 +293,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO Toggle",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x1802/TC_TxPDO-MapCh.3/0x09/TxPDO_Toggle",
                     },
                     .{
                         .index = 24608,
@@ -331,7 +300,6 @@
                         .type = .INTEGER16,
                         .bits = 16,
                         .description = "Value",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6020/TC_TxPDO-MapCh.3/0x11/Value",
                     },
                 },
                 .name = "TC TxPDO-MapCh.3",
@@ -345,7 +313,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Underrange",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6030/TC_TxPDO-MapCh.4/0x01/Underrange",
                     },
                     .{
                         .index = 24624,
@@ -353,7 +320,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Overrange",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6030/TC_TxPDO-MapCh.4/0x02/Overrange",
                     },
                     .{
                         .index = 24624,
@@ -361,7 +327,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 1",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6030/TC_TxPDO-MapCh.4/0x03/Limit_1",
                     },
                     .{
                         .index = 24624,
@@ -369,7 +334,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 2",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6030/TC_TxPDO-MapCh.4/0x05/Limit_2",
                     },
                     .{
                         .index = 24624,
@@ -377,7 +341,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Error",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6030/TC_TxPDO-MapCh.4/0x07/Error",
                     },
                     .{ .bits = 7 },
                     .{
@@ -386,7 +349,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO State",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6030/TC_TxPDO-MapCh.4/0x0f/TxPDO_State",
                     },
                     .{
                         .index = 6147,
@@ -394,7 +356,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO Toggle",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x1803/TC_TxPDO-MapCh.4/0x09/TxPDO_Toggle",
                     },
                     .{
                         .index = 24624,
@@ -402,7 +363,6 @@
                         .type = .INTEGER16,
                         .bits = 16,
                         .description = "Value",
-                        .pv_name = "subdevices/2/EL3314/inputs/0x6030/TC_TxPDO-MapCh.4/0x11/Value",
                     },
                 },
                 .name = "TC TxPDO-MapCh.4",
@@ -428,7 +388,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Latch extern valid",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x02/Latch_extern_valid",
                     },
                     .{
                         .index = 24576,
@@ -436,7 +395,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Set counter done",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x03/Set_counter_done",
                     },
                     .{
                         .index = 24576,
@@ -444,7 +402,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Counter underflow",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x04/Counter_underflow",
                     },
                     .{
                         .index = 24576,
@@ -452,7 +409,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Counter overflow",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x05/Counter_overflow",
                     },
                     .{ .bits = 3 },
                     .{ .bits = 4 },
@@ -462,7 +418,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Status of extern latch",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x0d/Status_of_extern_latch",
                     },
                     .{
                         .index = 24576,
@@ -470,7 +425,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Sync error",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x0e/Sync_error",
                     },
                     .{ .bits = 1 },
                     .{
@@ -479,7 +433,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO Toggle",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x10/TxPDO_Toggle",
                     },
                     .{
                         .index = 24576,
@@ -487,7 +440,6 @@
                         .type = .UNSIGNED32,
                         .bits = 16,
                         .description = "Counter value",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x11/Counter_value",
                     },
                     .{
                         .index = 24576,
@@ -495,7 +447,6 @@
                         .type = .UNSIGNED32,
                         .bits = 16,
                         .description = "Latch value",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x12/Latch_value",
                     },
                 },
                 .name = "ENC TxPDO-Map Status compact",
@@ -509,7 +460,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Ready to enable",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6010/STM_TxPDO-Map_Status/0x01/Ready_to_enable",
                     },
                     .{
                         .index = 24592,
@@ -517,7 +467,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Ready",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6010/STM_TxPDO-Map_Status/0x02/Ready",
                     },
                     .{
                         .index = 24592,
@@ -525,7 +474,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Warning",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6010/STM_TxPDO-Map_Status/0x03/Warning",
                     },
                     .{
                         .index = 24592,
@@ -533,7 +481,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Error",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6010/STM_TxPDO-Map_Status/0x04/Error",
                     },
                     .{
                         .index = 24592,
@@ -541,7 +488,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Moving positive",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6010/STM_TxPDO-Map_Status/0x05/Moving_positive",
                     },
                     .{
                         .index = 24592,
@@ -549,7 +495,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Moving negative",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6010/STM_TxPDO-Map_Status/0x06/Moving_negative",
                     },
                     .{
                         .index = 24592,
@@ -557,7 +502,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Torque reduced",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6010/STM_TxPDO-Map_Status/0x07/Torque_reduced",
                     },
                     .{ .bits = 1 },
                     .{ .bits = 3 },
@@ -567,7 +511,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Digital input 1",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6010/STM_TxPDO-Map_Status/0x0c/Digital_input_1",
                     },
                     .{
                         .index = 24592,
@@ -575,7 +518,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Digital input 2",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6010/STM_TxPDO-Map_Status/0x0d/Digital_input_2",
                     },
                     .{
                         .index = 24592,
@@ -583,7 +525,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Sync error",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6010/STM_TxPDO-Map_Status/0x0e/Sync_error",
                     },
                     .{ .bits = 1 },
                     .{
@@ -592,7 +533,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO Toggle",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6010/STM_TxPDO-Map_Status/0x10/TxPDO_Toggle",
                     },
                 },
                 .name = "STM TxPDO-Map Status",
@@ -606,7 +546,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Underrange",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6030/AI_TxPDO-Map_Standard_Ch.1/0x01/Underrange",
                     },
                     .{
                         .index = 24624,
@@ -614,7 +553,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Overrange",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6030/AI_TxPDO-Map_Standard_Ch.1/0x02/Overrange",
                     },
                     .{
                         .index = 24624,
@@ -622,7 +560,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 1",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6030/AI_TxPDO-Map_Standard_Ch.1/0x03/Limit_1",
                     },
                     .{
                         .index = 24624,
@@ -630,7 +567,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 2",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6030/AI_TxPDO-Map_Standard_Ch.1/0x05/Limit_2",
                     },
                     .{ .bits = 2 },
                     .{ .bits = 7 },
@@ -640,7 +576,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO Toggle",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6030/AI_TxPDO-Map_Standard_Ch.1/0x10/TxPDO_Toggle",
                     },
                     .{
                         .index = 24624,
@@ -648,7 +583,6 @@
                         .type = .INTEGER16,
                         .bits = 16,
                         .description = "Value",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6030/AI_TxPDO-Map_Standard_Ch.1/0x11/Value",
                     },
                 },
                 .name = "AI TxPDO-Map Standard Ch.1",
@@ -662,7 +596,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Underrange",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6040/AI_TxPDO-Map_Standard_Ch.2/0x01/Underrange",
                     },
                     .{
                         .index = 24640,
@@ -670,7 +603,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Overrange",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6040/AI_TxPDO-Map_Standard_Ch.2/0x02/Overrange",
                     },
                     .{
                         .index = 24640,
@@ -678,7 +610,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 1",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6040/AI_TxPDO-Map_Standard_Ch.2/0x03/Limit_1",
                     },
                     .{
                         .index = 24640,
@@ -686,7 +617,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 2",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6040/AI_TxPDO-Map_Standard_Ch.2/0x05/Limit_2",
                     },
                     .{ .bits = 2 },
                     .{ .bits = 7 },
@@ -696,7 +626,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO Toggle",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6040/AI_TxPDO-Map_Standard_Ch.2/0x10/TxPDO_Toggle",
                     },
                     .{
                         .index = 24640,
@@ -704,7 +633,6 @@
                         .type = .INTEGER16,
                         .bits = 16,
                         .description = "Value",
-                        .pv_name = "subdevices/3/EL7031-0030/inputs/0x6040/AI_TxPDO-Map_Standard_Ch.2/0x11/Value",
                     },
                 },
                 .name = "AI TxPDO-Map Standard Ch.2",
@@ -721,7 +649,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Enable latch extern on positive edge",
-                        .pv_name = "subdevices/3/EL7031-0030/outputs/0x7000/ENC_RxPDO-Map_Control_compact/0x02/Enable_latch_extern_on_positive_edge",
                     },
                     .{
                         .index = 28672,
@@ -729,7 +656,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Set counter",
-                        .pv_name = "subdevices/3/EL7031-0030/outputs/0x7000/ENC_RxPDO-Map_Control_compact/0x03/Set_counter",
                     },
                     .{
                         .index = 28672,
@@ -737,7 +663,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Enable latch extern on negative edge",
-                        .pv_name = "subdevices/3/EL7031-0030/outputs/0x7000/ENC_RxPDO-Map_Control_compact/0x04/Enable_latch_extern_on_negative_edge",
                     },
                     .{ .bits = 4 },
                     .{ .bits = 8 },
@@ -747,7 +672,6 @@
                         .type = .UNSIGNED32,
                         .bits = 16,
                         .description = "Set counter value",
-                        .pv_name = "subdevices/3/EL7031-0030/outputs/0x7000/ENC_RxPDO-Map_Control_compact/0x11/Set_counter_value",
                     },
                 },
                 .name = "ENC RxPDO-Map Control compact",
@@ -761,7 +685,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Enable",
-                        .pv_name = "subdevices/3/EL7031-0030/outputs/0x7010/STM_RxPDO-Map_Control/0x01/Enable",
                     },
                     .{
                         .index = 28688,
@@ -769,7 +692,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Reset",
-                        .pv_name = "subdevices/3/EL7031-0030/outputs/0x7010/STM_RxPDO-Map_Control/0x02/Reset",
                     },
                     .{
                         .index = 28688,
@@ -777,7 +699,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Reduce torque",
-                        .pv_name = "subdevices/3/EL7031-0030/outputs/0x7010/STM_RxPDO-Map_Control/0x03/Reduce_torque",
                     },
                     .{ .bits = 5 },
                     .{ .bits = 8 },
@@ -792,7 +713,6 @@
                     .type = .INTEGER16,
                     .bits = 16,
                     .description = "Velocity",
-                    .pv_name = "subdevices/3/EL7031-0030/outputs/0x7010/STM_RxPDO-Map_Velocity/0x21/Velocity",
                 }},
                 .name = "STM RxPDO-Map Velocity",
             },
@@ -815,7 +735,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Underrange",
-                    .pv_name = "subdevices/4/EL3062/inputs/0x6000/_AI_TxPDO-Map_Standard_Ch.1/0x01/Underrange",
                 },
                 .{
                     .index = 24576,
@@ -823,7 +742,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Overrange",
-                    .pv_name = "subdevices/4/EL3062/inputs/0x6000/_AI_TxPDO-Map_Standard_Ch.1/0x02/Overrange",
                 },
                 .{
                     .index = 24576,
@@ -831,7 +749,6 @@
                     .type = .BIT2,
                     .bits = 2,
                     .description = "Limit 1",
-                    .pv_name = "subdevices/4/EL3062/inputs/0x6000/_AI_TxPDO-Map_Standard_Ch.1/0x03/Limit_1",
                 },
                 .{
                     .index = 24576,
@@ -839,7 +756,6 @@
                     .type = .BIT2,
                     .bits = 2,
                     .description = "Limit 2",
-                    .pv_name = "subdevices/4/EL3062/inputs/0x6000/_AI_TxPDO-Map_Standard_Ch.1/0x05/Limit_2",
                 },
                 .{
                     .index = 24576,
@@ -847,7 +763,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Error",
-                    .pv_name = "subdevices/4/EL3062/inputs/0x6000/_AI_TxPDO-Map_Standard_Ch.1/0x07/Error",
                 },
                 .{ .bits = 1 },
                 .{ .bits = 5 },
@@ -857,7 +772,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "TxPDO State",
-                    .pv_name = "subdevices/4/EL3062/inputs/0x1800/_AI_TxPDO-Map_Standard_Ch.1/0x07/TxPDO_State",
                 },
                 .{
                     .index = 6144,
@@ -865,7 +779,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "TxPDO Toggle",
-                    .pv_name = "subdevices/4/EL3062/inputs/0x1800/_AI_TxPDO-Map_Standard_Ch.1/0x09/TxPDO_Toggle",
                 },
                 .{ .bits = 1 },
                 .{
@@ -874,7 +787,6 @@
                     .type = .INTEGER16,
                     .bits = 16,
                     .description = "Value",
-                    .pv_name = "subdevices/4/EL3062/inputs/0x6000/_AI_TxPDO-Map_Standard_Ch.1/0x11/Value",
                 },
             },
             .name = "\xfcAI TxPDO-Map Standard Ch.1",
@@ -887,7 +799,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Underrange",
-                    .pv_name = "subdevices/4/EL3062/inputs/0x6010/AI_TxPDO-Map_Standard_Ch.2/0x01/Underrange",
                 },
                 .{
                     .index = 24592,
@@ -895,7 +806,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Overrange",
-                    .pv_name = "subdevices/4/EL3062/inputs/0x6010/AI_TxPDO-Map_Standard_Ch.2/0x02/Overrange",
                 },
                 .{
                     .index = 24592,
@@ -903,7 +813,6 @@
                     .type = .BIT2,
                     .bits = 2,
                     .description = "Limit 1",
-                    .pv_name = "subdevices/4/EL3062/inputs/0x6010/AI_TxPDO-Map_Standard_Ch.2/0x03/Limit_1",
                 },
                 .{
                     .index = 24592,
@@ -911,7 +820,6 @@
                     .type = .BIT2,
                     .bits = 2,
                     .description = "Limit 2",
-                    .pv_name = "subdevices/4/EL3062/inputs/0x6010/AI_TxPDO-Map_Standard_Ch.2/0x05/Limit_2",
                 },
                 .{
                     .index = 24592,
@@ -919,7 +827,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Error",
-                    .pv_name = "subdevices/4/EL3062/inputs/0x6010/AI_TxPDO-Map_Standard_Ch.2/0x07/Error",
                 },
                 .{ .bits = 1 },
                 .{ .bits = 5 },
@@ -929,7 +836,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "TxPDO State",
-                    .pv_name = "subdevices/4/EL3062/inputs/0x1802/AI_TxPDO-Map_Standard_Ch.2/0x07/TxPDO_State",
                 },
                 .{
                     .index = 6146,
@@ -937,7 +843,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "TxPDO Toggle",
-                    .pv_name = "subdevices/4/EL3062/inputs/0x1802/AI_TxPDO-Map_Standard_Ch.2/0x09/TxPDO_Toggle",
                 },
                 .{ .bits = 1 },
                 .{
@@ -946,7 +851,6 @@
                     .type = .INTEGER16,
                     .bits = 16,
                     .description = "Value",
-                    .pv_name = "subdevices/4/EL3062/inputs/0x6010/AI_TxPDO-Map_Standard_Ch.2/0x11/Value",
                 },
             },
             .name = "AI TxPDO-Map Standard Ch.2",
@@ -969,7 +873,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Latch C valid",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x01/Latch_C_valid",
                 },
                 .{
                     .index = 24576,
@@ -977,7 +880,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Latch extern valid",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x02/Latch_extern_valid",
                 },
                 .{
                     .index = 24576,
@@ -985,7 +887,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Set counter done",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x03/Set_counter_done",
                 },
                 .{
                     .index = 24576,
@@ -993,7 +894,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Counter underflow",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x04/Counter_underflow",
                 },
                 .{
                     .index = 24576,
@@ -1001,7 +901,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Counter overflow",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x05/Counter_overflow",
                 },
                 .{ .bits = 2 },
                 .{
@@ -1010,7 +909,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Extrapolation stall",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x08/Extrapolation_stall",
                 },
                 .{
                     .index = 24576,
@@ -1018,7 +916,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Status of input A",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x09/Status_of_input_A",
                 },
                 .{
                     .index = 24576,
@@ -1026,7 +923,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Status of input B",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x0a/Status_of_input_B",
                 },
                 .{
                     .index = 24576,
@@ -1034,7 +930,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Status of input C",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x0b/Status_of_input_C",
                 },
                 .{ .bits = 1 },
                 .{
@@ -1043,7 +938,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Status of extern latch",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x0d/Status_of_extern_latch",
                 },
                 .{
                     .index = 24576,
@@ -1051,7 +945,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Sync error",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x0e/Sync_error",
                 },
                 .{ .bits = 1 },
                 .{
@@ -1060,7 +953,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "TxPDO Toggle",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x10/TxPDO_Toggle",
                 },
                 .{
                     .index = 24576,
@@ -1068,7 +960,6 @@
                     .type = .UNSIGNED32,
                     .bits = 16,
                     .description = "Counter value",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x11/Counter_value",
                 },
                 .{
                     .index = 24576,
@@ -1076,7 +967,6 @@
                     .type = .UNSIGNED32,
                     .bits = 16,
                     .description = "Latch value",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6000/ENC_TxPDO-Map_Status_compact/0x12/Latch_value",
                 },
             },
             .name = "ENC TxPDO-Map Status compact",
@@ -1089,7 +979,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Ready to enable",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6010/STM_TxPDO-Map_Status/0x01/Ready_to_enable",
                 },
                 .{
                     .index = 24592,
@@ -1097,7 +986,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Ready",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6010/STM_TxPDO-Map_Status/0x02/Ready",
                 },
                 .{
                     .index = 24592,
@@ -1105,7 +993,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Warning",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6010/STM_TxPDO-Map_Status/0x03/Warning",
                 },
                 .{
                     .index = 24592,
@@ -1113,7 +1000,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Error",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6010/STM_TxPDO-Map_Status/0x04/Error",
                 },
                 .{
                     .index = 24592,
@@ -1121,7 +1007,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Moving positive",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6010/STM_TxPDO-Map_Status/0x05/Moving_positive",
                 },
                 .{
                     .index = 24592,
@@ -1129,7 +1014,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Moving negative",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6010/STM_TxPDO-Map_Status/0x06/Moving_negative",
                 },
                 .{
                     .index = 24592,
@@ -1137,7 +1021,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Torque reduced",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6010/STM_TxPDO-Map_Status/0x07/Torque_reduced",
                 },
                 .{ .bits = 1 },
                 .{ .bits = 3 },
@@ -1147,7 +1030,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Digital input 1",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6010/STM_TxPDO-Map_Status/0x0c/Digital_input_1",
                 },
                 .{
                     .index = 24592,
@@ -1155,7 +1037,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Digital input 2",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6010/STM_TxPDO-Map_Status/0x0d/Digital_input_2",
                 },
                 .{
                     .index = 24592,
@@ -1163,7 +1044,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "Sync error",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6010/STM_TxPDO-Map_Status/0x0e/Sync_error",
                 },
                 .{ .bits = 1 },
                 .{
@@ -1172,7 +1052,6 @@
                     .type = .BOOLEAN,
                     .bits = 1,
                     .description = "TxPDO Toggle",
-                    .pv_name = "subdevices/5/EL7041/inputs/0x6010/STM_TxPDO-Map_Status/0x10/TxPDO_Toggle",
                 },
             },
             .name = "STM TxPDO-Map Status",
@@ -1187,7 +1066,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Enable latch C",
-                        .pv_name = "subdevices/5/EL7041/outputs/0x7000/ENC_RxPDO-Map_Control_compact/0x01/Enable_latch_C",
                     },
                     .{
                         .index = 28672,
@@ -1195,7 +1073,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Enable latch extern on positive edge",
-                        .pv_name = "subdevices/5/EL7041/outputs/0x7000/ENC_RxPDO-Map_Control_compact/0x02/Enable_latch_extern_on_positive_edge",
                     },
                     .{
                         .index = 28672,
@@ -1203,7 +1080,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Set counter",
-                        .pv_name = "subdevices/5/EL7041/outputs/0x7000/ENC_RxPDO-Map_Control_compact/0x03/Set_counter",
                     },
                     .{
                         .index = 28672,
@@ -1211,7 +1087,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Enable latch extern on negative edge",
-                        .pv_name = "subdevices/5/EL7041/outputs/0x7000/ENC_RxPDO-Map_Control_compact/0x04/Enable_latch_extern_on_negative_edge",
                     },
                     .{ .bits = 4 },
                     .{ .bits = 8 },
@@ -1221,7 +1096,6 @@
                         .type = .UNSIGNED32,
                         .bits = 16,
                         .description = "Set counter value",
-                        .pv_name = "subdevices/5/EL7041/outputs/0x7000/ENC_RxPDO-Map_Control_compact/0x11/Set_counter_value",
                     },
                 },
                 .name = "ENC RxPDO-Map Control compact",
@@ -1235,7 +1109,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Enable",
-                        .pv_name = "subdevices/5/EL7041/outputs/0x7010/STM_RxPDO-Map_Control/0x01/Enable",
                     },
                     .{
                         .index = 28688,
@@ -1243,7 +1116,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Reset",
-                        .pv_name = "subdevices/5/EL7041/outputs/0x7010/STM_RxPDO-Map_Control/0x02/Reset",
                     },
                     .{
                         .index = 28688,
@@ -1251,7 +1123,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Reduce torque",
-                        .pv_name = "subdevices/5/EL7041/outputs/0x7010/STM_RxPDO-Map_Control/0x03/Reduce_torque",
                     },
                     .{ .bits = 5 },
                     .{ .bits = 8 },
@@ -1266,7 +1137,6 @@
                     .type = .INTEGER16,
                     .bits = 16,
                     .description = "Velocity",
-                    .pv_name = "subdevices/5/EL7041/outputs/0x7010/STM_RxPDO-Map_Velocity/0x21/Velocity",
                 }},
                 .name = "STM RxPDO-Map Velocity",
             },
@@ -1290,7 +1160,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Underrange",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6000/AI_TxPDO-Map_Standard_Ch.1/0x01/Underrange",
                     },
                     .{
                         .index = 24576,
@@ -1298,7 +1167,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Overrange",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6000/AI_TxPDO-Map_Standard_Ch.1/0x02/Overrange",
                     },
                     .{
                         .index = 24576,
@@ -1306,7 +1174,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 1",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6000/AI_TxPDO-Map_Standard_Ch.1/0x03/Limit_1",
                     },
                     .{
                         .index = 24576,
@@ -1314,7 +1181,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 2",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6000/AI_TxPDO-Map_Standard_Ch.1/0x05/Limit_2",
                     },
                     .{
                         .index = 24576,
@@ -1322,7 +1188,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Error",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6000/AI_TxPDO-Map_Standard_Ch.1/0x07/Error",
                     },
                     .{ .bits = 1 },
                     .{ .bits = 6 },
@@ -1332,7 +1197,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO State",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6000/AI_TxPDO-Map_Standard_Ch.1/0x0f/TxPDO_State",
                     },
                     .{
                         .index = 24576,
@@ -1340,7 +1204,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO Toggle",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6000/AI_TxPDO-Map_Standard_Ch.1/0x10/TxPDO_Toggle",
                     },
                     .{
                         .index = 24576,
@@ -1348,7 +1211,6 @@
                         .type = .INTEGER16,
                         .bits = 16,
                         .description = "Value",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6000/AI_TxPDO-Map_Standard_Ch.1/0x11/Value",
                     },
                 },
                 .name = "AI TxPDO-Map Standard Ch.1",
@@ -1362,7 +1224,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Underrange",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6010/AI_TxPDO-Map_Standard_Ch.2/0x01/Underrange",
                     },
                     .{
                         .index = 24592,
@@ -1370,7 +1231,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Overrange",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6010/AI_TxPDO-Map_Standard_Ch.2/0x02/Overrange",
                     },
                     .{
                         .index = 24592,
@@ -1378,7 +1238,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 1",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6010/AI_TxPDO-Map_Standard_Ch.2/0x03/Limit_1",
                     },
                     .{
                         .index = 24592,
@@ -1386,7 +1245,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 2",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6010/AI_TxPDO-Map_Standard_Ch.2/0x05/Limit_2",
                     },
                     .{
                         .index = 24592,
@@ -1394,7 +1252,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Error",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6010/AI_TxPDO-Map_Standard_Ch.2/0x07/Error",
                     },
                     .{ .bits = 1 },
                     .{ .bits = 6 },
@@ -1404,7 +1261,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO State",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6010/AI_TxPDO-Map_Standard_Ch.2/0x0f/TxPDO_State",
                     },
                     .{
                         .index = 24592,
@@ -1412,7 +1268,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO Toggle",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6010/AI_TxPDO-Map_Standard_Ch.2/0x10/TxPDO_Toggle",
                     },
                     .{
                         .index = 24592,
@@ -1420,7 +1275,6 @@
                         .type = .INTEGER16,
                         .bits = 16,
                         .description = "Value",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6010/AI_TxPDO-Map_Standard_Ch.2/0x11/Value",
                     },
                 },
                 .name = "AI TxPDO-Map Standard Ch.2",
@@ -1434,7 +1288,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Underrange",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6020/AI_TxPDO-Map_Standard_Ch.3/0x01/Underrange",
                     },
                     .{
                         .index = 24608,
@@ -1442,7 +1295,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Overrange",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6020/AI_TxPDO-Map_Standard_Ch.3/0x02/Overrange",
                     },
                     .{
                         .index = 24608,
@@ -1450,7 +1302,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 1",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6020/AI_TxPDO-Map_Standard_Ch.3/0x03/Limit_1",
                     },
                     .{
                         .index = 24608,
@@ -1458,7 +1309,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 2",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6020/AI_TxPDO-Map_Standard_Ch.3/0x05/Limit_2",
                     },
                     .{
                         .index = 24608,
@@ -1466,7 +1316,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Error",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6020/AI_TxPDO-Map_Standard_Ch.3/0x07/Error",
                     },
                     .{ .bits = 1 },
                     .{ .bits = 6 },
@@ -1476,7 +1325,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO State",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6020/AI_TxPDO-Map_Standard_Ch.3/0x0f/TxPDO_State",
                     },
                     .{
                         .index = 24608,
@@ -1484,7 +1332,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO Toggle",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6020/AI_TxPDO-Map_Standard_Ch.3/0x10/TxPDO_Toggle",
                     },
                     .{
                         .index = 24608,
@@ -1492,7 +1339,6 @@
                         .type = .INTEGER16,
                         .bits = 16,
                         .description = "Value",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6020/AI_TxPDO-Map_Standard_Ch.3/0x11/Value",
                     },
                 },
                 .name = "AI TxPDO-Map Standard Ch.3",
@@ -1506,7 +1352,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Underrange",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6030/AI_TxPDO-Map_Standard_Ch.4/0x01/Underrange",
                     },
                     .{
                         .index = 24624,
@@ -1514,7 +1359,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Overrange",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6030/AI_TxPDO-Map_Standard_Ch.4/0x02/Overrange",
                     },
                     .{
                         .index = 24624,
@@ -1522,7 +1366,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 1",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6030/AI_TxPDO-Map_Standard_Ch.4/0x03/Limit_1",
                     },
                     .{
                         .index = 24624,
@@ -1530,7 +1373,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 2",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6030/AI_TxPDO-Map_Standard_Ch.4/0x05/Limit_2",
                     },
                     .{
                         .index = 24624,
@@ -1538,7 +1380,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Error",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6030/AI_TxPDO-Map_Standard_Ch.4/0x07/Error",
                     },
                     .{ .bits = 1 },
                     .{ .bits = 6 },
@@ -1548,7 +1389,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO State",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6030/AI_TxPDO-Map_Standard_Ch.4/0x0f/TxPDO_State",
                     },
                     .{
                         .index = 24624,
@@ -1556,7 +1396,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO Toggle",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6030/AI_TxPDO-Map_Standard_Ch.4/0x10/TxPDO_Toggle",
                     },
                     .{
                         .index = 24624,
@@ -1564,7 +1403,6 @@
                         .type = .INTEGER16,
                         .bits = 16,
                         .description = "Value",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6030/AI_TxPDO-Map_Standard_Ch.4/0x11/Value",
                     },
                 },
                 .name = "AI TxPDO-Map Standard Ch.4",
@@ -1578,7 +1416,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Underrange",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6040/AI_TxPDO-Map_Standard_Ch.5/0x01/Underrange",
                     },
                     .{
                         .index = 24640,
@@ -1586,7 +1423,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Overrange",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6040/AI_TxPDO-Map_Standard_Ch.5/0x02/Overrange",
                     },
                     .{
                         .index = 24640,
@@ -1594,7 +1430,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 1",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6040/AI_TxPDO-Map_Standard_Ch.5/0x03/Limit_1",
                     },
                     .{
                         .index = 24640,
@@ -1602,7 +1437,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 2",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6040/AI_TxPDO-Map_Standard_Ch.5/0x05/Limit_2",
                     },
                     .{
                         .index = 24640,
@@ -1610,7 +1444,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Error",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6040/AI_TxPDO-Map_Standard_Ch.5/0x07/Error",
                     },
                     .{ .bits = 1 },
                     .{ .bits = 6 },
@@ -1620,7 +1453,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO State",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6040/AI_TxPDO-Map_Standard_Ch.5/0x0f/TxPDO_State",
                     },
                     .{
                         .index = 24640,
@@ -1628,7 +1460,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO Toggle",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6040/AI_TxPDO-Map_Standard_Ch.5/0x10/TxPDO_Toggle",
                     },
                     .{
                         .index = 24640,
@@ -1636,7 +1467,6 @@
                         .type = .INTEGER16,
                         .bits = 16,
                         .description = "Value",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6040/AI_TxPDO-Map_Standard_Ch.5/0x11/Value",
                     },
                 },
                 .name = "AI TxPDO-Map Standard Ch.5",
@@ -1650,7 +1480,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Underrange",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6050/AI_TxPDO-Map_Standard_Ch.6/0x01/Underrange",
                     },
                     .{
                         .index = 24656,
@@ -1658,7 +1487,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Overrange",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6050/AI_TxPDO-Map_Standard_Ch.6/0x02/Overrange",
                     },
                     .{
                         .index = 24656,
@@ -1666,7 +1494,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 1",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6050/AI_TxPDO-Map_Standard_Ch.6/0x03/Limit_1",
                     },
                     .{
                         .index = 24656,
@@ -1674,7 +1501,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 2",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6050/AI_TxPDO-Map_Standard_Ch.6/0x05/Limit_2",
                     },
                     .{
                         .index = 24656,
@@ -1682,7 +1508,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Error",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6050/AI_TxPDO-Map_Standard_Ch.6/0x07/Error",
                     },
                     .{ .bits = 1 },
                     .{ .bits = 6 },
@@ -1692,7 +1517,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO State",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6050/AI_TxPDO-Map_Standard_Ch.6/0x0f/TxPDO_State",
                     },
                     .{
                         .index = 24656,
@@ -1700,7 +1524,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO Toggle",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6050/AI_TxPDO-Map_Standard_Ch.6/0x10/TxPDO_Toggle",
                     },
                     .{
                         .index = 24656,
@@ -1708,7 +1531,6 @@
                         .type = .INTEGER16,
                         .bits = 16,
                         .description = "Value",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6050/AI_TxPDO-Map_Standard_Ch.6/0x11/Value",
                     },
                 },
                 .name = "AI TxPDO-Map Standard Ch.6",
@@ -1722,7 +1544,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Underrange",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6060/AI_TxPDO-Map_Standard_Ch.7/0x01/Underrange",
                     },
                     .{
                         .index = 24672,
@@ -1730,7 +1551,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Overrange",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6060/AI_TxPDO-Map_Standard_Ch.7/0x02/Overrange",
                     },
                     .{
                         .index = 24672,
@@ -1738,7 +1558,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 1",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6060/AI_TxPDO-Map_Standard_Ch.7/0x03/Limit_1",
                     },
                     .{
                         .index = 24672,
@@ -1746,7 +1565,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 2",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6060/AI_TxPDO-Map_Standard_Ch.7/0x05/Limit_2",
                     },
                     .{
                         .index = 24672,
@@ -1754,7 +1572,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Error",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6060/AI_TxPDO-Map_Standard_Ch.7/0x07/Error",
                     },
                     .{ .bits = 1 },
                     .{ .bits = 6 },
@@ -1764,7 +1581,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO State",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6060/AI_TxPDO-Map_Standard_Ch.7/0x0f/TxPDO_State",
                     },
                     .{
                         .index = 24672,
@@ -1772,7 +1588,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO Toggle",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6060/AI_TxPDO-Map_Standard_Ch.7/0x10/TxPDO_Toggle",
                     },
                     .{
                         .index = 24672,
@@ -1780,7 +1595,6 @@
                         .type = .INTEGER16,
                         .bits = 16,
                         .description = "Value",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6060/AI_TxPDO-Map_Standard_Ch.7/0x11/Value",
                     },
                 },
                 .name = "AI TxPDO-Map Standard Ch.7",
@@ -1794,7 +1608,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Underrange",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6070/AI_TxPDO-Map_Standard_Ch.8/0x01/Underrange",
                     },
                     .{
                         .index = 24688,
@@ -1802,7 +1615,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Overrange",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6070/AI_TxPDO-Map_Standard_Ch.8/0x02/Overrange",
                     },
                     .{
                         .index = 24688,
@@ -1810,7 +1622,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 1",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6070/AI_TxPDO-Map_Standard_Ch.8/0x03/Limit_1",
                     },
                     .{
                         .index = 24688,
@@ -1818,7 +1629,6 @@
                         .type = .BIT2,
                         .bits = 2,
                         .description = "Limit 2",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6070/AI_TxPDO-Map_Standard_Ch.8/0x05/Limit_2",
                     },
                     .{
                         .index = 24688,
@@ -1826,7 +1636,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "Error",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6070/AI_TxPDO-Map_Standard_Ch.8/0x07/Error",
                     },
                     .{ .bits = 1 },
                     .{ .bits = 6 },
@@ -1836,7 +1645,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO State",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6070/AI_TxPDO-Map_Standard_Ch.8/0x0f/TxPDO_State",
                     },
                     .{
                         .index = 24688,
@@ -1844,7 +1652,6 @@
                         .type = .BOOLEAN,
                         .bits = 1,
                         .description = "TxPDO Toggle",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6070/AI_TxPDO-Map_Standard_Ch.8/0x10/TxPDO_Toggle",
                     },
                     .{
                         .index = 24688,
@@ -1852,7 +1659,6 @@
                         .type = .INTEGER16,
                         .bits = 16,
                         .description = "Value",
-                        .pv_name = "subdevices/6/EL3048/inputs/0x6070/AI_TxPDO-Map_Standard_Ch.8/0x11/Value",
                     },
                 },
                 .name = "AI TxPDO-Map Standard Ch.8",

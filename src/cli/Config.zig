@@ -2,6 +2,7 @@
 //! additional features in the gatorcat CLI.
 const std = @import("std");
 const assert = std.debug.assert;
+const Config = @This();
 
 const gcat = @import("gatorcat");
 const zenoh = @import("zenoh");
@@ -83,17 +84,27 @@ pub const Plugins = struct {
                             .subdevice_name = zenohSanitize(try std.fmt.allocPrint(arena, "{?s}", .{eni_subdevice.name})),
                             .pdo_direction = "output",
                             .pdo_name = zenohSanitize(try std.fmt.allocPrint(arena, "{?s}", .{eni_input.name})),
-                            .pdo_index_hex = zenohSanitize(try std.fmt.allocPrint(arena, "{x}", .{eni_input.index})),
-                            .pdo_entry_index_hex = zenohSanitize(try std.fmt.allocPrint(arena, "{x}", .{eni_entry.index})),
-                            .pdo_entry_subindex_hex = zenohSanitize(try std.fmt.allocPrint(arena, "{x}", .{eni_entry.subindex})),
+                            .pdo_index_hex = zenohSanitize(try std.fmt.allocPrint(arena, "{x:04}", .{eni_input.index})),
+                            .pdo_entry_index_hex = zenohSanitize(try std.fmt.allocPrint(arena, "{x:04}", .{eni_entry.index})),
+                            .pdo_entry_subindex_hex = zenohSanitize(try std.fmt.allocPrint(arena, "{x:02}", .{eni_entry.subindex})),
                             .pdo_entry_description = zenohSanitize(try std.fmt.allocPrint(arena, "{?s}", .{eni_entry.description})),
                         };
-                        try entries.append(arena, Zenoh.ENI.Subdevice.PDO.Entry{
-                            .index = eni_entry.index,
-                            .subindex = eni_entry.subindex,
-                            .publishers = if (options.pdo_input_publisher_key_format) |pdo_input_publisher_key_format| try arena.dupe(Zenoh.ENI.PubSub, &.{.{ .key_expr = try processVaribleNameSentinelLeaky(arena, pdo_input_publisher_key_format, substitutions, 0) }}) else &.{},
-                            .subscribers = &.{},
-                        });
+                        try entries.append(
+                            arena,
+                            Zenoh.ENI.Subdevice.PDO.Entry{
+                                .index = eni_entry.index,
+                                .subindex = eni_entry.subindex,
+                                .publishers = if (options.pdo_input_publisher_key_format) |pdo_input_publisher_key_format| try arena.dupe(
+                                    Zenoh.ENI.PubSub,
+                                    &.{
+                                        .{
+                                            .key_expr = try processVaribleNameSentinelLeaky(arena, pdo_input_publisher_key_format, substitutions, 0),
+                                        },
+                                    },
+                                ) else &.{},
+                                .subscribers = &.{},
+                            },
+                        );
                     }
                     try inputs.append(arena, Zenoh.ENI.Subdevice.PDO{
                         .index = eni_input.index,
@@ -111,17 +122,31 @@ pub const Plugins = struct {
                             .subdevice_name = zenohSanitize(try std.fmt.allocPrint(arena, "{?s}", .{eni_subdevice.name})),
                             .pdo_direction = "output",
                             .pdo_name = zenohSanitize(try std.fmt.allocPrint(arena, "{?s}", .{eni_output.name})),
-                            .pdo_index_hex = zenohSanitize(try std.fmt.allocPrint(arena, "{x}", .{eni_output.index})),
-                            .pdo_entry_index_hex = zenohSanitize(try std.fmt.allocPrint(arena, "{x}", .{eni_entry.index})),
-                            .pdo_entry_subindex_hex = zenohSanitize(try std.fmt.allocPrint(arena, "{x}", .{eni_entry.subindex})),
+                            .pdo_index_hex = zenohSanitize(try std.fmt.allocPrint(arena, "{x:04}", .{eni_output.index})),
+                            .pdo_entry_index_hex = zenohSanitize(try std.fmt.allocPrint(arena, "{x:04}", .{eni_entry.index})),
+                            .pdo_entry_subindex_hex = zenohSanitize(try std.fmt.allocPrint(arena, "{x:02}", .{eni_entry.subindex})),
                             .pdo_entry_description = zenohSanitize(try std.fmt.allocPrint(arena, "{?s}", .{eni_entry.description})),
                         };
 
                         try entries.append(arena, Zenoh.ENI.Subdevice.PDO.Entry{
                             .index = eni_entry.index,
                             .subindex = eni_entry.subindex,
-                            .publishers = if (options.pdo_output_publisher_key_format) |pdo_output_publisher_key_format| try arena.dupe(Zenoh.ENI.PubSub, &.{.{ .key_expr = try processVaribleNameSentinelLeaky(arena, pdo_output_publisher_key_format, substitutions, 0) }}) else &.{},
-                            .subscribers = if (options.pdo_output_subscriber_key_format) |pdo_output_subscriber_key_format| try arena.dupe(Zenoh.ENI.PubSub, &.{.{ .key_expr = try processVaribleNameSentinelLeaky(arena, pdo_output_subscriber_key_format, substitutions, 0) }}) else &.{},
+                            .publishers = if (options.pdo_output_publisher_key_format) |pdo_output_publisher_key_format| try arena.dupe(
+                                Zenoh.ENI.PubSub,
+                                &.{
+                                    .{
+                                        .key_expr = try processVaribleNameSentinelLeaky(arena, pdo_output_publisher_key_format, substitutions, 0),
+                                    },
+                                },
+                            ) else &.{},
+                            .subscribers = if (options.pdo_output_subscriber_key_format) |pdo_output_subscriber_key_format| try arena.dupe(
+                                Zenoh.ENI.PubSub,
+                                &.{
+                                    .{
+                                        .key_expr = try processVaribleNameSentinelLeaky(arena, pdo_output_subscriber_key_format, substitutions, 0),
+                                    },
+                                },
+                            ) else &.{},
                         });
                     }
                     try outputs.append(arena, Zenoh.ENI.Subdevice.PDO{
@@ -328,4 +353,38 @@ pub fn zenohSanitize(str: []u8) []u8 {
     // no whitespace (personal preference)
     _ = std.mem.replace(u8, str, " ", "_", str);
     return str;
+}
+
+pub fn fromFile(allocator: std.mem.Allocator, file_path: []const u8, max_bytes: usize) !gcat.Arena(Config) {
+    const arena = try allocator.create(std.heap.ArenaAllocator);
+    errdefer allocator.destroy(arena);
+    arena.* = .init(allocator);
+    errdefer arena.deinit();
+    const config_bytes = try std.fs.cwd().readFileAllocOptions(
+        arena.allocator(),
+        file_path,
+        max_bytes,
+        null,
+        .@"1",
+        0,
+    );
+    const config = try std.zon.parse.fromSlice(Config, arena.allocator(), config_bytes, null, .{});
+    return gcat.Arena(Config){ .arena = arena, .value = config };
+}
+
+pub fn fromFileJson(allocator: std.mem.Allocator, file_path: []const u8, max_bytes: usize) !gcat.Arena(Config) {
+    const arena = try allocator.create(std.heap.ArenaAllocator);
+    errdefer allocator.destroy(arena);
+    arena.* = .init(allocator);
+    errdefer arena.deinit();
+    const config_bytes = try std.fs.cwd().readFileAllocOptions(
+        arena.allocator(),
+        file_path,
+        max_bytes,
+        null,
+        .@"1",
+        0,
+    );
+    const config = try std.json.parseFromSliceLeaky(Config, arena.allocator(), config_bytes, .{});
+    return gcat.Arena(Config){ .arena = arena, .value = config };
 }
