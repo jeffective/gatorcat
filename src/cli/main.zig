@@ -9,6 +9,7 @@ const info = @import("info.zig");
 const read_eeprom = @import("read_eeprom.zig");
 const run = @import("run.zig");
 const scan = @import("scan.zig");
+const Config = @import("Config.zig");
 
 const gatorcat_version: []const u8 = @import("build_zig_zon").version;
 
@@ -79,4 +80,13 @@ pub fn main() !void {
             try writer.print("{s}\n", .{gatorcat_version});
         },
     }
+}
+
+test {
+    _ = benchmark;
+    _ = Config;
+    _ = info;
+    _ = read_eeprom;
+    _ = run;
+    _ = scan;
 }

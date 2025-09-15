@@ -195,17 +195,21 @@ pub fn buildTest(
     });
     const run_root_unit_tests = b.addRunArtifact(root_unit_tests);
     step.dependOn(&run_root_unit_tests.step);
+
+    const exe_unit_tests_mod = cliModule(b, target, optimize, root_unit_tests_mod);
+    const exe_unit_tests = b.addTest(.{
+        .root_module = exe_unit_tests_mod,
+    });
+    const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
+    step.dependOn(&run_exe_unit_tests.step);
 }
 
-pub fn buildCli(
+pub fn cliModule(
     b: *std.Build,
-    step: *std.Build.Step,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     gatorcat_module: *std.Build.Module,
-    dest_dir: std.Build.Step.InstallArtifact.Options.Dir,
-    exe_name: []const u8,
-) *std.Build.Step.InstallArtifact {
+) *std.Build.Module {
     const flags_module = b.dependency("flags", .{
         .target = target,
         .optimize = optimize,
@@ -230,6 +234,19 @@ pub fn buildCli(
     cli_module.addImport("zbor", zbor_module);
     cli_module.addAnonymousImport("build_zig_zon", .{ .root_source_file = b.path("build.zig.zon") });
 
+    return cli_module;
+}
+
+pub fn buildCli(
+    b: *std.Build,
+    step: *std.Build.Step,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    gatorcat_module: *std.Build.Module,
+    dest_dir: std.Build.Step.InstallArtifact.Options.Dir,
+    exe_name: []const u8,
+) *std.Build.Step.InstallArtifact {
+    const cli_module = cliModule(b, target, optimize, gatorcat_module);
     const cli = b.addExecutable(.{
         .name = exe_name,
         .root_module = cli_module,
