@@ -65,3 +65,7 @@ Please consider [❤️ Sponsoring](https://github.com/sponsors/jeffective) if y
 4. push commit, push tags
 5. wait for CI pass
 6. click release in github
+
+## Contributing
+
+Please open an issue before contributing so we can discuss.
