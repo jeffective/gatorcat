@@ -82,37 +82,46 @@ To obtain the name of network interfaces on windows:
 ### Suggested Workflow
 
 1. Run `gatorcat info --ifname eth0 > info.md` to create a human readable markdown file with information about the subdevices on your network.
-1. Run `gatorcat scan --ifname eth0 > eni.zon` to create an ENI file for the network.
-1. Run the network with `gatorcat run --ifname eth0 --cycle-time-us 10000 --zenoh-config-default --eni-file eni.zon`.
+1. Run `gatorcat scan --ifname eth0 > config.zon` to create an ENI file for the network.
+1. Run the network with `gatorcat run --ifname eth0 --cycle-time-us 10000 --zenoh-config-default --config-file config.zon`.
 1. Observe data published on zenoh from ethercat.
-    > The keys are defined in the `eni.zon`.
+    > The key expressions are defined in the `config.zon`.
 
 ### Zenoh Details
 
 A zenoh config file can be provided. See the CLI help text on how to specify the path.
 
-The keys look like this:
+The keys look something like this, please review the config file for the exact keys.
+The template used to generate keys during scanning can be customized using mustache-like templating.
+
+Here is an example template:
 
 ```
-subdevices/1/EL2008/outputs/0x7000/Channel_1/0x01/Output
+ethercat/maindevice/pdi/subdevices/{{subdevice_index}}/{{subdevice_name}}/{{pdo_direction}}/0x{{pdo_index_hex}}/{{pdo_name}}/0x{{pdo_entry_index_hex}}/0x{{pdo_entry_subindex_hex}}/{{pdo_entry_description}}
 ```
+
+And an example resulting key expression:
+
+```
+ethercat/maindevice/pdi/subdevices/4/EL3062/input/0x1a00/_AI_TxPDO-Map_Standard_Ch.1/0x6000/0x11/Value
+```
+
+These are the available templating parameters:
 | Zenoh Key Expression Segment | Explanation                                                              |
 |------------------------------|--------------------------------------------------------------------------|
-| `subdevices/1/`              | This is the second subdevice on the bus (zero indexed).                  |
-| `EL2008`                     | The name of the subdevice from the SII EEPROM.                           |
-| `outputs`                    | This is an output PDO.                                                   |
-| `0x7000`                     | The index of the PDO (in hex).                                           |
-| `Channel_1`                  | The name of the PDO from the SII EEPROM or CoE object description.       |
-| `0x01`                       | The subindex of the PDO entry (in hex).                                  |
-| `Output`                     | The pdo entry description from the SII EEPROM or CoE object description. |
+| `{{subdevice_index}}`        | Zero-indexed integer position of the subdevice in the ethercat ring.     |
+| `{{subdevice_name}}`         | The name of the subdevice from the SII EEPROM.                           |
+| `{{pdo_direction}}`          | `input` or `output`.                                                     |
+| `{{pdo_index_hex}}`          | The index of the PDO (in hex).                                           |
+| `{{pdo_name}}`               | The name of the PDO from the SII EEPROM or CoE object description.       |
+| `{{pdo_entry_index_hex}}`    | The index of the entry in the PDO (in hex, 4 digits).                    |
+| `{{pdo_entry_subindex_hex}}` | The subindex of the entry in the PDO (in hex, 2 digits).                 |
+| `{{pdo_entry_description}}`  | The pdo entry description from the SII EEPROM or CoE object description. |
+
+The substituted data is sanitized to remove special characters and white-space.
 
 The data is published in CBOR encoding.
-
 The subscribed keys accept CBOR encoded data.
-
-In the ENI file, the `pv_name` is the process variable name. gatorcat subscribes for outputs and publishes for input at this `pv_name`, you can apply a prefix on generation of this name.
-
-Similarly, there is a `pv_name_fb`. This is the process variable feedback channel. gatorcat publishes for both inputs and outputs at these keys to enable applications to see the results of their publishes to output channels.
 
 ## GatorCAT Module
 

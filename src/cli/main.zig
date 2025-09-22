@@ -33,6 +33,16 @@ fn logFn(
 const Flags = struct {
     pub const description =
         \\The GatorCAT CLI.
+        \\
+        \\Run, scan, and debug EtherCAT networks.
+        \\Each subcommand also has its own help text.
+        \\The suggested workflow is:
+        \\
+        \\1. scan the network and write a configuration file that describes the network using "gatorcat scan".
+        \\2. operate the ethercat network using "gatorcat run".
+        \\
+        \\Example usage (write configuration file):
+        \\gatorcat scan --ifname eth0 > config.zon
     ;
     log_level: std.log.Level = .warn,
     // sub commands
@@ -53,6 +63,10 @@ const Flags = struct {
             .version = "Print the version of gatorcat.",
         };
     },
+
+    pub const descriptions = .{
+        .log_level = "Log level for zig std.log",
+    };
 };
 
 pub fn main() !void {
