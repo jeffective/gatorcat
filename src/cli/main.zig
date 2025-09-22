@@ -56,6 +56,7 @@ const Flags = struct {
 };
 
 pub fn main() !void {
+    @setEvalBranchQuota(4000);
     var args_mem: [4096]u8 = undefined;
     var args_allocator = std.heap.FixedBufferAllocator.init(&args_mem);
     const args = try std.process.argsAlloc(args_allocator.allocator());

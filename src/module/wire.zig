@@ -260,9 +260,9 @@ pub fn LossyBitReader(comptime Reader: type) type {
         reader: Reader,
         current_byte: u8 = 0,
         pos_in_byte: u3 = 0,
-        pub fn readBitsNoEof(self: *@This(), comptime T: type, num: u16) !T {
+        pub fn readBitsNoEof(self: *@This(), comptime T: type, num: u32) !T {
             var rval: @Type(.{ .int = .{ .signedness = .unsigned, .bits = @bitSizeOf(T) } }) = 0;
-            var used_bits: u16 = 0;
+            var used_bits: u32 = 0;
             var bits_remaining = num;
             while (bits_remaining > 0) : ({
                 bits_remaining -= 1;

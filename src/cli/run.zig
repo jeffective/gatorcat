@@ -23,14 +23,20 @@ pub const Args = struct {
     mbx_timeout_us: u32 = 50_000,
     cycle_time_us: ?u32 = null,
     max_recv_timeouts_before_rescan: u32 = 3,
-    zenoh_config_default: bool = false,
-    zenoh_config_file: ?[:0]const u8 = null,
+
     zenoh_log_level: zenoh_plugin.LogLevel = .@"error",
     config_file: ?[:0]const u8 = null,
     config_file_json: ?[:0]const u8 = null,
     rt_prio: ?i32 = null,
     verbose: bool = false,
     mlockall: bool = false,
+
+    auto_scan_plugin_zenoh_enable: bool = false,
+    plugin_zenoh_config_default: bool = false,
+    plugin_zenoh_config_file: ?[:0]const u8 = null,
+    plugin_zenoh_pdo_input_publisher_key_format: ?[:0]const u8 = "ethercat/maindevice/pdi/subdevices/{{subdevice_index}}/{{subdevice_name}}/{{pdo_direction}}/0x{{pdo_index_hex}}/{{pdo_name}}/0x{{pdo_entry_index_hex}}/0x{{pdo_entry_subindex_hex}}/{{pdo_entry_description}}",
+    plugin_zenoh_pdo_output_publisher_key_format: ?[:0]const u8 = "ethercat/maindevice/pdi/subdevices/{{subdevice_index}}/{{subdevice_name}}/{{pdo_direction}}/0x{{pdo_index_hex}}/{{pdo_name}}/0x{{pdo_entry_index_hex}}/0x{{pdo_entry_subindex_hex}}/{{pdo_entry_description}}",
+    plugin_zenoh_pdo_output_subscriber_key_format: ?[:0]const u8 = "ethercat/subdevices/{{subdevice_index}}/{{subdevice_name}}/{{pdo_direction}}/0x{{pdo_index_hex}}/{{pdo_name}}/0x{{pdo_entry_index_hex}}/0x{{pdo_entry_subindex_hex}}/{{pdo_entry_description}}",
 
     pub const descriptions = .{
         .ifname = "Network interface to use for the bus scan. Example: eth0",
@@ -42,8 +48,9 @@ pub const Args = struct {
         .op_timeout_us = "State transition to op timeout in microseconds. Example: 100000",
         .mbx_timeout_us = "Mailbox timeout in microseconds. Example: 100000",
         .cycle_time_us = "Cycle time in microseconds. Example: 10000",
-        .zenoh_config_default = "Enable zenoh and use the default zenoh configuration.",
-        .zenoh_config_file = "Enable zenoh and use this file path for the zenoh configuration. Example: path/to/comfig.json5",
+        .auto_scan_plugin_zenoh_enable = "Enable the zenoh plugin for operating without a --config-file. Has no effect if you already have a --config-file.",
+        .plugin_zenoh_config_default = "Enable zenoh and use the default zenoh configuration.",
+        .plugin_zenoh_config_file = "Enable zenoh and use this file path for the zenoh configuration. Example: path/to/comfig.json5",
         .config_file = "Path to config file (as ZON). See output of `gatorcat scan` for an example.",
         .config_file_json = "Same as --config-file but as JSON.",
         .rt_prio = "Set a real-time priority for this process. Does nothing on windows.",
@@ -215,7 +222,20 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
                 error.StartupParametersFailed,
                 => continue :bus_scan,
             };
-            break :blk gcat.Arena(Config){ .arena = arena, .value = Config{ .eni = eni } };
+            const zenoh_plugin_config: ?zenoh_plugin.Config = zenoh_blk: {
+                if (args.auto_scan_plugin_zenoh_enable) {
+                    break :zenoh_blk zenoh_plugin.Config.initFromENILeaky(
+                        arena.allocator(),
+                        eni,
+                        .{
+                            .pdo_input_publisher_key_format = args.plugin_zenoh_pdo_input_publisher_key_format,
+                            .pdo_output_publisher_key_format = args.plugin_zenoh_pdo_output_publisher_key_format,
+                            .pdo_output_subscriber_key_format = args.plugin_zenoh_pdo_output_subscriber_key_format,
+                        },
+                    ) catch return error.NonRecoverable;
+                } else break :zenoh_blk null;
+            };
+            break :blk gcat.Arena(Config){ .arena = arena, .value = Config{ .eni = eni, .plugins = .{ .zenoh = zenoh_plugin_config } } };
         };
 
         defer config.deinit();
@@ -242,11 +262,28 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
         // we should not initiate zenoh until the bus contents are verified.
 
         var maybe_zh: ?ZenohHandler = blk: {
-            if (args.zenoh_config_file) |config_file| {
-                const zh = ZenohHandler.init(allocator, config.value.eni, config_file, &md, args.zenoh_log_level, &write_mutex) catch return error.NonRecoverable;
+            if (args.plugin_zenoh_config_file) |config_file| {
+                const zh = ZenohHandler.init(
+                    allocator,
+                    config.value,
+                    config_file,
+                    &md,
+                    args.zenoh_log_level,
+                    &write_mutex,
+                ) catch return error.NonRecoverable;
                 break :blk zh;
-            } else if (args.zenoh_config_default) {
-                const zh = ZenohHandler.init(allocator, config.value.eni, null, &md, args.zenoh_log_level, &write_mutex) catch return error.NonRecoverable;
+            } else if (args.plugin_zenoh_config_default) {
+                if (config.value.plugins == null or config.value.plugins.?.zenoh == null) {
+                    break :blk null;
+                }
+                const zh = ZenohHandler.init(
+                    allocator,
+                    config.value,
+                    null,
+                    &md,
+                    args.zenoh_log_level,
+                    &write_mutex,
+                ) catch return error.NonRecoverable;
                 break :blk zh;
             } else break :blk null;
         };
@@ -276,7 +313,7 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
         if (maybe_zh) |*zh| {
             std.log.warn("warming up zenoh...", .{});
             var z_warmup_timer = std.time.Timer.start() catch @panic("timer unsupported");
-            zh.publishInputsOutputs(&md, config.value.eni) catch |err| {
+            zh.publishInputsOutputs(&md, config.value) catch |err| {
                 std.log.err("failed to publish inputs / outputs on zenoh: {s}", .{@errorName(err)});
                 break :bus_scan; // TODO: correct action here?
             };
@@ -354,7 +391,7 @@ pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
             }
 
             if (maybe_zh) |*zh| {
-                zh.publishInputsOutputs(&md, config.value.eni) catch |err| {
+                zh.publishInputsOutputs(&md, config.value) catch |err| {
                     std.log.err("failed to publish inputs / outputs on zenoh: {s}", .{@errorName(err)});
                     break :bus_scan; // TODO: correct action here?
                 };

@@ -2,55 +2,45 @@ const std = @import("std");
 const gcat = @import("gatorcat");
 const assert = std.debug.assert;
 
+const CliConfig = @import("../Config.zig");
+
 const zbor = @import("zbor");
 const zenoh = @import("zenoh");
 
 pub const Config = struct {
-    eni: ?ENI = null,
+    // eni: ?ENI = null,
+    process_data: []const ProcessVariable = &.{},
 
-    pub const ENI = struct {
-        subdevices: []const Subdevice = &.{},
+    pub const ProcessVariable = struct {
+        subdevice: u16,
+        direction: gcat.pdi.Direction,
+        pdo_index: u16,
+        index: u16,
+        subindex: u8,
+        publishers: []const PubSub = &.{},
+        subscribers: []const PubSub = &.{},
+    };
 
-        pub const Subdevice = struct {
-            inputs: []const PDO = &.{},
-            outputs: []const PDO = &.{},
-
-            pub const PDO = struct {
-                index: u16,
-                entries: []const Entry = &.{},
-
-                pub const Entry = struct {
-                    index: u16,
-                    subindex: u8,
-                    /// Publish the value of this PDO entry on zenoh.
-                    publishers: []const PubSub = &.{},
-                    /// Subscribe to this key on zenoh and write to this PDO entry.
-                    subscribers: []const PubSub = &.{},
-                };
-            };
-        };
-
-        pub const PubSub = struct {
-            key_expr: [:0]const u8,
-            // TODO: implement downsampling
-            // downsampling: ?Downsampling = null,
-            // pub const Downsampling = union {
-            //     /// On-change downsampling will publish more often if the data has changed.
-            //     ///
-            //     /// Data is always dropped before publishing if the time since last publishing
-            //     /// is less than min_publishing_interval_us microseconds.
-            //     ///
-            //     /// Data is always published if the time since last publishing is greater than
-            //     /// max_publishing_interval_us microseconds.
-            //     ///
-            //     /// When the time since last publishing is between the min and max, a value is only
-            //     /// published if it has changed since the last published value.
-            //     on_change: struct {
-            //         min_publishing_interval_us: u32,
-            //         max_publishing_interval_us: u32,
-            //     },
-            // };
-        };
+    pub const PubSub = struct {
+        key_expr: [:0]const u8,
+        // TODO: implement downsampling
+        // downsampling: ?Downsampling = null,
+        // pub const Downsampling = union {
+        //     /// On-change downsampling will publish more often if the data has changed.
+        //     ///
+        //     /// Data is always dropped before publishing if the time since last publishing
+        //     /// is less than min_publishing_interval_us microseconds.
+        //     ///
+        //     /// Data is always published if the time since last publishing is greater than
+        //     /// max_publishing_interval_us microseconds.
+        //     ///
+        //     /// When the time since last publishing is between the min and max, a value is only
+        //     /// published if it has changed since the last published value.
+        //     on_change: struct {
+        //         min_publishing_interval_us: u32,
+        //         max_publishing_interval_us: u32,
+        //     },
+        // };
     };
 
     pub const Options = struct {
@@ -60,30 +50,33 @@ pub const Config = struct {
     };
 
     pub fn initFromENILeaky(arena: std.mem.Allocator, eni: gcat.ENI, options: Options) error{OutOfMemory}!Config {
-        var subdevices: std.ArrayList(Config.ENI.Subdevice) = .empty;
+        var process_variables: std.ArrayList(Config.ProcessVariable) = .empty;
+
+        assert(eni.subdevices.len <= std.math.maxInt(u16));
         for (eni.subdevices, 0..) |eni_subdevice, subdevice_index| {
-            var inputs: std.ArrayList(Config.ENI.Subdevice.PDO) = .empty;
             for (eni_subdevice.inputs) |eni_input| {
-                var entries: std.ArrayList(Config.ENI.Subdevice.PDO.Entry) = .empty;
                 for (eni_input.entries) |eni_entry| {
                     if (eni_entry.isGap()) continue;
                     const substitutions: ProcessVariableSubstitutions = .{
                         .subdevice_index = sanitizeKeyExprComponent(try std.fmt.allocPrint(arena, "{}", .{subdevice_index})),
                         .subdevice_name = sanitizeKeyExprComponent(try std.fmt.allocPrint(arena, "{?s}", .{eni_subdevice.name})),
-                        .pdo_direction = "output",
+                        .pdo_direction = "input",
                         .pdo_name = sanitizeKeyExprComponent(try std.fmt.allocPrint(arena, "{?s}", .{eni_input.name})),
                         .pdo_index_hex = sanitizeKeyExprComponent(try std.fmt.allocPrint(arena, "{x:04}", .{eni_input.index})),
                         .pdo_entry_index_hex = sanitizeKeyExprComponent(try std.fmt.allocPrint(arena, "{x:04}", .{eni_entry.index})),
                         .pdo_entry_subindex_hex = sanitizeKeyExprComponent(try std.fmt.allocPrint(arena, "{x:02}", .{eni_entry.subindex})),
                         .pdo_entry_description = sanitizeKeyExprComponent(try std.fmt.allocPrint(arena, "{?s}", .{eni_entry.description})),
                     };
-                    try entries.append(
+                    try process_variables.append(
                         arena,
-                        Config.ENI.Subdevice.PDO.Entry{
+                        ProcessVariable{
+                            .subdevice = @intCast(subdevice_index),
+                            .direction = .input,
+                            .pdo_index = eni_input.index,
                             .index = eni_entry.index,
                             .subindex = eni_entry.subindex,
                             .publishers = if (options.pdo_input_publisher_key_format) |pdo_input_publisher_key_format| try arena.dupe(
-                                Config.ENI.PubSub,
+                                Config.PubSub,
                                 &.{
                                     .{
                                         .key_expr = try processVaribleNameSentinelLeaky(arena, pdo_input_publisher_key_format, substitutions, 0),
@@ -94,15 +87,8 @@ pub const Config = struct {
                         },
                     );
                 }
-                try inputs.append(arena, Config.ENI.Subdevice.PDO{
-                    .index = eni_input.index,
-                    .entries = try entries.toOwnedSlice(arena),
-                });
             }
-
-            var outputs: std.ArrayList(Config.ENI.Subdevice.PDO) = .empty;
             for (eni_subdevice.outputs) |eni_output| {
-                var entries: std.ArrayList(Config.ENI.Subdevice.PDO.Entry) = .empty;
                 for (eni_output.entries) |eni_entry| {
                     if (eni_entry.isGap()) continue;
                     const substitutions: ProcessVariableSubstitutions = .{
@@ -115,40 +101,37 @@ pub const Config = struct {
                         .pdo_entry_subindex_hex = sanitizeKeyExprComponent(try std.fmt.allocPrint(arena, "{x:02}", .{eni_entry.subindex})),
                         .pdo_entry_description = sanitizeKeyExprComponent(try std.fmt.allocPrint(arena, "{?s}", .{eni_entry.description})),
                     };
-
-                    try entries.append(arena, Config.ENI.Subdevice.PDO.Entry{
-                        .index = eni_entry.index,
-                        .subindex = eni_entry.subindex,
-                        .publishers = if (options.pdo_output_publisher_key_format) |pdo_output_publisher_key_format| try arena.dupe(
-                            Config.ENI.PubSub,
-                            &.{
-                                .{
-                                    .key_expr = try processVaribleNameSentinelLeaky(arena, pdo_output_publisher_key_format, substitutions, 0),
+                    try process_variables.append(
+                        arena,
+                        ProcessVariable{
+                            .subdevice = @intCast(subdevice_index),
+                            .direction = .output,
+                            .pdo_index = eni_output.index,
+                            .index = eni_entry.index,
+                            .subindex = eni_entry.subindex,
+                            .publishers = if (options.pdo_output_publisher_key_format) |pdo_output_publisher_key_format| try arena.dupe(
+                                Config.PubSub,
+                                &.{
+                                    .{
+                                        .key_expr = try processVaribleNameSentinelLeaky(arena, pdo_output_publisher_key_format, substitutions, 0),
+                                    },
                                 },
-                            },
-                        ) else &.{},
-                        .subscribers = if (options.pdo_output_subscriber_key_format) |pdo_output_subscriber_key_format| try arena.dupe(
-                            Config.ENI.PubSub,
-                            &.{
-                                .{
-                                    .key_expr = try processVaribleNameSentinelLeaky(arena, pdo_output_subscriber_key_format, substitutions, 0),
+                            ) else &.{},
+                            .subscribers = if (options.pdo_output_subscriber_key_format) |pdo_output_subscriber_key_format| try arena.dupe(
+                                Config.PubSub,
+                                &.{
+                                    .{
+                                        .key_expr = try processVaribleNameSentinelLeaky(arena, pdo_output_subscriber_key_format, substitutions, 0),
+                                    },
                                 },
-                            },
-                        ) else &.{},
-                    });
+                            ) else &.{},
+                        },
+                    );
                 }
-                try outputs.append(arena, Config.ENI.Subdevice.PDO{
-                    .index = eni_output.index,
-                    .entries = try entries.toOwnedSlice(arena),
-                });
             }
-            try subdevices.append(arena, Config.ENI.Subdevice{
-                .inputs = try inputs.toOwnedSlice(arena),
-                .outputs = try outputs.toOwnedSlice(arena),
-            });
         }
 
-        return Config{ .eni = .{ .subdevices = try subdevices.toOwnedSlice(arena) } };
+        return Config{ .process_data = try process_variables.toOwnedSlice(arena) };
     }
 
     pub fn initFromENI(gpa: std.mem.Allocator, eni: gcat.ENI, options: Options) error{OutOfMemory}!gcat.Arena(Config) {
@@ -272,7 +255,7 @@ pub const ZenohHandler = struct {
     /// Lifetime of pdi_write_mutex must be past deinit.
     pub fn init(
         p_allocator: std.mem.Allocator,
-        eni: gcat.ENI,
+        cli_config: CliConfig,
         maybe_config_file: ?[:0]const u8,
         md: *const gcat.MainDevice,
         log_level: LogLevel,
@@ -311,31 +294,31 @@ pub const ZenohHandler = struct {
             }
         }
 
-        for (eni.subdevices) |subdevice| {
-            for (subdevice.inputs) |input| {
-                for (input.entries) |entry| {
-                    _ = entry;
-                    // if (entry.pv_name) |pv_name| {
-                    //     std.log.warn("zenoh: declaring publisher: {s}, ethercat type: {s}", .{ pv_name, gcat.exhaustiveTagName(entry.type) });
-                    //     try createPublisher(allocator, &pubs, session, pv_name);
-                    // }
-                    // if (entry.pv_name_fb) |pv_name_fb| {
-                    //     std.log.warn("zenoh: declaring publisher: {s}, ethercat type: {s}", .{ pv_name_fb, gcat.exhaustiveTagName(entry.type) });
-                    //     try createPublisher(allocator, &pubs, session, pv_name_fb);
-                    // }
-                }
-            }
-            for (subdevice.outputs) |output| {
-                for (output.entries) |entry| {
-                    _ = entry;
-                    // if (entry.pv_name_fb) |pv_name_fb| {
-                    //     std.log.warn("zenoh: declaring publisher: {s}, ethercat type: {s}", .{ pv_name_fb, gcat.exhaustiveTagName(entry.type) });
-                    //     try createPublisher(allocator, &pubs, session, pv_name_fb);
-                    // }
+        // declare all publishers
+        if (cli_config.plugins) |plugins| {
+            if (plugins.zenoh) |zenoh_plugin| {
+                for (zenoh_plugin.process_data) |pv| {
+                    _ = cli_config.eni.lookupProcessVariable(
+                        pv.subdevice,
+                        pv.direction,
+                        pv.pdo_index,
+                        pv.index,
+                        pv.subindex,
+                    ) catch |err| switch (err) {
+                        error.NotFound => {
+                            std.log.err("Invalid configuration for process variable: {any}", .{pv});
+                            return error.InvalidConfig;
+                        },
+                    };
+                    for (pv.publishers) |publisher| {
+                        std.log.warn("zenoh: declaring publisher: {s}", .{publisher.key_expr});
+                        try createPublisher(allocator, &pubs, session, publisher.key_expr);
+                    }
                 }
             }
         }
 
+        // declare all subscribers
         const subs = try allocator.create(std.StringArrayHashMap(SubscriberClosure));
         subs.* = .init(allocator);
         errdefer subs.deinit();
@@ -345,51 +328,68 @@ pub const ZenohHandler = struct {
             }
         }
 
-        for (eni.subdevices, 0..) |subdevice, subdevice_index| {
-            var bit_offset: u32 = 0;
-            for (subdevice.outputs) |output| {
-                for (output.entries) |entry| {
-                    defer bit_offset += entry.bits;
-                    if (entry.pv_name == null) continue;
+        if (cli_config.plugins) |plugins| {
+            if (plugins.zenoh) |zenoh_plugin| {
+                for (zenoh_plugin.process_data) |pv| {
+                    for (pv.subscribers) |subscriber_config| {
+                        const pv_info = cli_config.eni.lookupProcessVariable(
+                            pv.subdevice,
+                            pv.direction,
+                            pv.pdo_index,
+                            pv.index,
+                            pv.subindex,
+                        ) catch |err| switch (err) {
+                            error.NotFound => {
+                                std.log.err("Invalid configuration for process variable: {any}", .{pv});
+                                return error.InvalidConfig;
+                            },
+                        };
+                        const entry = pv_info.entry;
+                        const subdevice_index = pv.subdevice;
+                        const bit_offset = pv_info.bit_offset;
+                        const name = subscriber_config.key_expr;
 
-                    const key_expr = try allocator.create(zenoh.c.z_view_keyexpr_t);
-                    try zenoh.err(zenoh.c.z_view_keyexpr_from_str(key_expr, entry.pv_name.?.ptr));
+                        const key_expr = try allocator.create(zenoh.c.z_view_keyexpr_t);
+                        comptime assert(@typeInfo(@TypeOf(name)).pointer.sentinel() == 0);
+                        try zenoh.err(zenoh.c.z_view_keyexpr_from_str(key_expr, name.ptr));
 
-                    const subscriber_sample_context = try allocator.create(SubscriberSampleContext);
-                    subscriber_sample_context.* = SubscriberSampleContext{
-                        .subdevice_output_process_data = md.subdevices[subdevice_index].getOutputProcessData(),
-                        .type = entry.type,
-                        .bit_count = entry.bits,
-                        .bit_offset_in_process_data = bit_offset,
-                        .pdi_write_mutex = pdi_write_mutex,
-                    };
+                        const subscriber_sample_context = try allocator.create(SubscriberSampleContext);
+                        subscriber_sample_context.* = SubscriberSampleContext{
+                            .subdevice_output_process_data = md.subdevices[subdevice_index].getOutputProcessData(),
+                            .type = entry.type,
+                            .bit_count = entry.bits,
+                            .bit_offset_in_process_data = bit_offset,
+                            .pdi_write_mutex = pdi_write_mutex,
+                        };
 
-                    const closure = try allocator.create(zenoh.c.z_owned_closure_sample_t);
-                    zenoh.c.z_closure_sample(closure, &data_handler, null, subscriber_sample_context);
-                    errdefer zenoh.drop(zenoh.move(closure));
+                        const closure = try allocator.create(zenoh.c.z_owned_closure_sample_t);
+                        zenoh.c.z_closure_sample(closure, &data_handler, null, subscriber_sample_context);
+                        errdefer zenoh.drop(zenoh.move(closure));
 
-                    var subscriber_options: zenoh.c.z_subscriber_options_t = undefined;
-                    zenoh.c.z_subscriber_options_default(&subscriber_options);
+                        var subscriber_options: zenoh.c.z_subscriber_options_t = undefined;
+                        zenoh.c.z_subscriber_options_default(&subscriber_options);
 
-                    const subscriber = try allocator.create(zenoh.c.z_owned_subscriber_t);
-                    try zenoh.err(zenoh.c.z_declare_subscriber(zenoh.loan(session), subscriber, zenoh.loan(key_expr), zenoh.move(closure), &subscriber_options));
-                    errdefer zenoh.drop(zenoh.move(subscriber));
-                    std.log.warn("zenoh: declared subscriber: {s}, ethercat type: {s}, bit_pos: {}", .{
-                        entry.pv_name.?,
-                        gcat.exhaustiveTagName(entry.type),
-                        bit_offset,
-                    });
+                        const subscriber = try allocator.create(zenoh.c.z_owned_subscriber_t);
+                        try zenoh.err(zenoh.c.z_declare_subscriber(zenoh.loan(session), subscriber, zenoh.loan(key_expr), zenoh.move(closure), &subscriber_options));
+                        errdefer zenoh.drop(zenoh.move(subscriber));
+                        std.log.warn("zenoh: declared subscriber: {s}, ethercat type: {s}, bit_pos: {}", .{
+                            name,
+                            gcat.exhaustiveTagName(entry.type),
+                            bit_offset,
+                        });
 
-                    const subscriber_closure = SubscriberClosure{
-                        .closure = closure,
-                        .subscriber = subscriber,
-                    };
+                        const subscriber_closure = SubscriberClosure{
+                            .closure = closure,
+                            .subscriber = subscriber,
+                        };
 
-                    const put_result = try subs.getOrPutValue(entry.pv_name.?, subscriber_closure);
-                    if (put_result.found_existing) {
-                        std.log.err("duplicate pv_name found: {s}", .{entry.pv_name.?});
-                        return error.PVNameConflict;
-                    } // TODO: assert this?
+                        const put_result = try subs.getOrPutValue(name, subscriber_closure);
+                        if (put_result.found_existing) {
+                            std.log.err("duplicate key_expr found: {s}", .{name});
+                            return error.PVNameConflict;
+                        } // TODO: assert this?
+
+                    }
                 }
             }
         }
@@ -450,8 +450,8 @@ pub const ZenohHandler = struct {
         assert(subs_ctx != null);
         const ctx: *SubscriberSampleContext = @ptrCast(@alignCast(subs_ctx.?));
         // TODO: get rid of this mutex!
-        ctx.write_mutex.lock();
-        defer ctx.write_mutex.unlock();
+        ctx.pdi_write_mutex.lock();
+        defer ctx.pdi_write_mutex.unlock();
         const payload = zenoh.c.z_sample_payload(sample);
         var slice: zenoh.c.z_owned_slice_t = undefined;
         zenoh.err(zenoh.c.z_bytes_to_slice(payload, &slice)) catch {
@@ -837,43 +837,34 @@ pub const ZenohHandler = struct {
         p_allocator.destroy(self.arena);
     }
 
-    pub fn publishInputsOutputs(self: *ZenohHandler, md: *const gcat.MainDevice, eni: gcat.ENI) !void {
-        for (md.subdevices, eni.subdevices) |sub, sub_config| {
-            const input_data = sub.getInputProcessData();
-            var input_fbs = std.io.fixedBufferStream(input_data);
-            const input_reader = input_fbs.reader();
-            var intput_bit_reader = gcat.wire.lossyBitReader(input_reader);
-
-            for (sub_config.inputs) |input| {
-                for (input.entries) |entry| {
-                    var out_buffer: [32]u8 = undefined; // TODO: this is arbitrary
-                    var fbs_out = std.io.fixedBufferStream(&out_buffer);
-                    const writer = fbs_out.writer();
-                    zborSerialize(entry, &intput_bit_reader, writer) catch continue;
-                    if (entry.pv_name) |pv_name| {
-                        try self.publishAssumeKey(pv_name, fbs_out.getWritten());
-                    }
-                    if (entry.pv_name_fb) |pv_name_fb| {
-                        try self.publishAssumeKey(pv_name_fb, fbs_out.getWritten());
-                    }
-                }
-            }
-
-            const output_data = sub.getOutputProcessData();
-            var output_fbs = std.io.fixedBufferStream(output_data);
-            const output_reader = output_fbs.reader();
-            var output_bit_reader = gcat.wire.lossyBitReader(output_reader);
-
-            for (sub_config.outputs) |output| {
-                for (output.entries) |entry| {
-                    var out_buffer: [32]u8 = undefined; // TODO: this is arbitrary
-                    var fbs_out = std.io.fixedBufferStream(&out_buffer);
-                    const writer = fbs_out.writer();
-                    zborSerialize(entry, &output_bit_reader, writer) catch continue;
-                    if (entry.pv_name_fb) |pv_name_fb| {
-                        try self.publishAssumeKey(pv_name_fb, fbs_out.getWritten());
-                    }
-                }
+    pub fn publishInputsOutputs(self: *ZenohHandler, md: *const gcat.MainDevice, config: CliConfig) !void {
+        if (config.plugins == null) return error.InvalidConfig;
+        if (config.plugins.?.zenoh == null) return error.InvalidConfig;
+        for (config.plugins.?.zenoh.?.process_data) |pv| {
+            for (pv.publishers) |publisher_config| {
+                // TODO: optimize to not lookup process variable every time
+                const pv_info = config.eni.lookupProcessVariable(
+                    pv.subdevice,
+                    pv.direction,
+                    pv.pdo_index,
+                    pv.index,
+                    pv.subindex,
+                ) catch unreachable; // checked on declare publishers
+                const sub_process_data: []const u8 = switch (pv.direction) {
+                    .input => md.subdevices[pv.subdevice].getInputProcessData(),
+                    .output => md.subdevices[pv.subdevice].getOutputProcessData(),
+                };
+                var fbs = std.io.fixedBufferStream(sub_process_data);
+                const input_reader = fbs.reader();
+                var input_bit_reader = gcat.wire.lossyBitReader(input_reader);
+                var out_buffer: [32]u8 = undefined; // TODO: this is arbitrary
+                var fbs_out = std.io.fixedBufferStream(&out_buffer);
+                const writer = fbs_out.writer();
+                input_bit_reader.readBitsNoEof(void, pv_info.bit_offset) catch unreachable;
+                zborSerialize(pv_info.entry, &input_bit_reader, writer) catch {
+                    std.log.err("cannot serialize to zbor: {any}", .{pv});
+                };
+                try self.publishAssumeKey(publisher_config.key_expr, fbs_out.getWritten());
             }
         }
     }

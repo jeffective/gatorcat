@@ -139,6 +139,42 @@ pub const SubdeviceConfiguration = struct {
     };
 };
 
+pub const ProcessVariable = struct {
+    entry: SubdeviceConfiguration.PDO.Entry,
+    /// bit offset from the start of input or output process data
+    /// for this subdevice
+    bit_offset: u32,
+};
+
+pub fn lookupProcessVariable(
+    self: *const ENI,
+    subdevice_index: usize,
+    direction: pdi.Direction,
+    pdo_index: u16,
+    index: u16,
+    subindex: u8,
+) error{NotFound}!ProcessVariable {
+    assert(subdevice_index <= std.math.maxInt(u16));
+    assert(pdo_index != 0);
+    assert(index != 0);
+    assert(subindex != 0);
+    if (subdevice_index >= self.subdevices.len) return error.NotFound;
+    const pdos = switch (direction) {
+        .input => self.subdevices[subdevice_index].inputs,
+        .output => self.subdevices[subdevice_index].outputs,
+    };
+    var bit_offset: u32 = 0;
+    for (pdos) |pdo| {
+        for (pdo.entries) |entry| {
+            defer bit_offset += entry.bits;
+            if (pdo.index == pdo_index and entry.index == index and entry.subindex == subindex) {
+                return .{ .entry = entry, .bit_offset = bit_offset };
+            }
+        }
+    }
+    return error.NotFound;
+}
+
 pub fn processImageSize(self: *const ENI) u32 {
     const stats = self.processImageStats();
     return stats.input_bytes + stats.output_bytes;
