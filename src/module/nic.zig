@@ -208,13 +208,13 @@ pub const WindowsRawSocket = struct {
         const result = npcap.c.pcap_next_ex(self.socket, &packet_header_ptr, &packet_data_ptr);
         if (result == 0) return 0;
         if (result != 1) return error.NetworkSubsystemFailed;
-        var fbs = std.io.fixedBufferStream(out);
-        const writer = fbs.writer();
+        var writer = std.Io.Writer.fixed(out);
 
         const bytes_received = packet_header_ptr.*.len;
         if (bytes_received == 0) return 0;
         writer.writeAll(packet_data_ptr[0..bytes_received]) catch |err| switch (err) {
-            error.NoSpaceLeft => return @intCast(bytes_received),
+            // TODO: this doesnt seem right...
+            error.WriteFailed => return @intCast(bytes_received),
         };
         return @intCast(bytes_received);
     }

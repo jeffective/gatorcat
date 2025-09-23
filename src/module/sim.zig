@@ -87,10 +87,10 @@ pub const Simulator = struct {
         const self: *Simulator = @ptrCast(@alignCast(ctx));
         self.tick();
         // TODO: re-order frames randomly
-        var out_stream = std.io.fixedBufferStream(out);
+        var writer = std.Io.Writer.fixed(out);
         if (self.out_frames.pop()) |frame| {
-            return out_stream.write(frame.slice()) catch |err| switch (err) {
-                error.NoSpaceLeft => return 0,
+            return writer.write(frame.slice()) catch |err| switch (err) {
+                error.WriteFailed => return 0,
             };
         } else return 0;
         unreachable;

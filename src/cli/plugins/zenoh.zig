@@ -854,24 +854,22 @@ pub const ZenohHandler = struct {
                     .input => md.subdevices[pv.subdevice].getInputProcessData(),
                     .output => md.subdevices[pv.subdevice].getOutputProcessData(),
                 };
-                var fbs = std.io.fixedBufferStream(sub_process_data);
-                const input_reader = fbs.reader();
-                var input_bit_reader = gcat.wire.lossyBitReader(input_reader);
+                var reader = std.Io.Reader.fixed(sub_process_data);
+                var input_bit_reader = gcat.wire.LossyBitReader.init(&reader);
                 var out_buffer: [32]u8 = undefined; // TODO: this is arbitrary
-                var fbs_out = std.io.fixedBufferStream(&out_buffer);
-                const writer = fbs_out.writer();
+                var writer = std.Io.Writer.fixed(&out_buffer);
                 input_bit_reader.readBitsNoEof(void, pv_info.bit_offset) catch unreachable;
-                zborSerialize(pv_info.entry, &input_bit_reader, writer) catch {
-                    std.log.err("cannot serialize to zbor: {any}", .{pv});
+                zborSerialize(pv_info.entry, &input_bit_reader, &writer) catch {
+                    std.log.err("cannot serialize to cbor: {any}", .{pv});
                 };
-                try self.publishAssumeKey(publisher_config.key_expr, fbs_out.getWritten());
+                try self.publishAssumeKey(publisher_config.key_expr, writer.buffered());
             }
         }
     }
     fn zborSerialize(
         entry: gcat.ENI.SubdeviceConfiguration.PDO.Entry,
-        bit_reader: anytype,
-        writer: anytype,
+        bit_reader: *gcat.wire.LossyBitReader,
+        writer: *std.Io.Writer,
     ) error{UnsupportedType}!void {
         switch (entry.type) {
             .BOOLEAN => {

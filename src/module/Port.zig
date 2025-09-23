@@ -118,7 +118,7 @@ fn sendTransaction(self: *Port, transaction: *Transaction) error{LinkError}!void
 
     // one datagram will always fit
     const n_bytes = frame.serialize(null, &out_buf) catch |err| switch (err) {
-        error.NoSpaceLeft => unreachable,
+        error.WriteFailed => unreachable,
     };
     const out = out_buf[0..n_bytes];
 

@@ -223,8 +223,7 @@ pub fn sdoRead(
     }
     assert(config.isValid());
 
-    var fbs = std.io.fixedBufferStream(out);
-    const writer = fbs.writer();
+    var writer = std.Io.Writer.fixed(out);
 
     var in_content: mailbox.InContent = undefined;
     const State = enum {
@@ -297,9 +296,9 @@ pub fn sdoRead(
             assert(in_content == .coe);
             assert(in_content.coe == .expedited);
             writer.writeAll(in_content.coe.expedited.data.slice()) catch |err| switch (err) {
-                error.NoSpaceLeft => return error.InvalidMbxContent,
+                error.WriteFailed => return error.InvalidMbxContent,
             };
-            return fbs.getWritten().len;
+            return writer.end;
         },
         .normal => {
             assert(in_content == .coe);
@@ -307,12 +306,12 @@ pub fn sdoRead(
 
             const data: []u8 = in_content.coe.normal.data.slice();
             writer.writeAll(data) catch |err| switch (err) {
-                error.NoSpaceLeft => return error.InvalidMbxContent,
+                error.WriteFailed => return error.InvalidMbxContent,
             };
             if (in_content.coe.normal.complete_size > data.len) {
                 continue :state .request_segment;
             }
-            return fbs.getWritten().len;
+            return writer.end;
         },
         .request_segment => return error.NotImplemented,
         .segment => return error.NotImplemented,
@@ -1160,8 +1159,7 @@ pub fn readSDOInfoFragments(
     opcode: SDOInfoOpCode,
     out: []u8,
 ) ![]u8 {
-    var fbs = std.io.fixedBufferStream(out);
-    const writer = fbs.writer();
+    var writer = std.Io.Writer.fixed(out);
     var expected_fragments_left: u16 = 0;
     get_fragments: for (0..1024) |i| {
         const in_content = try mailbox.readMailboxInTimeout(port, station_address, recv_timeout_us, config.mbx_in, mbx_timeout_us);
@@ -1198,7 +1196,7 @@ pub fn readSDOInfoFragments(
         }
     } else return error.WrongProtocol;
 
-    return fbs.getWritten();
+    return writer.buffered();
 }
 
 pub fn readObjectDescription(
@@ -1233,7 +1231,7 @@ pub fn readObjectDescription(
         .get_object_description_response,
         &full_service_data_buffer,
     ) catch |err| switch (err) {
-        error.NoSpaceLeft => return error.ObjectDescriptionTooBig,
+        error.WriteFailed => return error.ObjectDescriptionTooBig,
         else => |err2| return err2,
     };
     const response = try server.GetObjectDescriptionResponse.deserialize(full_service_data);
@@ -1273,7 +1271,7 @@ pub fn readEntryDescription(
         .get_entry_description_response,
         &full_service_data_buffer,
     ) catch |err| switch (err) {
-        error.NoSpaceLeft => return error.EntryDescriptionTooBig,
+        error.WriteFailed => return error.EntryDescriptionTooBig,
         else => |err2| return err2,
     };
     const response = try server.GetEntryDescriptionResponse.deserialize(full_service_data);

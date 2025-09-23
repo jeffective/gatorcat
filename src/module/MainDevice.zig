@@ -3,7 +3,6 @@ const assert = std.debug.assert;
 
 const ENI = @import("ENI.zig");
 const esc = @import("esc.zig");
-const FrameBuilder = @import("FrameBuilder.zig");
 const gcat = @import("root.zig");
 const logger = @import("root.zig").logger;
 const nic = @import("nic.zig");

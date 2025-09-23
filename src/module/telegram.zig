@@ -316,12 +316,11 @@ pub const EthernetFrame = struct {
     /// Returns number of bytes written, or error.
     /// If idx is provided, it will be injected into the first datagram.
     pub fn serialize(self: *EthernetFrame, maybe_idx: ?u8, out: []u8) !usize {
-        var fbs = std.io.fixedBufferStream(out);
-        const writer = fbs.writer();
+        var writer = std.Io.Writer.fixed(out);
         try writer.writeInt(u48, self.header.dest_mac, big);
         try writer.writeInt(u48, self.header.src_mac, big);
         try writer.writeInt(u16, @intFromEnum(self.header.ether_type), big);
-        try wire.eCatFromPackToWriter(self.ethercat_frame.header, writer);
+        try wire.eCatFromPackToWriter(self.ethercat_frame.header, &writer);
         for (self.ethercat_frame.datagrams, 0..) |datagram, i| {
             // inject idx at first datagram to identify frame
             if (i == 0) {
@@ -329,15 +328,15 @@ pub const EthernetFrame = struct {
                 if (maybe_idx) |idx| {
                     header_copy.idx = idx;
                 }
-                try wire.eCatFromPackToWriter(header_copy, writer);
+                try wire.eCatFromPackToWriter(header_copy, &writer);
             } else {
-                try wire.eCatFromPackToWriter(datagram.header, writer);
+                try wire.eCatFromPackToWriter(datagram.header, &writer);
             }
             try writer.writeAll(datagram.data);
-            try wire.eCatFromPackToWriter(datagram.wkc, writer);
+            try wire.eCatFromPackToWriter(datagram.wkc, &writer);
         }
-        try writer.writeByteNTimes(0, self.n_padding);
-        return fbs.getWritten().len;
+        try writer.splatByteAll(0, self.n_padding);
+        return writer.end;
     }
 
     pub fn deserialize(

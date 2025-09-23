@@ -101,7 +101,7 @@ pub fn writeMailboxOut(
 
     // impossible to contruct OutContent that is too large
     const size = content.serialize(&buf) catch |err| switch (err) {
-        error.NoSpaceLeft => unreachable,
+        error.WriteFailed => unreachable,
     };
     assert(size > 0);
 

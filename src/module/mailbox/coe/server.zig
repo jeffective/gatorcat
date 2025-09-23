@@ -185,13 +185,12 @@ pub const Expedited = struct {
     }
 
     pub fn serialize(self: Expedited, out: []u8) !usize {
-        var fbs = std.io.fixedBufferStream(out);
-        const writer = fbs.writer();
-        try wire.eCatFromPackToWriter(self.mbx_header, writer);
-        try wire.eCatFromPackToWriter(self.coe_header, writer);
-        try wire.eCatFromPackToWriter(self.sdo_header, writer);
+        var writer = std.Io.Writer.fixed(out);
+        try wire.eCatFromPackToWriter(self.mbx_header, &writer);
+        try wire.eCatFromPackToWriter(self.coe_header, &writer);
+        try wire.eCatFromPackToWriter(self.sdo_header, &writer);
         try writer.writeAll(self.data.slice());
-        return fbs.getWritten().len;
+        return writer.end;
     }
 };
 
@@ -300,14 +299,13 @@ pub const Normal = struct {
     }
 
     pub fn serialize(self: *const Normal, out: []u8) !usize {
-        var fbs = std.io.fixedBufferStream(out);
-        const writer = fbs.writer();
-        try wire.eCatFromPackToWriter(self.mbx_header, writer);
-        try wire.eCatFromPackToWriter(self.coe_header, writer);
-        try wire.eCatFromPackToWriter(self.sdo_header, writer);
-        try wire.eCatFromPackToWriter(self.complete_size, writer);
+        var writer = std.Io.Writer.fixed(out);
+        try wire.eCatFromPackToWriter(self.mbx_header, &writer);
+        try wire.eCatFromPackToWriter(self.coe_header, &writer);
+        try wire.eCatFromPackToWriter(self.sdo_header, &writer);
+        try wire.eCatFromPackToWriter(self.complete_size, &writer);
         try writer.writeAll(self.data.slice());
-        return fbs.getWritten().len;
+        return writer.end;
     }
 
     comptime {
@@ -481,20 +479,19 @@ pub const Segment = struct {
     }
 
     pub fn serialize(self: *const Segment, out: []u8) !usize {
-        var fbs = std.io.fixedBufferStream(out);
-        const writer = fbs.writer();
-        try wire.eCatFromPackToWriter(self.mbx_header, writer);
-        try wire.eCatFromPackToWriter(self.coe_header, writer);
-        try wire.eCatFromPackToWriter(self.seg_header, writer);
+        var writer = std.Io.Writer.fixed(out);
+        try wire.eCatFromPackToWriter(self.mbx_header, &writer);
+        try wire.eCatFromPackToWriter(self.coe_header, &writer);
+        try wire.eCatFromPackToWriter(self.seg_header, &writer);
         try writer.writeAll(self.data.slice());
         const padding_length: usize = @min(7, 7 -| self.data.len);
         assert(padding_length <= 7);
-        try writer.writeByteNTimes(0, padding_length);
-        assert(fbs.getWritten().len >=
+        try writer.splatByteAll(0, padding_length);
+        assert(writer.end >=
             wire.packedSize(mailbox.Header) +
                 wire.packedSize(coe.Header) +
                 wire.packedSize(SegmentHeader) + 7);
-        return fbs.getWritten().len;
+        return writer.end;
     }
 
     comptime {
@@ -622,10 +619,9 @@ pub const Abort = packed struct(u128) {
     }
 
     pub fn serialize(self: Abort, out: []u8) !usize {
-        var fbs = std.io.fixedBufferStream(out);
-        const writer = fbs.writer();
-        try wire.eCatFromPackToWriter(self, writer);
-        return fbs.getWritten().len;
+        var writer = std.Io.Writer.fixed(out);
+        try wire.eCatFromPackToWriter(self, &writer);
+        return writer.end;
     }
 };
 
@@ -707,13 +703,12 @@ pub const SDOInfoResponse = struct {
     }
 
     pub fn serialize(self: SDOInfoResponse, out: []u8) !usize {
-        var fbs = std.io.fixedBufferStream(out);
-        const writer = fbs.writer();
-        try wire.eCatFromPackToWriter(self.mbx_header, writer);
-        try wire.eCatFromPackToWriter(self.coe_header, writer);
-        try wire.eCatFromPackToWriter(self.sdo_info_header, writer);
+        var writer = std.Io.Writer.fixed(out);
+        try wire.eCatFromPackToWriter(self.mbx_header, &writer);
+        try wire.eCatFromPackToWriter(self.coe_header, &writer);
+        try wire.eCatFromPackToWriter(self.sdo_info_header, &writer);
         try writer.writeAll(self.service_data.slice());
-        return fbs.getWritten().len;
+        return writer.end;
     }
 
     comptime {
@@ -786,13 +781,12 @@ pub const GetODListResponse = struct {
     }
 
     pub fn serialize(self: GetODListResponse, out: []u8) !usize {
-        var fbs = std.io.fixedBufferStream(out);
-        const writer = fbs.writer();
-        try wire.eCatFromPackToWriter(self.list_type, writer);
+        var writer = std.Io.Writer.fixed(out);
+        try wire.eCatFromPackToWriter(self.list_type, &writer);
         for (self.index_list.slice()) |index| {
-            try wire.eCatFromPackToWriter(index, writer);
+            try wire.eCatFromPackToWriter(index, &writer);
         }
-        return fbs.getWritten().len;
+        return writer.end;
     }
 };
 
@@ -878,14 +872,13 @@ pub const GetObjectDescriptionResponse = struct {
     }
 
     pub fn serialize(self: GetObjectDescriptionResponse, out: []u8) !usize {
-        var fbs = std.io.fixedBufferStream(out);
-        const writer = fbs.writer();
-        try wire.eCatFromPackToWriter(self.index, writer);
-        try wire.eCatFromPackToWriter(self.data_type, writer);
-        try wire.eCatFromPackToWriter(self.max_subindex, writer);
-        try wire.eCatFromPackToWriter(self.object_code, writer);
+        var writer = std.Io.Writer.fixed(out);
+        try wire.eCatFromPackToWriter(self.index, &writer);
+        try wire.eCatFromPackToWriter(self.data_type, &writer);
+        try wire.eCatFromPackToWriter(self.max_subindex, &writer);
+        try wire.eCatFromPackToWriter(self.object_code, &writer);
         try writer.writeAll(self.name.slice());
-        return fbs.getWritten().len;
+        return writer.end;
     }
 };
 
@@ -984,16 +977,15 @@ pub const GetEntryDescriptionResponse = struct {
     }
 
     pub fn serialize(self: GetEntryDescriptionResponse, out: []u8) !usize {
-        var fbs = std.io.fixedBufferStream(out);
-        const writer = fbs.writer();
-        try wire.eCatFromPackToWriter(self.index, writer);
-        try wire.eCatFromPackToWriter(self.subindex, writer);
-        try wire.eCatFromPackToWriter(self.value_info, writer);
-        try wire.eCatFromPackToWriter(self.data_type, writer);
-        try wire.eCatFromPackToWriter(self.bit_length, writer);
-        try wire.eCatFromPackToWriter(self.object_access, writer);
+        var writer = std.Io.Writer.fixed(out);
+        try wire.eCatFromPackToWriter(self.index, &writer);
+        try wire.eCatFromPackToWriter(self.subindex, &writer);
+        try wire.eCatFromPackToWriter(self.value_info, &writer);
+        try wire.eCatFromPackToWriter(self.data_type, &writer);
+        try wire.eCatFromPackToWriter(self.bit_length, &writer);
+        try wire.eCatFromPackToWriter(self.object_access, &writer);
         try writer.writeAll(self.data.slice());
-        return fbs.getWritten().len;
+        return writer.end;
     }
 };
 
@@ -1073,10 +1065,9 @@ pub const SDOInfoError = packed struct(u128) {
     }
 
     pub fn serialize(self: SDOInfoError, out: []u8) !usize {
-        var fbs = std.io.fixedBufferStream(out);
-        const writer = fbs.writer();
-        try wire.eCatFromPackToWriter(self, writer);
-        return fbs.getWritten().len;
+        var writer = std.Io.Writer.fixed(out);
+        try wire.eCatFromPackToWriter(self, &writer);
+        return writer.end;
     }
 };
 
@@ -1135,10 +1126,9 @@ pub const Emergency = packed struct(u128) {
     }
 
     pub fn serialize(self: Emergency, out: []u8) !usize {
-        var fbs = std.io.fixedBufferStream(out);
-        const writer = fbs.writer();
-        try wire.eCatFromPackToWriter(self, writer);
-        return fbs.getWritten().len;
+        var writer = std.Io.Writer.fixed(out);
+        try wire.eCatFromPackToWriter(self, &writer);
+        return writer.end;
     }
 };
 

@@ -33,7 +33,7 @@ pub fn isECatPackable(comptime T: type) bool {
     };
 }
 
-pub fn eCatFromPackToWriter(pack: anytype, writer: anytype) !void {
+pub fn eCatFromPackToWriter(pack: anytype, writer: *std.Io.Writer) !void {
     comptime assert(isECatPackable(@TypeOf(pack)));
     var bytes = eCatFromPack(pack);
     try writer.writeAll(&bytes);
@@ -255,102 +255,97 @@ test "packFromECat" {
 /// - readBitsNoEof(bool, 0) -> bool (false)
 /// - readBitsNoEof(bool, 2) -> bool (ignores higher bits from bitsream)
 /// - readBitsNoEof(void, 2) -> void (skips 2 bits in bitstream)
-pub fn LossyBitReader(comptime Reader: type) type {
-    return struct {
-        reader: Reader,
-        current_byte: u8 = 0,
-        pos_in_byte: u3 = 0,
-        pub fn readBitsNoEof(self: *@This(), comptime T: type, num: u32) !T {
-            var rval: @Type(.{ .int = .{ .signedness = .unsigned, .bits = @bitSizeOf(T) } }) = 0;
-            var used_bits: u32 = 0;
-            var bits_remaining = num;
-            while (bits_remaining > 0) : ({
-                bits_remaining -= 1;
-                self.pos_in_byte +%= 1;
-            }) {
-                if (self.pos_in_byte == 0) {
-                    self.current_byte = try self.reader.readByte();
-                }
-                if (used_bits < @bitSizeOf(T)) {
-                    const bit_value: u1 = @intCast((self.current_byte >> self.pos_in_byte) & 0b00000001);
-                    const mask = @as(@TypeOf(rval), @intCast(1)) << @intCast(used_bits);
-                    switch (bit_value) {
-                        0 => rval = rval & ~mask,
-                        1 => rval = rval | mask,
-                    }
-                    used_bits += 1;
-                }
+pub const LossyBitReader = struct {
+    reader: *std.Io.Reader,
+    current_byte: u8 = 0,
+    pos_in_byte: u3 = 0,
+
+    pub fn init(reader: *std.Io.Reader) LossyBitReader {
+        return .{ .reader = reader };
+    }
+
+    pub fn readBitsNoEof(self: *LossyBitReader, comptime T: type, num: u32) !T {
+        var rval: @Type(.{ .int = .{ .signedness = .unsigned, .bits = @bitSizeOf(T) } }) = 0;
+        var used_bits: u32 = 0;
+        var bits_remaining = num;
+        while (bits_remaining > 0) : ({
+            bits_remaining -= 1;
+            self.pos_in_byte +%= 1;
+        }) {
+            if (self.pos_in_byte == 0) {
+                try self.reader.readSliceAll((&self.current_byte)[0..1]);
             }
-            return switch (T) {
-                void => void{},
-                else => return @bitCast(rval),
-            };
+            if (used_bits < @bitSizeOf(T)) {
+                const bit_value: u1 = @intCast((self.current_byte >> self.pos_in_byte) & 0b00000001);
+                const mask = @as(@TypeOf(rval), @intCast(1)) << @intCast(used_bits);
+                switch (bit_value) {
+                    0 => rval = rval & ~mask,
+                    1 => rval = rval | mask,
+                }
+                used_bits += 1;
+            }
         }
+        return switch (T) {
+            void => void{},
+            else => return @bitCast(rval),
+        };
+    }
+    pub fn reset(self: *LossyBitReader) void {
+        self.current_byte = 0;
+        self.pos_in_byte = 0;
+    }
+};
 
-        pub fn reset(self: *@This()) void {
-            self.pos_in_byte = 0;
-            self.current_byte = 0; // not strictly necessary?
-        }
-    };
-}
-
-pub fn lossyBitReader(reader: anytype) LossyBitReader(@TypeOf(reader)) {
-    return .{ .reader = reader };
-}
-
-test lossyBitReader {
+test LossyBitReader {
     const t: []const u8 = &.{1};
-    var fbs = std.io.fixedBufferStream(t);
-    const reader = fbs.reader();
-    var bit_reader = lossyBitReader(reader);
+    var reader = std.Io.Reader.fixed(t);
+    var bit_reader = LossyBitReader.init(&reader);
     try std.testing.expectEqual(true, try bit_reader.readBitsNoEof(bool, 1));
 }
 
 test "lossyBitReader 0 bytes" {
     const t: []const u8 = &.{};
-    var fbs = std.io.fixedBufferStream(t);
-    const reader = fbs.reader();
-    var bit_reader = lossyBitReader(reader);
+    var reader = std.Io.Reader.fixed(t);
+    var bit_reader = LossyBitReader.init(&reader);
 
     try std.testing.expectEqual(false, try bit_reader.readBitsNoEof(bool, 0));
     try std.testing.expectEqual(0, bit_reader.pos_in_byte);
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 
     try std.testing.expectEqual(0, try bit_reader.readBitsNoEof(u4, 0));
     try std.testing.expectEqual(0, bit_reader.pos_in_byte);
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 
     try std.testing.expectEqual(0, try bit_reader.readBitsNoEof(u22, 0));
     try std.testing.expectEqual(0, bit_reader.pos_in_byte);
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 
     try std.testing.expectEqual(0, try bit_reader.readBitsNoEof(u0, 0));
     try std.testing.expectEqual(0, bit_reader.pos_in_byte);
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 
     try std.testing.expectError(error.EndOfStream, bit_reader.readBitsNoEof(u0, 1));
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 
     try std.testing.expectError(error.EndOfStream, bit_reader.readBitsNoEof(u0, 400));
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 
     try std.testing.expectEqual(0, try bit_reader.readBitsNoEof(u1, 0));
     try std.testing.expectEqual(0, bit_reader.pos_in_byte);
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 }
 
 test "lossyBitReader 1 byte" {
     const t: []const u8 = &.{0b00001101};
-    var fbs = std.io.fixedBufferStream(t);
-    const reader = fbs.reader();
-    var bit_reader = lossyBitReader(reader);
+    var reader = std.Io.Reader.fixed(t);
+    var bit_reader = LossyBitReader.init(&reader);
     try std.testing.expectEqual(0, bit_reader.pos_in_byte);
     try std.testing.expectEqual(true, try bit_reader.readBitsNoEof(bool, 1));
     try std.testing.expectEqual(false, try bit_reader.readBitsNoEof(bool, 1));
@@ -361,51 +356,50 @@ test "lossyBitReader 1 byte" {
     try std.testing.expectEqual(false, try bit_reader.readBitsNoEof(bool, 1));
     try std.testing.expectEqual(false, try bit_reader.readBitsNoEof(bool, 1));
     try std.testing.expectError(error.EndOfStream, bit_reader.readBitsNoEof(bool, 1));
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 
     try std.testing.expectEqual(0b00001101, try bit_reader.readBitsNoEof(u8, 8));
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 
     try std.testing.expectEqual(0b1, try bit_reader.readBitsNoEof(u4, 1));
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 
     try std.testing.expectEqual(0b01, try bit_reader.readBitsNoEof(u4, 2));
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 
     try std.testing.expectEqual(0b101, try bit_reader.readBitsNoEof(u4, 3));
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 
     try std.testing.expectEqual(0b1101, try bit_reader.readBitsNoEof(u4, 4));
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 
     try std.testing.expectEqual(0b01101, try bit_reader.readBitsNoEof(u4, 5));
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 
     try std.testing.expectEqual(0b1101, try bit_reader.readBitsNoEof(u4, 8));
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 
     try std.testing.expectError(error.EndOfStream, bit_reader.readBitsNoEof(u4, 9));
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 
     try std.testing.expectEqual(0b00000000_00001101, try bit_reader.readBitsNoEof(u16, 8));
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 }
 
 test "lossyBitReader 2 bytes" {
     const t: []const u8 = &.{ 0b00001101, 0b00100110 };
-    var fbs = std.io.fixedBufferStream(t);
-    const reader = fbs.reader();
-    var bit_reader = lossyBitReader(reader);
+    var reader = std.Io.Reader.fixed(t);
+    var bit_reader = LossyBitReader.init(&reader);
     try std.testing.expectEqual(true, try bit_reader.readBitsNoEof(bool, 1));
     try std.testing.expectEqual(false, try bit_reader.readBitsNoEof(bool, 1));
     try std.testing.expectEqual(true, try bit_reader.readBitsNoEof(bool, 1));
@@ -423,19 +417,19 @@ test "lossyBitReader 2 bytes" {
     try std.testing.expectEqual(false, try bit_reader.readBitsNoEof(bool, 1));
     try std.testing.expectEqual(false, try bit_reader.readBitsNoEof(bool, 1));
     try std.testing.expectError(error.EndOfStream, bit_reader.readBitsNoEof(bool, 1));
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 
     try std.testing.expectEqual(0b0100110_00001101, try bit_reader.readBitsNoEof(u15, 16));
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 
     try std.testing.expectEqual(0b00100110_00001101, try bit_reader.readBitsNoEof(u16, 16));
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 
     try std.testing.expectEqual(0b00100110_00001101, try bit_reader.readBitsNoEof(u17, 16));
-    fbs.reset();
+    reader = std.Io.Reader.fixed(t);
     bit_reader.reset();
 }
 
