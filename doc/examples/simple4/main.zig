@@ -36,7 +36,9 @@ pub fn main() !void {
     try md.busSafeop(10_000_000);
     // 0x10f3 diagnosis history
     var buf: [10000]u8 = undefined;
-    const bytes_read = try md.subdevices[3].sdoRead(&port, &buf, 0x10f3, 8, false, 10_000, 10_000);
+    var writer = std.Io.Writer.fixed(&buf);
+    try md.subdevices[3].sdoRead(&port, &writer, 0x10f3, 8, false, 10_000, 10_000);
+    const bytes_read = writer.buffered().len;
     std.log.err("got {} bytes", .{bytes_read});
     try md.busOp(10_000_000);
 

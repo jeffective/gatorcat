@@ -178,18 +178,20 @@ pub fn sdoReadPack(
     assert(config.isValid());
 
     var bytes = wire.zerosFromPack(packed_type);
-    const n_bytes_read = try sdoRead(
+    var writer = std.Io.Writer.fixed(&bytes);
+    try sdoRead(
         port,
         station_address,
         index,
         subindex,
         complete_access,
-        &bytes,
+        &writer,
         recv_timeout_us,
         mbx_timeout_us,
         cnt,
         config,
     );
+    const n_bytes_read = writer.buffered().len;
     if (n_bytes_read != bytes.len) {
         logger.err("expected pack size: {}, got {}", .{ bytes.len, n_bytes_read });
         return error.InvalidMbxContent;
@@ -198,8 +200,6 @@ pub fn sdoReadPack(
 }
 // TODO: support segmented reads
 /// Read the SDO from the subdevice into a buffer.
-///
-/// Returns number of bytes written on success.
 ///
 /// Rather weirdly, it appears that complete access = true and subindex 0
 /// will return two bytes for subindex 0, which is given type u8 in the
@@ -211,19 +211,17 @@ pub fn sdoRead(
     index: u16,
     subindex: u8,
     complete_access: bool,
-    out: []u8,
+    writer: *std.Io.Writer,
     recv_timeout_us: u32,
     mbx_timeout_us: u32,
     cnt: u3,
     config: mailbox.Configuration,
-) !usize {
+) !void {
     assert(cnt != 0);
     if (complete_access) {
         assert(subindex == 1 or subindex == 0);
     }
     assert(config.isValid());
-
-    var writer = std.Io.Writer.fixed(out);
 
     var in_content: mailbox.InContent = undefined;
     const State = enum {
@@ -298,7 +296,7 @@ pub fn sdoRead(
             writer.writeAll(in_content.coe.expedited.data.slice()) catch |err| switch (err) {
                 error.WriteFailed => return error.InvalidMbxContent,
             };
-            return writer.end;
+            return;
         },
         .normal => {
             assert(in_content == .coe);
@@ -311,7 +309,7 @@ pub fn sdoRead(
             if (in_content.coe.normal.complete_size > data.len) {
                 continue :state .request_segment;
             }
-            return writer.end;
+            return;
         },
         .request_segment => return error.NotImplemented,
         .segment => return error.NotImplemented,
@@ -1140,15 +1138,17 @@ pub fn readODList(
     );
 
     var full_service_data_buffer: [4096]u8 = undefined; // TODO: this is arbitrary
-    const full_service_data = try readSDOInfoFragments(
+    var writer = std.Io.Writer.fixed(&full_service_data_buffer);
+    try readSDOInfoFragments(
         port,
         station_address,
         recv_timeout_us,
         mbx_timeout_us,
         config,
         .get_od_list_response,
-        &full_service_data_buffer,
+        &writer,
     );
+    const full_service_data = writer.buffered();
     const response = try server.GetODListResponse.deserialize(full_service_data);
     if (response.list_type != list_type) return error.WrongProtocol;
     return response.index_list;
@@ -1161,9 +1161,8 @@ pub fn readSDOInfoFragments(
     mbx_timeout_us: u32,
     config: mailbox.Configuration,
     opcode: SDOInfoOpCode,
-    out: []u8,
-) ![]u8 {
-    var writer = std.Io.Writer.fixed(out);
+    writer: *std.Io.Writer,
+) !void {
     var expected_fragments_left: u16 = 0;
     get_fragments: for (0..1024) |i| {
         const in_content = try mailbox.readMailboxInTimeout(port, station_address, recv_timeout_us, config.mbx_in, mbx_timeout_us);
@@ -1199,8 +1198,6 @@ pub fn readSDOInfoFragments(
             },
         }
     } else return error.WrongProtocol;
-
-    return writer.buffered();
 }
 
 pub fn readObjectDescription(
@@ -1226,18 +1223,20 @@ pub fn readObjectDescription(
     );
 
     var full_service_data_buffer: [4096]u8 = undefined; // TODO: this is arbitrary
-    const full_service_data = readSDOInfoFragments(
+    var writer = std.Io.Writer.fixed(&full_service_data_buffer);
+    readSDOInfoFragments(
         port,
         station_address,
         recv_timeout_us,
         mbx_timeout_us,
         config,
         .get_object_description_response,
-        &full_service_data_buffer,
+        &writer,
     ) catch |err| switch (err) {
         error.WriteFailed => return error.ObjectDescriptionTooBig,
         else => |err2| return err2,
     };
+    const full_service_data = writer.buffered();
     const response = try server.GetObjectDescriptionResponse.deserialize(full_service_data);
     if (response.index != index) return error.WrongProtocol;
     return response;
@@ -1266,18 +1265,20 @@ pub fn readEntryDescription(
     );
 
     var full_service_data_buffer: [4096]u8 = undefined; // TODO: this is arbitrary
-    const full_service_data = readSDOInfoFragments(
+    var writer = std.Io.Writer.fixed(&full_service_data_buffer);
+    readSDOInfoFragments(
         port,
         station_address,
         recv_timeout_us,
         mbx_timeout_us,
         config,
         .get_entry_description_response,
-        &full_service_data_buffer,
+        &writer,
     ) catch |err| switch (err) {
         error.WriteFailed => return error.EntryDescriptionTooBig,
         else => |err2| return err2,
     };
+    const full_service_data = writer.buffered();
     const response = try server.GetEntryDescriptionResponse.deserialize(full_service_data);
     if (response.index != index or response.subindex != subindex or response.value_info != value_info) return error.WrongProtocol;
     return response;

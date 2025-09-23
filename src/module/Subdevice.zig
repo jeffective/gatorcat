@@ -547,23 +547,23 @@ pub fn sdoWrite(
 pub fn sdoRead(
     self: *Subdevice,
     port: *Port,
-    out: []u8,
+    writer: *std.Io.Writer,
     index: u16,
     subindex: u8,
     complete_access: bool,
     recv_timeout_us: u32,
     mbx_timeout_us: u32,
-) !usize {
+) !void {
     const this_coe = self.runtime_info.coe orelse return error.CoENotSupported;
     if (complete_access and !this_coe.supports_complete_access) return error.CoECompleteAccessNotSupported;
 
-    return try coe.sdoRead(
+    try coe.sdoRead(
         port,
         stationAddressFromRingPos(self.runtime_info.ring_position),
         index,
         subindex,
         complete_access,
-        out,
+        writer,
         recv_timeout_us,
         mbx_timeout_us,
         self.runtime_info.coe.?.cnt.nextCnt(),
