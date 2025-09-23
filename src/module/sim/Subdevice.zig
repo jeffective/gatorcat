@@ -147,7 +147,9 @@ pub fn processFrame(self: *Subdevice, frame: *Simulator.Frame) void {
     var new_frame = Simulator.Frame{};
     new_frame.len = frame.len;
     var new_eth_frame = telegram.EthernetFrame.init(ethernet_frame.header, telegram.EtherCATFrame.init(datagrams));
-    const num_written = new_eth_frame.serialize(null, new_frame.slice()) catch unreachable;
+    var writer = std.Io.Writer.fixed(new_frame.slice());
+    new_eth_frame.serialize(null, &writer) catch unreachable;
+    const num_written = writer.buffered().len;
     assert(num_written == frame.len);
     frame.* = new_frame;
 

@@ -98,11 +98,13 @@ pub fn writeMailboxOut(
     if (act_mbx_out.status.mailbox_full) return error.MbxOutFull;
 
     var buf = std.mem.zeroes([max_size]u8);
+    var writer = std.Io.Writer.fixed(&buf);
 
     // impossible to contruct OutContent that is too large
-    const size = content.serialize(&buf) catch |err| switch (err) {
+    content.serialize(&writer) catch |err| switch (err) {
         error.WriteFailed => unreachable,
     };
+    const size = writer.buffered().len;
     assert(size > 0);
 
     // you should know the size of the mailbox when calling this function
@@ -220,9 +222,9 @@ pub const OutContent = union(enum) {
 
     // TODO: implement other protocols
 
-    pub fn serialize(self: OutContent, out: []u8) !usize {
+    pub fn serialize(self: OutContent, writer: *std.Io.Writer) !void {
         return switch (self) {
-            .coe => self.coe.serialize(out),
+            .coe => self.coe.serialize(writer),
         };
     }
 };

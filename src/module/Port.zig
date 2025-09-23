@@ -115,12 +115,13 @@ fn sendTransaction(self: *Port, transaction: *Transaction) error{LinkError}!void
         ethercat_frame,
     );
     var out_buf: [telegram.max_frame_length]u8 = undefined;
+    var writer = std.Io.Writer.fixed(&out_buf);
 
     // one datagram will always fit
-    const n_bytes = frame.serialize(null, &out_buf) catch |err| switch (err) {
+    frame.serialize(null, &writer) catch |err| switch (err) {
         error.WriteFailed => unreachable,
     };
-    const out = out_buf[0..n_bytes];
+    const out = out_buf[0..writer.buffered().len];
 
     // We need to append the transaction before we send.
     // Because we may recv from any thread.

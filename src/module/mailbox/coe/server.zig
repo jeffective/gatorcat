@@ -184,13 +184,11 @@ pub const Expedited = struct {
         };
     }
 
-    pub fn serialize(self: Expedited, out: []u8) !usize {
-        var writer = std.Io.Writer.fixed(out);
-        try wire.eCatFromPackToWriter(self.mbx_header, &writer);
-        try wire.eCatFromPackToWriter(self.coe_header, &writer);
-        try wire.eCatFromPackToWriter(self.sdo_header, &writer);
+    pub fn serialize(self: Expedited, writer: *std.Io.Writer) !void {
+        try wire.eCatFromPackToWriter(self.mbx_header, writer);
+        try wire.eCatFromPackToWriter(self.coe_header, writer);
+        try wire.eCatFromPackToWriter(self.sdo_header, writer);
         try writer.writeAll(self.data.slice());
-        return writer.end;
     }
 };
 
@@ -204,7 +202,9 @@ test "SDO Server Expedited Serialize Deserialize" {
     );
 
     var bytes = std.mem.zeroes([mailbox.max_size]u8);
-    const byte_size = try expected.serialize(&bytes);
+    var writer = std.Io.Writer.fixed(&bytes);
+    try expected.serialize(&writer);
+    const byte_size = writer.buffered().len;
     try std.testing.expectEqual(@as(usize, 6 + 2 + 8), byte_size);
     const actual = try Expedited.deserialize(&bytes);
     try std.testing.expectEqualDeep(expected, actual);
@@ -298,14 +298,12 @@ pub const Normal = struct {
         };
     }
 
-    pub fn serialize(self: *const Normal, out: []u8) !usize {
-        var writer = std.Io.Writer.fixed(out);
-        try wire.eCatFromPackToWriter(self.mbx_header, &writer);
-        try wire.eCatFromPackToWriter(self.coe_header, &writer);
-        try wire.eCatFromPackToWriter(self.sdo_header, &writer);
-        try wire.eCatFromPackToWriter(self.complete_size, &writer);
+    pub fn serialize(self: *const Normal, writer: *std.Io.Writer) !void {
+        try wire.eCatFromPackToWriter(self.mbx_header, writer);
+        try wire.eCatFromPackToWriter(self.coe_header, writer);
+        try wire.eCatFromPackToWriter(self.sdo_header, writer);
+        try wire.eCatFromPackToWriter(self.complete_size, writer);
         try writer.writeAll(self.data.slice());
-        return writer.end;
     }
 
     comptime {
@@ -328,7 +326,9 @@ test "serialize and deserialize sdo server normal" {
         &.{ 1, 2, 3, 4 },
     );
     var bytes = std.mem.zeroes([mailbox.max_size]u8);
-    const byte_size = try expected.serialize(&bytes);
+    var writer = std.Io.Writer.fixed(&bytes);
+    try expected.serialize(&writer);
+    const byte_size = writer.buffered().len;
     try std.testing.expectEqual(@as(usize, 6 + 2 + 12), byte_size);
     const actual = try Normal.deserialize(&bytes);
     try std.testing.expect(Normal.eq(expected, actual));
@@ -478,20 +478,14 @@ pub const Segment = struct {
         };
     }
 
-    pub fn serialize(self: *const Segment, out: []u8) !usize {
-        var writer = std.Io.Writer.fixed(out);
-        try wire.eCatFromPackToWriter(self.mbx_header, &writer);
-        try wire.eCatFromPackToWriter(self.coe_header, &writer);
-        try wire.eCatFromPackToWriter(self.seg_header, &writer);
+    pub fn serialize(self: *const Segment, writer: *std.Io.Writer) !void {
+        try wire.eCatFromPackToWriter(self.mbx_header, writer);
+        try wire.eCatFromPackToWriter(self.coe_header, writer);
+        try wire.eCatFromPackToWriter(self.seg_header, writer);
         try writer.writeAll(self.data.slice());
         const padding_length: usize = @min(7, 7 -| self.data.len);
         assert(padding_length <= 7);
         try writer.splatByteAll(0, padding_length);
-        assert(writer.end >=
-            wire.packedSize(mailbox.Header) +
-                wire.packedSize(coe.Header) +
-                wire.packedSize(SegmentHeader) + 7);
-        return writer.end;
     }
 
     comptime {
@@ -512,7 +506,9 @@ test "serialize and deserialize sdo server segment" {
         &.{ 1, 2, 3, 4 },
     );
     var bytes = std.mem.zeroes([mailbox.max_size]u8);
-    const byte_size = try expected.serialize(&bytes);
+    var writer = std.Io.Writer.fixed(&bytes);
+    try expected.serialize(&writer);
+    const byte_size = writer.buffered().len;
     try std.testing.expectEqual(@as(usize, 6 + 2 + 8), byte_size);
     const actual = try Segment.deserialize(&bytes);
     try std.testing.expect(Segment.eq(expected, actual));
@@ -527,7 +523,9 @@ test "serialize and deserialize sdo server segment longer than 7 bytes" {
         &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 },
     );
     var bytes = std.mem.zeroes([mailbox.max_size]u8);
-    const byte_size = try expected.serialize(&bytes);
+    var writer = std.Io.Writer.fixed(&bytes);
+    try expected.serialize(&writer);
+    const byte_size = writer.buffered().len;
     try std.testing.expectEqual(@as(usize, 6 + 2 + 14), byte_size);
     const actual = try Segment.deserialize(&bytes);
     try std.testing.expect(Segment.eq(expected, actual));
@@ -618,10 +616,8 @@ pub const Abort = packed struct(u128) {
         return try wire.packFromECatReader(Abort, &fbs);
     }
 
-    pub fn serialize(self: Abort, out: []u8) !usize {
-        var writer = std.Io.Writer.fixed(out);
-        try wire.eCatFromPackToWriter(self, &writer);
-        return writer.end;
+    pub fn serialize(self: Abort, writer: *std.Io.Writer) !void {
+        try wire.eCatFromPackToWriter(self, writer);
     }
 };
 
@@ -634,7 +630,9 @@ test "serialize and deserialize abort sdo transfer request" {
         .AccessFailedDueToHardwareError,
     );
     var bytes = std.mem.zeroes([mailbox.max_size]u8);
-    const byte_size = try expected.serialize(&bytes);
+    var writer = std.Io.Writer.fixed(&bytes);
+    try expected.serialize(&writer);
+    const byte_size = writer.buffered().len;
     try std.testing.expectEqual(@as(usize, 6 + 2 + 8), byte_size);
     const actual = try Abort.deserialize(&bytes);
     try std.testing.expectEqualDeep(expected, actual);
@@ -702,13 +700,11 @@ pub const SDOInfoResponse = struct {
         };
     }
 
-    pub fn serialize(self: SDOInfoResponse, out: []u8) !usize {
-        var writer = std.Io.Writer.fixed(out);
-        try wire.eCatFromPackToWriter(self.mbx_header, &writer);
-        try wire.eCatFromPackToWriter(self.coe_header, &writer);
-        try wire.eCatFromPackToWriter(self.sdo_info_header, &writer);
+    pub fn serialize(self: SDOInfoResponse, writer: *std.Io.Writer) !void {
+        try wire.eCatFromPackToWriter(self.mbx_header, writer);
+        try wire.eCatFromPackToWriter(self.coe_header, writer);
+        try wire.eCatFromPackToWriter(self.sdo_info_header, writer);
         try writer.writeAll(self.service_data.slice());
-        return writer.end;
     }
 
     comptime {
@@ -723,7 +719,9 @@ pub const SDOInfoResponse = struct {
 test "serialize and deserialize sdo info response" {
     const expected = SDOInfoResponse.init(3, 234, true, 151, &.{ 1, 2, 3, 4 });
     var bytes = std.mem.zeroes([mailbox.max_size]u8);
-    const byte_size = try expected.serialize(&bytes);
+    var writer = std.Io.Writer.fixed(&bytes);
+    try expected.serialize(&writer);
+    const byte_size = writer.buffered().len;
     try std.testing.expectEqual(@as(usize, 6 + 2 + 4 + 4), byte_size);
     const actual = try SDOInfoResponse.deserialize(&bytes);
     try std.testing.expectEqual(expected.coe_header, actual.coe_header);
@@ -780,13 +778,11 @@ pub const GetODListResponse = struct {
         };
     }
 
-    pub fn serialize(self: GetODListResponse, out: []u8) !usize {
-        var writer = std.Io.Writer.fixed(out);
-        try wire.eCatFromPackToWriter(self.list_type, &writer);
+    pub fn serialize(self: GetODListResponse, writer: *std.Io.Writer) !void {
+        try wire.eCatFromPackToWriter(self.list_type, writer);
         for (self.index_list.slice()) |index| {
-            try wire.eCatFromPackToWriter(index, &writer);
+            try wire.eCatFromPackToWriter(index, writer);
         }
-        return writer.end;
     }
 };
 
@@ -796,7 +792,9 @@ test "serialize and deserialize get od list response" {
         &.{ 1, 2, 3, 4 },
     );
     var bytes = std.mem.zeroes([mailbox.max_size]u8);
-    const byte_size = try expected.serialize(&bytes);
+    var writer = std.Io.Writer.fixed(&bytes);
+    try expected.serialize(&writer);
+    const byte_size = writer.buffered().len;
     try std.testing.expectEqual(@as(usize, 2 + 8), byte_size);
     const actual = try GetODListResponse.deserialize(bytes[0..byte_size]);
     try std.testing.expect(GetODListResponse.eq(expected, actual));
@@ -871,14 +869,12 @@ pub const GetObjectDescriptionResponse = struct {
         };
     }
 
-    pub fn serialize(self: GetObjectDescriptionResponse, out: []u8) !usize {
-        var writer = std.Io.Writer.fixed(out);
-        try wire.eCatFromPackToWriter(self.index, &writer);
-        try wire.eCatFromPackToWriter(self.data_type, &writer);
-        try wire.eCatFromPackToWriter(self.max_subindex, &writer);
-        try wire.eCatFromPackToWriter(self.object_code, &writer);
+    pub fn serialize(self: GetObjectDescriptionResponse, writer: *std.Io.Writer) !void {
+        try wire.eCatFromPackToWriter(self.index, writer);
+        try wire.eCatFromPackToWriter(self.data_type, writer);
+        try wire.eCatFromPackToWriter(self.max_subindex, writer);
+        try wire.eCatFromPackToWriter(self.object_code, writer);
         try writer.writeAll(self.name.slice());
-        return writer.end;
     }
 };
 
@@ -891,7 +887,9 @@ test "serialize and deserialize get object description response" {
         "name",
     );
     var bytes = std.mem.zeroes([mailbox.max_size]u8);
-    const byte_size = try expected.serialize(&bytes);
+    var writer = std.Io.Writer.fixed(&bytes);
+    try expected.serialize(&writer);
+    const byte_size = writer.buffered().len;
     try std.testing.expectEqual(@as(usize, 2 + 2 + 1 + 1 + 4), byte_size);
     const actual = try GetObjectDescriptionResponse.deserialize(bytes[0..byte_size]);
     try std.testing.expect(GetObjectDescriptionResponse.eq(expected, actual));
@@ -976,16 +974,14 @@ pub const GetEntryDescriptionResponse = struct {
         };
     }
 
-    pub fn serialize(self: GetEntryDescriptionResponse, out: []u8) !usize {
-        var writer = std.Io.Writer.fixed(out);
-        try wire.eCatFromPackToWriter(self.index, &writer);
-        try wire.eCatFromPackToWriter(self.subindex, &writer);
-        try wire.eCatFromPackToWriter(self.value_info, &writer);
-        try wire.eCatFromPackToWriter(self.data_type, &writer);
-        try wire.eCatFromPackToWriter(self.bit_length, &writer);
-        try wire.eCatFromPackToWriter(self.object_access, &writer);
+    pub fn serialize(self: GetEntryDescriptionResponse, writer: *std.Io.Writer) !void {
+        try wire.eCatFromPackToWriter(self.index, writer);
+        try wire.eCatFromPackToWriter(self.subindex, writer);
+        try wire.eCatFromPackToWriter(self.value_info, writer);
+        try wire.eCatFromPackToWriter(self.data_type, writer);
+        try wire.eCatFromPackToWriter(self.bit_length, writer);
+        try wire.eCatFromPackToWriter(self.object_access, writer);
         try writer.writeAll(self.data.slice());
-        return writer.end;
     }
 };
 
@@ -1016,7 +1012,9 @@ test "serialize and deserialize get entry description response" {
         "foo",
     );
     var bytes = std.mem.zeroes([mailbox.max_size]u8);
-    const byte_size = try expected.serialize(&bytes);
+    var writer = std.Io.Writer.fixed(&bytes);
+    try expected.serialize(&writer);
+    const byte_size = writer.buffered().len;
     try std.testing.expectEqual(@as(usize, 2 + 1 + 1 + 2 + 2 + 2 + 3), byte_size);
     const actual = try GetEntryDescriptionResponse.deserialize(bytes[0..byte_size]);
     try std.testing.expect(GetEntryDescriptionResponse.eq(expected, actual));
@@ -1064,10 +1062,8 @@ pub const SDOInfoError = packed struct(u128) {
         return try wire.packFromECatReader(SDOInfoError, &fbs);
     }
 
-    pub fn serialize(self: SDOInfoError, out: []u8) !usize {
-        var writer = std.Io.Writer.fixed(out);
-        try wire.eCatFromPackToWriter(self, &writer);
-        return writer.end;
+    pub fn serialize(self: SDOInfoError, writer: *std.Io.Writer) !void {
+        try wire.eCatFromPackToWriter(self, writer);
     }
 };
 
@@ -1078,7 +1074,9 @@ test "serialize and deserialize sdo info error" {
         .AccessFailedDueToHardwareError,
     );
     var bytes = std.mem.zeroes([mailbox.max_size]u8);
-    const byte_size = try expected.serialize(&bytes);
+    var writer = std.Io.Writer.fixed(&bytes);
+    try expected.serialize(&writer);
+    const byte_size = writer.buffered().len;
     try std.testing.expectEqual(@as(usize, 6 + 2 + 4 + 4), byte_size);
     const actual = try SDOInfoError.deserialize(&bytes);
     try std.testing.expectEqualDeep(expected, actual);
@@ -1125,10 +1123,8 @@ pub const Emergency = packed struct(u128) {
         return try wire.packFromECatReader(Emergency, &fbs);
     }
 
-    pub fn serialize(self: Emergency, out: []u8) !usize {
-        var writer = std.Io.Writer.fixed(out);
-        try wire.eCatFromPackToWriter(self, &writer);
-        return writer.end;
+    pub fn serialize(self: Emergency, writer: *std.Io.Writer) !void {
+        try wire.eCatFromPackToWriter(self, writer);
     }
 };
 
@@ -1141,7 +1137,9 @@ test "serialize and deserialize emergency request" {
         3425654,
     );
     var bytes = std.mem.zeroes([mailbox.max_size]u8);
-    const byte_size = try expected.serialize(&bytes);
+    var writer = std.Io.Writer.fixed(&bytes);
+    try expected.serialize(&writer);
+    const byte_size = writer.buffered().len;
     try std.testing.expectEqual(@as(usize, 6 + 2 + 8), byte_size);
     const actual = try Emergency.deserialize(&bytes);
     try std.testing.expectEqualDeep(expected, actual);

@@ -313,14 +313,12 @@ pub const EthernetFrame = struct {
 
     /// Serialize this frame into the out buffer
     /// for transmission on the line.
-    /// Returns number of bytes written, or error.
     /// If idx is provided, it will be injected into the first datagram.
-    pub fn serialize(self: *EthernetFrame, maybe_idx: ?u8, out: []u8) !usize {
-        var writer = std.Io.Writer.fixed(out);
+    pub fn serialize(self: *EthernetFrame, maybe_idx: ?u8, writer: *std.Io.Writer) !void {
         try writer.writeInt(u48, self.header.dest_mac, big);
         try writer.writeInt(u48, self.header.src_mac, big);
         try writer.writeInt(u16, @intFromEnum(self.header.ether_type), big);
-        try wire.eCatFromPackToWriter(self.ethercat_frame.header, &writer);
+        try wire.eCatFromPackToWriter(self.ethercat_frame.header, writer);
         for (self.ethercat_frame.datagrams, 0..) |datagram, i| {
             // inject idx at first datagram to identify frame
             if (i == 0) {
@@ -328,15 +326,14 @@ pub const EthernetFrame = struct {
                 if (maybe_idx) |idx| {
                     header_copy.idx = idx;
                 }
-                try wire.eCatFromPackToWriter(header_copy, &writer);
+                try wire.eCatFromPackToWriter(header_copy, writer);
             } else {
-                try wire.eCatFromPackToWriter(datagram.header, &writer);
+                try wire.eCatFromPackToWriter(datagram.header, writer);
             }
             try writer.writeAll(datagram.data);
-            try wire.eCatFromPackToWriter(datagram.wkc, &writer);
+            try wire.eCatFromPackToWriter(datagram.wkc, writer);
         }
         try writer.splatByteAll(0, self.n_padding);
-        return writer.end;
     }
 
     pub fn deserialize(
@@ -420,7 +417,10 @@ test "ethernet frame serialization" {
         EtherCATFrame.init(&datagrams),
     );
     var out_buf: [max_frame_length]u8 = undefined;
-    const serialized = out_buf[0..try frame.serialize(123, &out_buf)];
+    var writer = std.Io.Writer.fixed(&out_buf);
+    try frame.serialize(123, &writer);
+    const size = writer.buffered().len;
+    const serialized = out_buf[0..size];
     const expected = [min_frame_length]u8{
         // zig fmt: off
 
@@ -471,7 +471,10 @@ test "ethernet frame serialization / deserialization" {
     );
 
     var out_buf: [max_frame_length]u8 = undefined;
-    const serialized = out_buf[0..try frame.serialize(0, &out_buf)];
+    var writer = std.Io.Writer.fixed(&out_buf);
+    try frame.serialize(0, &writer);
+    const size = writer.buffered().len;
+    const serialized = out_buf[0..size];
     var allocator = std.testing.allocator;
     const serialize_copy = try allocator.dupe(u8, serialized);
     defer allocator.free(serialize_copy);

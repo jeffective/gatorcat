@@ -357,15 +357,15 @@ pub const OutContent = union(enum) {
 
     // TODO: implement remaining CoE content types
 
-    pub fn serialize(self: OutContent, out: []u8) !usize {
+    pub fn serialize(self: OutContent, writer: *std.Io.Writer) !void {
         switch (self) {
-            .expedited => return self.expedited.serialize(out),
-            .normal => return self.normal.serialize(out),
-            .segment => return self.segment.serialize(out),
-            .abort => return self.abort.serialize(out),
-            .get_entry_description_request => return self.get_entry_description_request.serialize(out),
-            .get_object_description_request => return self.get_object_description_request.serialize(out),
-            .get_od_list_request => return self.get_od_list_request.serialize(out),
+            .expedited => return self.expedited.serialize(writer),
+            .normal => return self.normal.serialize(writer),
+            .segment => return self.segment.serialize(writer),
+            .abort => return self.abort.serialize(writer),
+            .get_entry_description_request => return self.get_entry_description_request.serialize(writer),
+            .get_object_description_request => return self.get_object_description_request.serialize(writer),
+            .get_od_list_request => return self.get_od_list_request.serialize(writer),
         }
     }
 };
@@ -462,7 +462,9 @@ test "serialize deserialize mailbox in content" {
     };
 
     var bytes = std.mem.zeroes([mailbox.max_size]u8);
-    const byte_size = try expected.expedited.serialize(&bytes);
+    var writer = std.Io.Writer.fixed(&bytes);
+    try expected.expedited.serialize(&writer);
+    const byte_size = writer.buffered().len;
     try std.testing.expectEqual(@as(usize, 6 + 2 + 8), byte_size);
     const actual = try InContent.deserialize(&bytes);
     try std.testing.expectEqualDeep(expected, actual);
@@ -474,7 +476,9 @@ test "serialize deserialize mailbox in content sdo info" {
     };
 
     var bytes = std.mem.zeroes([mailbox.max_size]u8);
-    const byte_size = try expected.sdo_info_error.serialize(&bytes);
+    var writer = std.Io.Writer.fixed(&bytes);
+    try expected.sdo_info_error.serialize(&writer);
+    const byte_size = writer.buffered().len;
     try std.testing.expectEqual(@as(usize, 6 + 2 + 4 + 4), byte_size);
     const actual = try InContent.deserialize(&bytes);
     try std.testing.expectEqualDeep(expected, actual);
