@@ -118,7 +118,7 @@ fn sendTransaction(self: *Port, transaction: *Transaction) error{LinkError}!void
     var writer = std.Io.Writer.fixed(&out_buf);
 
     // one datagram will always fit
-    frame.serialize(null, &writer) catch |err| switch (err) {
+    frame.serialize(&writer) catch |err| switch (err) {
         error.WriteFailed => unreachable,
     };
     const out = out_buf[0..writer.buffered().len];
