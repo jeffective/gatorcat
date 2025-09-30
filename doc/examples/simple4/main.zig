@@ -15,7 +15,9 @@ pub fn main() !void {
     try port.ping(10000);
 
     var scanner = gcat.Scanner.init(&port, .{});
-    try scanner.busInit(10_000_000, try scanner.countSubdevices());
+    const nsubdevices = try scanner.countSubdevices();
+    try scanner.busInit(10_000_000, nsubdevices);
+    try scanner.assignStationAddresses(nsubdevices);
     const eni = try scanner.readEni(
         gpa.allocator(),
         10_000_000,
