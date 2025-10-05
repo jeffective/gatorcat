@@ -349,7 +349,13 @@ pub fn escSMsFromSIISMs(sii_sms: []const SyncM) esc.SMRegister {
     return res;
 }
 
-pub const SIIString = stdx.BoundedArray(u8, 255);
+pub const SIIString = struct {
+    data: [255]u8 = undefined,
+    len: u8 = 0,
+    pub fn slice(self: *const SIIString) []const u8 {
+        return self.data[0..self.len];
+    }
+};
 
 pub fn readSIIString(
     port: *Port,
@@ -406,10 +412,7 @@ pub fn readSIIString(
         }
     }
     var arr = SIIString{};
-    assert(str_len <= arr.capacity());
-    arr.appendSlice(string_buf[0..str_len]) catch |err| switch (err) {
-        error.Overflow => unreachable,
-    };
+    @memcpy(arr.data[0..str_len], string_buf[0..str_len]);
     logger.debug("station addr: 0x{x}, read SII string index {}: {s}", .{ station_address, index, arr.slice() });
     return arr;
 }
