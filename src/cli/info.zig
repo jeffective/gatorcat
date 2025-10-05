@@ -86,7 +86,7 @@ pub fn info(allocator: std.mem.Allocator, args: Args) !void {
 }
 
 fn printBusSummaryTable(
-    writer: anytype,
+    writer: *std.Io.Writer,
     port: *gcat.Port,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
@@ -151,7 +151,7 @@ fn printBusSummaryTable(
 }
 
 fn printSubdeviceDetails(
-    writer: anytype,
+    writer: *std.Io.Writer,
     port: *gcat.Port,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
@@ -230,6 +230,25 @@ fn printSubdeviceDetails(
     try writer.print("| Revision number  | 0x{x:08} |\n", .{sub_info.revision_number});
     try writer.print("| Serial number    | 0x{x:08} |\n", .{sub_info.serial_number});
     try writer.print("\n", .{});
+
+    try writer.print("#### Physical Memory\n\n", .{});
+
+    const dl_status = try port.fprdPackWkc(
+        gcat.esc.DLStatusRegister,
+        .{
+            .station_address = station_address,
+            .offset = @intFromEnum(gcat.esc.RegisterMap.DL_status),
+        },
+        recv_timeout_us,
+        1,
+    );
+
+    try writer.print("DL Status Register: \n\n", .{});
+    try writer.print("```\n", .{});
+    try std.zon.stringify.serialize(dl_status, .{}, writer);
+
+    try writer.print("\n", .{});
+    try writer.print("```\n", .{});
 
     try writer.writeAll("#### SII Mailbox Info\n\n");
 
@@ -353,7 +372,7 @@ fn printSubdeviceDetails(
 
 fn printSubdeviceSIIPDOs(
     allocator: std.mem.Allocator,
-    writer: anytype,
+    writer: *std.Io.Writer,
     port: *gcat.Port,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
@@ -419,7 +438,7 @@ fn printSubdeviceSIIPDOs(
 }
 
 fn printPDOTable(
-    writer: anytype,
+    writer: *std.Io.Writer,
     pdos: []const gcat.sii.PDO,
     port: *gcat.Port,
     station_address: u16,
@@ -472,7 +491,7 @@ fn printPDOTable(
     }
 }
 fn printSubdeviceCoePDOs(
-    writer: anytype,
+    writer: *std.Io.Writer,
     port: *gcat.Port,
     recv_timeout_us: u32,
     mbx_timeout_us: u32,

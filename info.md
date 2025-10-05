@@ -45,6 +45,30 @@
 | Revision number  | 0x00110000 |
 | Serial number    | 0x00000000 |
 
+#### Physical Memory
+
+DL Status Register: 
+
+```
+.{
+    .pdi_operational = true,
+    .watchdog_ok = false,
+    .exteded_link_detection = false,
+    .reserved = 0,
+    .port0_link_status = true,
+    .port1_link_status = true,
+    .port2_link_status = false,
+    .port3_link_status = false,
+    .port0_loop_active = false,
+    .port0_rx_signal_det = true,
+    .port1_loop_active = false,
+    .port1_rx_signal_det = true,
+    .port2_loop_active = true,
+    .port2_rx_signal_det = false,
+    .port3_loop_active = true,
+    .port3_rx_signal_det = false,
+}
+```
 #### SII Mailbox Info
 
 Supported mailbox protocols: None
@@ -98,6 +122,30 @@ No RxPDOs catagory.
 | Revision number  | 0x00100000 |
 | Serial number    | 0x00000000 |
 
+#### Physical Memory
+
+DL Status Register: 
+
+```
+.{
+    .pdi_operational = true,
+    .watchdog_ok = true,
+    .exteded_link_detection = false,
+    .reserved = 0,
+    .port0_link_status = true,
+    .port1_link_status = true,
+    .port2_link_status = false,
+    .port3_link_status = false,
+    .port0_loop_active = false,
+    .port0_rx_signal_det = true,
+    .port1_loop_active = false,
+    .port1_rx_signal_det = true,
+    .port2_loop_active = true,
+    .port2_rx_signal_det = false,
+    .port3_loop_active = true,
+    .port3_rx_signal_det = false,
+}
+```
 #### SII Mailbox Info
 
 Supported mailbox protocols: None
@@ -190,6 +238,30 @@ No TxPDOs catagory.
 | Revision number  | 0x00120000 |
 | Serial number    | 0x00000000 |
 
+#### Physical Memory
+
+DL Status Register: 
+
+```
+.{
+    .pdi_operational = true,
+    .watchdog_ok = true,
+    .exteded_link_detection = false,
+    .reserved = 0,
+    .port0_link_status = true,
+    .port1_link_status = true,
+    .port2_link_status = false,
+    .port3_link_status = false,
+    .port0_loop_active = false,
+    .port0_rx_signal_det = true,
+    .port1_loop_active = false,
+    .port1_rx_signal_det = true,
+    .port2_loop_active = true,
+    .port2_rx_signal_det = false,
+    .port3_loop_active = true,
+    .port3_rx_signal_det = false,
+}
+```
 #### SII Mailbox Info
 
 Supported mailbox protocols: CoE FoE 
@@ -1284,6 +1356,30 @@ Bootstrap mailbox configuration:
 | Revision number  | 0x0010001e |
 | Serial number    | 0x00000000 |
 
+#### Physical Memory
+
+DL Status Register: 
+
+```
+.{
+    .pdi_operational = true,
+    .watchdog_ok = true,
+    .exteded_link_detection = false,
+    .reserved = 0,
+    .port0_link_status = true,
+    .port1_link_status = true,
+    .port2_link_status = false,
+    .port3_link_status = false,
+    .port0_loop_active = false,
+    .port0_rx_signal_det = true,
+    .port1_loop_active = false,
+    .port1_rx_signal_det = true,
+    .port2_loop_active = true,
+    .port2_rx_signal_det = false,
+    .port3_loop_active = true,
+    .port3_rx_signal_det = false,
+}
+```
 #### SII Mailbox Info
 
 Supported mailbox protocols: CoE FoE 
@@ -3198,6 +3294,30 @@ No RxPDOs catagory.
 | Revision number  | 0x00100000 |
 | Serial number    | 0x00000000 |
 
+#### Physical Memory
+
+DL Status Register: 
+
+```
+.{
+    .pdi_operational = true,
+    .watchdog_ok = true,
+    .exteded_link_detection = false,
+    .reserved = 0,
+    .port0_link_status = true,
+    .port1_link_status = true,
+    .port2_link_status = false,
+    .port3_link_status = false,
+    .port0_loop_active = false,
+    .port0_rx_signal_det = true,
+    .port1_loop_active = false,
+    .port1_rx_signal_det = true,
+    .port2_loop_active = true,
+    .port2_rx_signal_det = false,
+    .port3_loop_active = true,
+    .port3_rx_signal_det = false,
+}
+```
 #### SII Mailbox Info
 
 Supported mailbox protocols: CoE FoE 
@@ -3833,6 +3953,30 @@ No RxPDOs catagory.
 | Revision number  | 0x00190000 |
 | Serial number    | 0x00000000 |
 
+#### Physical Memory
+
+DL Status Register: 
+
+```
+.{
+    .pdi_operational = true,
+    .watchdog_ok = true,
+    .exteded_link_detection = false,
+    .reserved = 0,
+    .port0_link_status = true,
+    .port1_link_status = true,
+    .port2_link_status = false,
+    .port3_link_status = false,
+    .port0_loop_active = false,
+    .port0_rx_signal_det = true,
+    .port1_loop_active = false,
+    .port1_rx_signal_det = true,
+    .port2_loop_active = true,
+    .port2_rx_signal_det = false,
+    .port3_loop_active = true,
+    .port3_rx_signal_det = false,
+}
+```
 #### SII Mailbox Info
 
 Supported mailbox protocols: CoE FoE 
@@ -5446,6 +5590,30 @@ No RxPDOs catagory.
 | Revision number  | 0x00130000 |
 | Serial number    | 0x00000000 |
 
+#### Physical Memory
+
+DL Status Register: 
+
+```
+.{
+    .pdi_operational = true,
+    .watchdog_ok = true,
+    .exteded_link_detection = false,
+    .reserved = 0,
+    .port0_link_status = true,
+    .port1_link_status = false,
+    .port2_link_status = false,
+    .port3_link_status = false,
+    .port0_loop_active = false,
+    .port0_rx_signal_det = true,
+    .port1_loop_active = true,
+    .port1_rx_signal_det = false,
+    .port2_loop_active = true,
+    .port2_rx_signal_det = false,
+    .port3_loop_active = true,
+    .port3_rx_signal_det = false,
+}
+```
 #### SII Mailbox Info
 
 Supported mailbox protocols: CoE FoE 
