@@ -10,6 +10,7 @@ const read_eeprom = @import("read_eeprom.zig");
 const run = @import("run.zig");
 const scan = @import("scan.zig");
 const Config = @import("Config.zig");
+const dc = @import("dc.zig");
 
 const gatorcat_version: []const u8 = @import("build_zig_zon").version;
 
@@ -54,6 +55,7 @@ const Flags = struct {
         run: run.Args,
         info: info.Args,
         version: struct {},
+        dc: dc.Args,
         pub const descriptions = .{
             .scan = "Scan the EtherCAT bus and print an EtherCAT Network Information (ENI) ZON.",
             .benchmark = "Benchmark the performance of the EtherCAT bus.",
@@ -61,6 +63,7 @@ const Flags = struct {
             .run = "Run an EtherCAT maindevice.",
             .info = "Prints as much human-readable information (in markdown) about the subdevices as possible.",
             .version = "Print the version of gatorcat.",
+            .dc = "Experimental. Get information about distributed clocks.",
         };
     },
 
@@ -89,6 +92,7 @@ pub fn main() !void {
         .read_eeprom => |read_eeprom_args| try read_eeprom.read_eeprom(gpa.allocator(), read_eeprom_args),
         .run => |run_args| try run.run(gpa.allocator(), run_args),
         .info => |info_args| try info.info(gpa.allocator(), info_args),
+        .dc => |dc_args| try dc.dc(gpa.allocator(), dc_args),
         .version => {
             var std_out = std.fs.File.stdout().writer(&.{});
             const writer = &std_out.interface;

@@ -413,6 +413,7 @@ pub fn readSIIString(
     }
     var arr = SIIString{};
     @memcpy(arr.data[0..str_len], string_buf[0..str_len]);
+    arr.len = str_len;
     logger.debug("station addr: 0x{x}, read SII string index {}: {s}", .{ station_address, index, arr.slice() });
     return arr;
 }
