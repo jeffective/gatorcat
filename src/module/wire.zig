@@ -142,15 +142,14 @@ pub fn packFromECatReader(comptime T: type, reader: *std.Io.Reader) !T {
 
 test packFromECatReader {
     const bytes = [_]u8{ 0, 1, 2 };
-    var fbs = std.Io.Reader.fixed(&bytes);
-    const reader = &fbs;
+    var reader = std.Io.Reader.fixed(&bytes);
     const Pack = packed struct(u24) {
         a: u8,
         b: u8,
         c: u8,
     };
     const expected_pack = Pack{ .a = 0, .b = 1, .c = 2 };
-    const actual_pack = packFromECatReader(Pack, reader);
+    const actual_pack = packFromECatReader(Pack, &reader);
 
     try std.testing.expectEqualDeep(expected_pack, actual_pack);
 }

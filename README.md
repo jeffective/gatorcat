@@ -49,7 +49,6 @@ See [doc](doc/README.md).
 - [ ] validate individual pdo types at runtime (not just size of pdos)
 - [ ] revise error handling
 - [ ] delete everything in stdx
-- [ ] refactor / rename all instances of fbs
 - [ ] change deserialization of embedded protocols to do zero backtracking
 
 ## Sponsors

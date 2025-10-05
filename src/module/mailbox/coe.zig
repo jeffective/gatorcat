@@ -394,14 +394,14 @@ pub const InContent = union(enum) {
 
     /// Identify what kind of CoE content is in MailboxIn
     fn identify(buf: []const u8) !std.meta.Tag(InContent) {
-        var fbs = std.Io.Reader.fixed(buf);
-        const mbx_header = wire.packFromECatReader(mailbox.Header, &fbs) catch return error.InvalidMbxContent;
+        var reader = std.Io.Reader.fixed(buf);
+        const mbx_header = wire.packFromECatReader(mailbox.Header, &reader) catch return error.InvalidMbxContent;
 
         switch (mbx_header.type) {
             .CoE => {},
             else => return error.WrongMbxProtocol,
         }
-        const header = wire.packFromECatReader(Header, &fbs) catch return error.InvalidMbxContent;
+        const header = wire.packFromECatReader(Header, &reader) catch return error.InvalidMbxContent;
 
         switch (header.service) {
             .tx_pdo => return error.NotImplemented,
@@ -409,7 +409,7 @@ pub const InContent = union(enum) {
             .tx_pdo_remote_request => return error.NotImplemented,
             .rx_pdo_remote_request => return error.NotImplemented,
             .sdo_info => {
-                const sdo_info_header = wire.packFromECatReader(SDOInfoHeader, &fbs) catch return error.InvalidMbxContent;
+                const sdo_info_header = wire.packFromECatReader(SDOInfoHeader, &reader) catch return error.InvalidMbxContent;
                 return switch (sdo_info_header.opcode) {
                     .get_entry_description_response,
                     .get_object_description_response,
@@ -422,14 +422,14 @@ pub const InContent = union(enum) {
             },
 
             .sdo_request => {
-                const sdo_header = wire.packFromECatReader(server.SDOHeader, &fbs) catch return error.InvalidMbxContent;
+                const sdo_header = wire.packFromECatReader(server.SDOHeader, &reader) catch return error.InvalidMbxContent;
                 return switch (sdo_header.command) {
                     .abort_transfer_request => .abort,
                     else => error.InvalidMbxContent,
                 };
             },
             .sdo_response => {
-                const sdo_header = wire.packFromECatReader(server.SDOHeader, &fbs) catch return error.InvalidMbxContent;
+                const sdo_header = wire.packFromECatReader(server.SDOHeader, &reader) catch return error.InvalidMbxContent;
                 switch (sdo_header.command) {
                     .upload_segment_response => return .segment,
                     .download_segment_response => return .segment,

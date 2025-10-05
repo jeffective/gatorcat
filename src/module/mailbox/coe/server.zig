@@ -164,11 +164,10 @@ pub const Expedited = struct {
     }
 
     pub fn deserialize(buf: []const u8) !Expedited {
-        var fbs = std.Io.Reader.fixed(buf);
-        const reader = &fbs;
-        const mbx_header = try wire.packFromECatReader(mailbox.Header, reader);
-        const coe_header = try wire.packFromECatReader(coe.Header, reader);
-        const sdo_header = try wire.packFromECatReader(SDOHeader, reader);
+        var reader = std.Io.Reader.fixed(buf);
+        const mbx_header = try wire.packFromECatReader(mailbox.Header, &reader);
+        const coe_header = try wire.packFromECatReader(coe.Header, &reader);
+        const sdo_header = try wire.packFromECatReader(SDOHeader, &reader);
         const data_size: usize = sdo_header.getDataSize();
         const data = try reader.take(data_size);
         return Expedited{
@@ -268,12 +267,11 @@ pub const Normal = struct {
     }
 
     pub fn deserialize(buf: []const u8) !Normal {
-        var fbs = std.io.Reader.fixed(buf);
-        const reader = &fbs;
-        const mbx_header = try wire.packFromECatReader(mailbox.Header, reader);
-        const coe_header = try wire.packFromECatReader(coe.Header, reader);
-        const sdo_header = try wire.packFromECatReader(SDOHeader, reader);
-        const complete_size = try wire.packFromECatReader(u32, reader);
+        var reader = std.io.Reader.fixed(buf);
+        const mbx_header = try wire.packFromECatReader(mailbox.Header, &reader);
+        const coe_header = try wire.packFromECatReader(coe.Header, &reader);
+        const sdo_header = try wire.packFromECatReader(SDOHeader, &reader);
+        const complete_size = try wire.packFromECatReader(u32, &reader);
 
         if (mbx_header.length < 10) return error.InvalidMbxContent;
 
@@ -425,11 +423,10 @@ pub const Segment = struct {
         };
     }
     pub fn deserialize(buf: []const u8) !Segment {
-        var fbs = std.Io.Reader.fixed(buf);
-        const reader = &fbs;
-        const mbx_header = try wire.packFromECatReader(mailbox.Header, reader);
-        const coe_header = try wire.packFromECatReader(coe.Header, reader);
-        const seg_header = try wire.packFromECatReader(SegmentHeader, reader);
+        var reader = std.Io.Reader.fixed(buf);
+        const mbx_header = try wire.packFromECatReader(mailbox.Header, &reader);
+        const coe_header = try wire.packFromECatReader(coe.Header, &reader);
+        const seg_header = try wire.packFromECatReader(SegmentHeader, &reader);
 
         var data_size: usize = 0;
         if (mbx_header.length < 10) {
@@ -596,8 +593,8 @@ pub const Abort = packed struct(u128) {
     }
 
     pub fn deserialize(buf: []const u8) !Abort {
-        var fbs = std.Io.Reader.fixed(buf);
-        return try wire.packFromECatReader(Abort, &fbs);
+        var reader = std.Io.Reader.fixed(buf);
+        return try wire.packFromECatReader(Abort, &reader);
     }
 
     pub fn serialize(self: Abort, writer: *std.Io.Writer) !void {
@@ -663,12 +660,10 @@ pub const SDOInfoResponse = struct {
     }
 
     pub fn deserialize(buf: []const u8) !SDOInfoResponse {
-        var fbs = std.Io.Reader.fixed(buf);
-        const reader = &fbs;
-
-        const mbx_header = try wire.packFromECatReader(mailbox.Header, reader);
-        const coe_header = try wire.packFromECatReader(coe.Header, reader);
-        const sdo_info_header = try wire.packFromECatReader(coe.SDOInfoHeader, reader);
+        var reader = std.Io.Reader.fixed(buf);
+        const mbx_header = try wire.packFromECatReader(mailbox.Header, &reader);
+        const coe_header = try wire.packFromECatReader(coe.Header, &reader);
+        const sdo_info_header = try wire.packFromECatReader(coe.SDOInfoHeader, &reader);
         const service_data_length = mbx_header.length -| 6;
         const service_data = try reader.take(service_data_length);
         return SDOInfoResponse{
@@ -739,17 +734,16 @@ pub const GetODListResponse = struct {
 
     /// Input buffer must be exact length.
     pub fn deserialize(buf: []const u8) !GetODListResponse {
-        var fbs = std.Io.Reader.fixed(buf);
-        const reader = &fbs;
+        var reader = std.Io.Reader.fixed(buf);
 
-        const list_type = try wire.packFromECatReader(coe.ODListType, reader);
+        const list_type = try wire.packFromECatReader(coe.ODListType, &reader);
         var index_list = IndexList{};
 
-        const bytes_remaining = fbs.end - fbs.seek;
+        const bytes_remaining = reader.end - reader.seek;
         if (bytes_remaining % 2 != 0) return error.InvalidServiceData;
         if (bytes_remaining / 2 > index_list_max_length) return error.StreamTooLong;
         for (0..bytes_remaining / 2) |_| {
-            index_list.append(wire.packFromECatReader(u16, reader) catch unreachable) catch unreachable;
+            index_list.append(wire.packFromECatReader(u16, &reader) catch unreachable) catch unreachable;
         }
         return GetODListResponse{
             .list_type = list_type,
@@ -822,12 +816,11 @@ pub const GetObjectDescriptionResponse = struct {
     }
 
     pub fn deserialize(buf: []const u8) !GetObjectDescriptionResponse {
-        var fbs = std.Io.Reader.fixed(buf);
-        const reader = &fbs;
-        const index = wire.packFromECatReader(u16, reader) catch return error.InvalidMbxContent;
-        const data_type = wire.packFromECatReader(coe.DataTypeArea, reader) catch return error.InvalidMbxContent;
-        const max_subindex = wire.packFromECatReader(u8, reader) catch return error.InvalidMbxContent;
-        const object_code = wire.packFromECatReader(coe.ObjectCode, reader) catch return error.InvalidMbxContent;
+        var reader = std.Io.Reader.fixed(buf);
+        const index = wire.packFromECatReader(u16, &reader) catch return error.InvalidMbxContent;
+        const data_type = wire.packFromECatReader(coe.DataTypeArea, &reader) catch return error.InvalidMbxContent;
+        const max_subindex = wire.packFromECatReader(u8, &reader) catch return error.InvalidMbxContent;
+        const object_code = wire.packFromECatReader(coe.ObjectCode, &reader) catch return error.InvalidMbxContent;
 
         const name_length = reader.end - reader.seek;
         if (name_length > max_name_length) return error.InvalidMbxContent;
@@ -916,17 +909,16 @@ pub const GetEntryDescriptionResponse = struct {
     }
 
     pub fn deserialize(buf: []const u8) !GetEntryDescriptionResponse {
-        var fbs = std.Io.Reader.fixed(buf);
-        const reader = &fbs;
+        var reader = std.Io.Reader.fixed(buf);
 
-        const index = wire.packFromECatReader(u16, reader) catch return error.InvalidMbxContent;
-        const subindex = wire.packFromECatReader(u8, reader) catch return error.InvalidMbxContent;
-        const value_info = wire.packFromECatReader(coe.ValueInfo, reader) catch return error.InvalidMbxContent;
-        const data_type = wire.packFromECatReader(coe.DataTypeArea, reader) catch return error.InvalidMbxContent;
-        const bit_length = wire.packFromECatReader(u16, reader) catch return error.InvalidMbxContent;
-        const object_access = wire.packFromECatReader(coe.ObjectAccess, reader) catch return error.InvalidMbxContent;
+        const index = wire.packFromECatReader(u16, &reader) catch return error.InvalidMbxContent;
+        const subindex = wire.packFromECatReader(u8, &reader) catch return error.InvalidMbxContent;
+        const value_info = wire.packFromECatReader(coe.ValueInfo, &reader) catch return error.InvalidMbxContent;
+        const data_type = wire.packFromECatReader(coe.DataTypeArea, &reader) catch return error.InvalidMbxContent;
+        const bit_length = wire.packFromECatReader(u16, &reader) catch return error.InvalidMbxContent;
+        const object_access = wire.packFromECatReader(coe.ObjectAccess, &reader) catch return error.InvalidMbxContent;
 
-        const data_length = fbs.end - fbs.seek;
+        const data_length = reader.end - reader.seek;
         if (data_length > max_data_length) return error.InvalidMbxContent;
         assert(data_length <= max_data_length);
         const data = try reader.take(data_length);
@@ -1025,8 +1017,8 @@ pub const SDOInfoError = packed struct(u128) {
     }
 
     pub fn deserialize(buf: []const u8) !SDOInfoError {
-        var fbs = std.io.Reader.fixed(buf);
-        return try wire.packFromECatReader(SDOInfoError, &fbs);
+        var reader = std.io.Reader.fixed(buf);
+        return try wire.packFromECatReader(SDOInfoError, &reader);
     }
 
     pub fn serialize(self: SDOInfoError, writer: *std.Io.Writer) !void {
@@ -1086,8 +1078,8 @@ pub const Emergency = packed struct(u128) {
     }
 
     pub fn deserialize(buf: []const u8) !Emergency {
-        var fbs = std.Io.Reader.fixed(buf);
-        return try wire.packFromECatReader(Emergency, &fbs);
+        var reader = std.Io.Reader.fixed(buf);
+        return try wire.packFromECatReader(Emergency, &reader);
     }
 
     pub fn serialize(self: Emergency, writer: *std.Io.Writer) !void {
