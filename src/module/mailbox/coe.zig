@@ -293,7 +293,7 @@ pub fn sdoRead(
         .expedited => {
             assert(in_content == .coe);
             assert(in_content.coe == .expedited);
-            writer.writeAll(in_content.coe.expedited.data.slice()) catch |err| switch (err) {
+            writer.writeAll(in_content.coe.expedited.data) catch |err| switch (err) {
                 error.WriteFailed => return error.InvalidMbxContent,
             };
             return;
@@ -302,7 +302,7 @@ pub fn sdoRead(
             assert(in_content == .coe);
             assert(in_content.coe == .normal);
 
-            const data: []u8 = in_content.coe.normal.data.slice();
+            const data: []const u8 = in_content.coe.normal.data;
             writer.writeAll(data) catch |err| switch (err) {
                 error.WriteFailed => return error.InvalidMbxContent,
             };
@@ -1176,7 +1176,7 @@ pub fn readSDOInfoFragments(
                 if (i == 0) expected_fragments_left = response.sdo_info_header.fragments_left;
                 if (response.sdo_info_header.opcode != opcode) return error.WrongProtocol;
                 if (response.sdo_info_header.fragments_left != expected_fragments_left) return error.MissedFragment;
-                try writer.writeAll(response.service_data.slice());
+                try writer.writeAll(response.service_data);
                 if (response.sdo_info_header.fragments_left == 0) break :get_fragments;
                 assert(expected_fragments_left > 0);
                 expected_fragments_left -= 1;

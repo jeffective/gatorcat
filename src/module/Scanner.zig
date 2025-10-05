@@ -448,7 +448,7 @@ pub fn readSubdeviceConfigurationLeaky(
                         );
 
                         try entries.append(allocator, ENI.SubdeviceConfiguration.PDO.Entry{
-                            .description = try allocator.dupeZ(u8, entry_description.data.slice()),
+                            .description = try allocator.dupeZ(u8, entry_description.data),
                             .index = entry_description.index,
                             .subindex = entry_description.subindex,
                             // NOTE: entry description bit length sometimes differs from PDO mapping bit length.
@@ -466,7 +466,7 @@ pub fn readSubdeviceConfigurationLeaky(
                         try inputs.append(
                             allocator,
                             ENI.SubdeviceConfiguration.PDO{
-                                .name = try allocator.dupeZ(u8, object_description.name.slice()),
+                                .name = try allocator.dupeZ(u8, object_description.name),
                                 .index = pdo_index,
                                 .entries = try entries.toOwnedSlice(allocator),
                             },
@@ -476,7 +476,7 @@ pub fn readSubdeviceConfigurationLeaky(
                         try outputs.append(
                             allocator,
                             ENI.SubdeviceConfiguration.PDO{
-                                .name = try allocator.dupeZ(u8, object_description.name.slice()),
+                                .name = try allocator.dupeZ(u8, object_description.name),
                                 .index = pdo_index,
                                 .entries = try entries.toOwnedSlice(allocator),
                             },

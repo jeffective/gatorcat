@@ -550,7 +550,7 @@ fn printSubdeviceCoePDOs(
                         },
                         else => |err2| return err2,
                     };
-                    try writer.print("|        |     | 0x{x:04}:{x:02} | {d:>3} |         | {s:<64}|\n", .{ entry.index, entry.subindex, entry.bit_length, entry_description.data.slice() });
+                    try writer.print("|        |     | 0x{x:04}:{x:02} | {d:>3} |         | {s:<64}|\n", .{ entry.index, entry.subindex, entry.bit_length, entry_description.data });
                 }
             }
         }
@@ -682,7 +682,7 @@ fn printSubdeviceCoePDOs(
                 else => |err2| return err2,
             };
 
-            try writer.print("| 0x{x}    | {x:02} | {s:<48} | {s:<16} |     |\n", .{ index, object_description.max_subindex, object_description.name.slice(), std.enums.tagName(gcat.mailbox.coe.DataTypeArea, object_description.data_type) orelse "INVALID" });
+            try writer.print("| 0x{x}    | {x:02} | {s:<48} | {s:<16} |     |\n", .{ index, object_description.max_subindex, object_description.name, std.enums.tagName(gcat.mailbox.coe.DataTypeArea, object_description.data_type) orelse "INVALID" });
 
             for (1..@as(u9, object_description.max_subindex) + 1) |subindex| {
                 const entry_description = gcat.mailbox.coe.readEntryDescription(
@@ -702,7 +702,7 @@ fn printSubdeviceCoePDOs(
                     },
                     else => |err2| return err2,
                 };
-                try writer.print("|           | {x:02} | {s:<48} | {s:<16} | {d:<3} |\n", .{ subindex, entry_description.data.slice(), std.enums.tagName(gcat.mailbox.coe.DataTypeArea, entry_description.data_type) orelse "INVALID", entry_description.bit_length });
+                try writer.print("|           | {x:02} | {s:<48} | {s:<16} | {d:<3} |\n", .{ subindex, entry_description.data, std.enums.tagName(gcat.mailbox.coe.DataTypeArea, entry_description.data_type) orelse "INVALID", entry_description.bit_length });
             }
         }
         try writer.writeAll("\n");

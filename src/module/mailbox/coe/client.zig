@@ -191,7 +191,7 @@ pub const Normal = struct {
     coe_header: coe.Header,
     sdo_header: SDOHeader,
     complete_size: u32,
-    data: stdx.BoundedArray(u8, data_max_size),
+    data: []const u8,
 
     pub const data_max_size = mailbox.max_size - 16;
 
@@ -200,13 +200,15 @@ pub const Normal = struct {
             self.coe_header == operand.coe_header and
             self.sdo_header == operand.sdo_header and
             self.complete_size == operand.complete_size and
-            std.mem.eql(u8, self.data.slice(), operand.data.slice());
+            std.mem.eql(u8, self.data, operand.data);
     }
 
     /// Create an SDO Download Normal Request
     ///
     /// Ref: IEC 61158-6-12:2019 5.6.2.2.1
     /// Ref: IEC 61158-6-12:2019 5.6.2.5.1
+    ///
+    /// Lifetime of data must exceed returned struct.
     pub fn initDownloadRequest(
         cnt: u3,
         index: u16,
@@ -243,10 +245,7 @@ pub const Normal = struct {
                 .subindex = subindex,
             },
             .complete_size = complete_size,
-            .data = stdx.BoundedArray(
-                u8,
-                data_max_size,
-            ).fromSlice(data) catch unreachable,
+            .data = data,
         };
     }
 
@@ -260,14 +259,7 @@ pub const Normal = struct {
 
         if (mbx_header.length < 10) return error.InvalidMbxContent;
         const data_length: u16 = mbx_header.length -| 10;
-        var data = try stdx.BoundedArray(
-            u8,
-            data_max_size,
-        ).init(data_length);
-        reader.readSliceAll(data.slice()) catch |err| switch (err) {
-            error.EndOfStream => return error.InvalidMbxContent,
-            error.ReadFailed => return error.ReadFailed,
-        };
+        const data = try reader.take(data_length);
 
         return Normal{
             .mbx_header = mbx_header,
@@ -283,7 +275,7 @@ pub const Normal = struct {
         try wire.eCatFromPackToWriter(self.coe_header, writer);
         try wire.eCatFromPackToWriter(self.sdo_header, writer);
         try wire.eCatFromPackToWriter(self.complete_size, writer);
-        try writer.writeAll(self.data.slice());
+        try writer.writeAll(self.data);
     }
 
     /// Get the maximum size of data that can be transfered
@@ -332,7 +324,7 @@ pub const Segment = struct {
     mbx_header: mailbox.Header,
     coe_header: coe.Header,
     seg_header: SDOSegmentHeaderClient,
-    data: stdx.BoundedArray(u8, data_max_size),
+    data: []const u8,
 
     pub const data_max_size = mailbox.max_size - 9;
 
@@ -340,12 +332,14 @@ pub const Segment = struct {
         return self.mbx_header == operand.mbx_header and
             self.coe_header == operand.coe_header and
             self.seg_header == operand.seg_header and
-            std.mem.eql(u8, self.data.slice(), operand.data.slice());
+            std.mem.eql(u8, self.data, operand.data);
     }
 
     /// Create an SDO Download Segmented Request
     ///
     /// Ref: IEC 61158-6-12:2019 5.6.2.3.1
+    ///
+    /// Lifetime of data must exceed returned struct.
     pub fn initDownloadRequest(
         cnt: u3,
         more_follows: bool,
@@ -353,11 +347,7 @@ pub const Segment = struct {
         data: []const u8,
     ) !Segment {
         assert(cnt != 0);
-        // We must always send a minimum of 7 octets in the data section.
-        // The first octets are used and the remaining are padded with zeros.
         const length = @max(10, @as(u16, @intCast(data.len + 3)));
-        const padding_length: usize = @min(7, 7 -| data.len);
-        assert(padding_length <= 7);
 
         const seg_data_size: coe.SegmentDataSize = switch (data.len) {
             0 => .zero_octets,
@@ -369,14 +359,6 @@ pub const Segment = struct {
             6 => .six_octets,
             else => .seven_octets,
         };
-
-        var temp_data = try stdx.BoundedArray(
-            u8,
-            data_max_size,
-        ).fromSlice(data);
-        try temp_data.appendNTimes(@as(u8, 0), padding_length);
-        assert(temp_data.len >= 7);
-
         return Segment{
             .mbx_header = .{
                 .length = length,
@@ -396,7 +378,7 @@ pub const Segment = struct {
                 .toggle = toggle,
                 .command = .download_segment_request,
             },
-            .data = temp_data,
+            .data = data,
         };
     }
 
@@ -427,10 +409,7 @@ pub const Segment = struct {
                 .toggle = toggle,
                 .command = .upload_segment_request,
             },
-            .data = std.BoundedArray(
-                u8,
-                data_max_size,
-            ).fromSlice(&.{ 0, 0, 0, 0, 0, 0, 0 }) catch unreachable,
+            .data = &.{ 0, 0, 0, 0, 0, 0, 0 },
         };
     }
 
@@ -445,15 +424,7 @@ pub const Segment = struct {
             return error.InvalidMbxHeaderLength;
         }
         const data_length: u16 = mbx_header.length -| 3;
-        var data = try stdx.BoundedArray(
-            u8,
-            data_max_size,
-        ).init(data_length);
-        reader.readSliceAll(data.slice()) catch |err| switch (err) {
-            error.EndOfStream => return error.InvalidMbxContent,
-            error.ReadFailed => return error.ReadFailed,
-        };
-
+        const data = try reader.take(data_length);
         return Segment{
             .mbx_header = mbx_header,
             .coe_header = coe_header,
@@ -463,10 +434,15 @@ pub const Segment = struct {
     }
 
     pub fn serialize(self: *const Segment, writer: *std.Io.Writer) !void {
+        // We must always send a minimum of 7 octets in the data section.
+        // The first octets are used and the remaining are padded with zeros.
         try wire.eCatFromPackToWriter(self.mbx_header, writer);
         try wire.eCatFromPackToWriter(self.coe_header, writer);
         try wire.eCatFromPackToWriter(self.seg_header, writer);
-        try writer.writeAll(self.data.slice());
+        try writer.writeAll(self.data);
+        const padding_length: usize = @min(7, 7 -| self.data.len);
+        assert(padding_length <= 7);
+        try writer.splatByteAll(0, padding_length);
     }
 
     comptime {

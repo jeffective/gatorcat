@@ -73,7 +73,7 @@ pub const Expedited = struct {
     mbx_header: mailbox.Header,
     coe_header: coe.Header,
     sdo_header: SDOHeader,
-    data: stdx.BoundedArray(u8, 4),
+    data: []const u8,
 
     pub fn initDownloadResponse(
         cnt: u3,
@@ -108,7 +108,7 @@ pub const Expedited = struct {
                 .index = index,
                 .subindex = subindex,
             },
-            .data = stdx.BoundedArray(u8, 4).fromSlice(&.{ 0, 0, 0, 0 }) catch unreachable,
+            .data = &.{ 0, 0, 0, 0 },
         };
     }
 
@@ -159,7 +159,7 @@ pub const Expedited = struct {
                 .subindex = subindex,
             },
             // data length already asserted
-            .data = std.BoundedArray(u8, 4).fromSlice(data) catch unreachable,
+            .data = data,
         };
     }
 
@@ -170,12 +170,7 @@ pub const Expedited = struct {
         const coe_header = try wire.packFromECatReader(coe.Header, reader);
         const sdo_header = try wire.packFromECatReader(SDOHeader, reader);
         const data_size: usize = sdo_header.getDataSize();
-        var data = try stdx.BoundedArray(u8, 4).init(data_size);
-        reader.readSliceAll(data.slice()) catch |err| switch (err) {
-            error.EndOfStream => return error.InvalidMbxContent,
-            error.ReadFailed => unreachable,
-        };
-
+        const data = try reader.take(data_size);
         return Expedited{
             .mbx_header = mbx_header,
             .coe_header = coe_header,
@@ -188,7 +183,7 @@ pub const Expedited = struct {
         try wire.eCatFromPackToWriter(self.mbx_header, writer);
         try wire.eCatFromPackToWriter(self.coe_header, writer);
         try wire.eCatFromPackToWriter(self.sdo_header, writer);
-        try writer.writeAll(self.data.slice());
+        try writer.writeAll(self.data);
     }
 };
 
@@ -218,7 +213,7 @@ pub const Normal = struct {
     coe_header: coe.Header,
     sdo_header: SDOHeader,
     complete_size: u32,
-    data: stdx.BoundedArray(u8, data_max_size),
+    data: []const u8,
 
     pub const data_max_size = mailbox.max_size - 16;
 
@@ -227,7 +222,7 @@ pub const Normal = struct {
             self.coe_header == operand.coe_header and
             self.sdo_header == operand.sdo_header and
             self.complete_size == operand.complete_size and
-            std.mem.eql(u8, self.data.slice(), operand.data.slice());
+            std.mem.eql(u8, self.data, operand.data);
     }
 
     pub fn initUploadResponse(
@@ -268,7 +263,7 @@ pub const Normal = struct {
                 .subindex = subindex,
             },
             .complete_size = complete_size,
-            .data = stdx.BoundedArray(u8, data_max_size).fromSlice(data) catch unreachable,
+            .data = data,
         };
     }
 
@@ -283,11 +278,7 @@ pub const Normal = struct {
         if (mbx_header.length < 10) return error.InvalidMbxContent;
 
         const data_length: u16 = mbx_header.length -| 10;
-        var data = try stdx.BoundedArray(u8, data_max_size).init(data_length);
-        reader.readSliceAll(data.slice()) catch |err| switch (err) {
-            error.EndOfStream => return error.InvalidMbxContent,
-            error.ReadFailed => unreachable,
-        };
+        const data = try reader.take(data_length);
 
         return Normal{
             .mbx_header = mbx_header,
@@ -303,7 +294,7 @@ pub const Normal = struct {
         try wire.eCatFromPackToWriter(self.coe_header, writer);
         try wire.eCatFromPackToWriter(self.sdo_header, writer);
         try wire.eCatFromPackToWriter(self.complete_size, writer);
-        try writer.writeAll(self.data.slice());
+        try writer.writeAll(self.data);
     }
 
     comptime {
@@ -342,7 +333,7 @@ pub const Segment = struct {
     mbx_header: mailbox.Header,
     coe_header: coe.Header,
     seg_header: SegmentHeader,
-    data: stdx.BoundedArray(u8, data_max_size),
+    data: []const u8,
 
     const data_max_size = mailbox.max_size - 9;
 
@@ -350,7 +341,7 @@ pub const Segment = struct {
         return self.mbx_header == operand.mbx_header and
             self.coe_header == operand.coe_header and
             self.seg_header == operand.seg_header and
-            std.mem.eql(u8, self.data.slice(), operand.data.slice());
+            std.mem.eql(u8, self.data, operand.data);
     }
 
     pub fn initDownloadResponse(
@@ -382,7 +373,7 @@ pub const Segment = struct {
             },
             // the serialize and deserialize methods will handle
             // the required seven padding bytes
-            .data = std.BoundedArray(u8, data_max_size){},
+            .data = &.{},
         };
     }
 
@@ -430,10 +421,7 @@ pub const Segment = struct {
             },
             // the serialize and deserialize methods will handle
             // the sometimes required seven padding bytes
-            .data = stdx.BoundedArray(
-                u8,
-                data_max_size,
-            ).fromSlice(data) catch unreachable,
+            .data = data,
         };
     }
     pub fn deserialize(buf: []const u8) !Segment {
@@ -464,11 +452,7 @@ pub const Segment = struct {
                 @divExact(@bitSizeOf(coe.Header), 8) -
                 @divExact(@bitSizeOf(SegmentHeader), 8));
         }
-        var data = try stdx.BoundedArray(u8, data_max_size).init(data_size);
-        reader.readSliceAll(data.slice()) catch |err| switch (err) {
-            error.EndOfStream => return error.InvalidMbxContent,
-            error.ReadFailed => return error.ReadFailed,
-        };
+        const data = try reader.take(data_size);
 
         return Segment{
             .mbx_header = mbx_header,
@@ -482,7 +466,7 @@ pub const Segment = struct {
         try wire.eCatFromPackToWriter(self.mbx_header, writer);
         try wire.eCatFromPackToWriter(self.coe_header, writer);
         try wire.eCatFromPackToWriter(self.seg_header, writer);
-        try writer.writeAll(self.data.slice());
+        try writer.writeAll(self.data);
         const padding_length: usize = @min(7, 7 -| self.data.len);
         assert(padding_length <= 7);
         try writer.splatByteAll(0, padding_length);
@@ -642,9 +626,8 @@ pub const SDOInfoResponse = struct {
     mbx_header: mailbox.Header,
     coe_header: coe.Header,
     sdo_info_header: coe.SDOInfoHeader,
-    service_data: ServiceData,
+    service_data: []const u8,
 
-    pub const ServiceData = stdx.BoundedArray(u8, service_data_max_length);
     pub const service_data_max_length = 1474;
 
     pub fn init(
@@ -675,7 +658,7 @@ pub const SDOInfoResponse = struct {
                 .incomplete = more_follows,
                 .fragments_left = fragments_left,
             },
-            .service_data = ServiceData.fromSlice(service_data) catch unreachable,
+            .service_data = service_data,
         };
     }
 
@@ -686,12 +669,8 @@ pub const SDOInfoResponse = struct {
         const mbx_header = try wire.packFromECatReader(mailbox.Header, reader);
         const coe_header = try wire.packFromECatReader(coe.Header, reader);
         const sdo_info_header = try wire.packFromECatReader(coe.SDOInfoHeader, reader);
-        var service_data = ServiceData{};
-
         const service_data_length = mbx_header.length -| 6;
-        for (0..service_data_length) |_| {
-            try service_data.append(try reader.takeByte());
-        }
+        const service_data = try reader.take(service_data_length);
         return SDOInfoResponse{
             .mbx_header = mbx_header,
             .coe_header = coe_header,
@@ -704,7 +683,7 @@ pub const SDOInfoResponse = struct {
         try wire.eCatFromPackToWriter(self.mbx_header, writer);
         try wire.eCatFromPackToWriter(self.coe_header, writer);
         try wire.eCatFromPackToWriter(self.sdo_info_header, writer);
-        try writer.writeAll(self.service_data.slice());
+        try writer.writeAll(self.service_data);
     }
 
     comptime {
@@ -727,7 +706,7 @@ test "serialize and deserialize sdo info response" {
     try std.testing.expectEqual(expected.coe_header, actual.coe_header);
     try std.testing.expectEqual(expected.mbx_header, actual.mbx_header);
     try std.testing.expectEqual(expected.sdo_info_header, actual.sdo_info_header);
-    try std.testing.expectEqualSlices(u8, expected.service_data.slice(), actual.service_data.slice());
+    try std.testing.expectEqualSlices(u8, expected.service_data, actual.service_data);
 }
 
 /// Get OD List Response
@@ -814,7 +793,7 @@ pub const GetObjectDescriptionResponse = struct {
     max_subindex: u8,
     object_code: coe.ObjectCode,
     /// name of the object
-    name: stdx.BoundedArray(u8, max_name_length),
+    name: []const u8,
 
     pub const max_name_length = 512; // TODO: this is arbitrary
 
@@ -822,7 +801,7 @@ pub const GetObjectDescriptionResponse = struct {
         return self.index == operand.index and self.data_type == operand.data_type and
             self.max_subindex == operand.max_subindex and
             self.object_code == operand.object_code and
-            std.mem.eql(u8, self.name.slice(), operand.name.slice());
+            std.mem.eql(u8, self.name, operand.name);
     }
 
     pub fn init(
@@ -838,7 +817,7 @@ pub const GetObjectDescriptionResponse = struct {
             .data_type = data_type,
             .max_subindex = max_subindex,
             .object_code = object_code,
-            .name = stdx.BoundedArray(u8, max_name_length).fromSlice(name) catch unreachable,
+            .name = name,
         };
     }
 
@@ -853,13 +832,7 @@ pub const GetObjectDescriptionResponse = struct {
         const name_length = reader.end - reader.seek;
         if (name_length > max_name_length) return error.InvalidMbxContent;
         assert(name_length <= max_name_length);
-        var name_buf: [max_name_length]u8 = undefined;
-        reader.readSliceAll(name_buf[0..name_length]) catch |err| switch (err) {
-            error.EndOfStream => return error.InvalidMbxContent,
-            error.ReadFailed => return error.ReadFailed,
-        };
-        const name = stdx.BoundedArray(u8, max_name_length).fromSlice(name_buf[0..name_length]) catch unreachable;
-
+        const name = try reader.take(name_length);
         return GetObjectDescriptionResponse{
             .index = index,
             .data_type = data_type,
@@ -874,7 +847,7 @@ pub const GetObjectDescriptionResponse = struct {
         try wire.eCatFromPackToWriter(self.data_type, writer);
         try wire.eCatFromPackToWriter(self.max_subindex, writer);
         try wire.eCatFromPackToWriter(self.object_code, writer);
-        try writer.writeAll(self.name.slice());
+        try writer.writeAll(self.name);
     }
 };
 
@@ -907,7 +880,7 @@ pub const GetEntryDescriptionResponse = struct {
     data_type: coe.DataTypeArea,
     bit_length: u16,
     object_access: coe.ObjectAccess,
-    data: stdx.BoundedArray(u8, max_data_length),
+    data: []const u8,
 
     pub const max_data_length = 2048; // TODO: this is arbitrary
 
@@ -918,7 +891,7 @@ pub const GetEntryDescriptionResponse = struct {
             self.data_type == operand.data_type and
             self.bit_length == operand.bit_length and
             self.object_access == operand.object_access and
-            std.mem.eql(u8, self.data.slice(), operand.data.slice());
+            std.mem.eql(u8, self.data, operand.data);
     }
 
     pub fn init(
@@ -938,7 +911,7 @@ pub const GetEntryDescriptionResponse = struct {
             .data_type = data_type,
             .bit_length = bit_length,
             .object_access = object_access,
-            .data = stdx.BoundedArray(u8, max_data_length).fromSlice(data) catch unreachable,
+            .data = data,
         };
     }
 
@@ -956,13 +929,7 @@ pub const GetEntryDescriptionResponse = struct {
         const data_length = fbs.end - fbs.seek;
         if (data_length > max_data_length) return error.InvalidMbxContent;
         assert(data_length <= max_data_length);
-        var data_buf: [max_data_length]u8 = undefined;
-        reader.readSliceAll(data_buf[0..data_length]) catch |err| switch (err) {
-            error.EndOfStream => return error.InvalidMbxContent,
-            error.ReadFailed => return error.ReadFailed,
-        };
-        const data = stdx.BoundedArray(u8, max_data_length).fromSlice(data_buf[0..data_length]) catch unreachable;
-
+        const data = try reader.take(data_length);
         return GetEntryDescriptionResponse{
             .index = index,
             .subindex = subindex,
@@ -981,7 +948,7 @@ pub const GetEntryDescriptionResponse = struct {
         try wire.eCatFromPackToWriter(self.data_type, writer);
         try wire.eCatFromPackToWriter(self.bit_length, writer);
         try wire.eCatFromPackToWriter(self.object_access, writer);
-        try writer.writeAll(self.data.slice());
+        try writer.writeAll(self.data);
     }
 };
 
