@@ -533,6 +533,7 @@ fn printSubdeviceCoePDOs(
                 if (entry.isGap()) {
                     try writer.print("|        |     |           | {d:>3} | PADDING | {s:<64}|\n", .{ entry.bit_length, @as([]const u8, &.{}) });
                 } else {
+                    var ed_full_service_data_buffer: [4096]u8 = undefined; // TODO: this is arbitrary
                     const entry_description = gcat.mailbox.coe.readEntryDescription(
                         port,
                         station_address,
@@ -543,6 +544,7 @@ fn printSubdeviceCoePDOs(
                         entry.index,
                         @intCast(entry.subindex),
                         .description_only,
+                        &ed_full_service_data_buffer,
                     ) catch |err| switch (err) {
                         error.ObjectDoesNotExist => {
                             std.log.err("station addr: 0x{x:04}, index: 0x{x:04}:{x:02} does not exist.", .{ station_address, entry.index, entry.subindex });
@@ -669,6 +671,7 @@ fn printSubdeviceCoePDOs(
         try writer.print("|\n", .{});
 
         for (od_list.list) |index| {
+            var full_service_data_buffer: [4096]u8 = undefined; // TODO: this is arbitrary
             const object_description = gcat.mailbox.coe.readObjectDescription(
                 port,
                 station_address,
@@ -677,6 +680,7 @@ fn printSubdeviceCoePDOs(
                 cnt,
                 mailbox_config,
                 index,
+                &full_service_data_buffer,
             ) catch |err| switch (err) {
                 error.ObjectDoesNotExist => continue,
                 else => |err2| return err2,
@@ -685,6 +689,7 @@ fn printSubdeviceCoePDOs(
             try writer.print("| 0x{x}    | {x:02} | {s:<48} | {s:<16} |     |\n", .{ index, object_description.max_subindex, object_description.name, std.enums.tagName(gcat.mailbox.coe.DataTypeArea, object_description.data_type) orelse "INVALID" });
 
             for (1..@as(u9, object_description.max_subindex) + 1) |subindex| {
+                var ed_full_service_data_buffer: [4096]u8 = undefined; // TODO: this is arbitrary
                 const entry_description = gcat.mailbox.coe.readEntryDescription(
                     port,
                     station_address,
@@ -695,6 +700,7 @@ fn printSubdeviceCoePDOs(
                     index,
                     @intCast(subindex),
                     .description_only,
+                    &ed_full_service_data_buffer,
                 ) catch |err| switch (err) {
                     error.ObjectDoesNotExist => {
                         std.log.err("station addr: 0x{x:04}, index: 0x{x:04}:{x:02} does not exist.", .{ station_address, index, subindex });

@@ -15,6 +15,7 @@ pub const Args = struct {
     mbx_timeout_us: u32 = 50_000,
     json: bool = false,
     sim: bool = false,
+    eni: bool = false,
     plugin_zenoh_enable: bool = false,
     plugin_zenoh_pdo_input_publisher_key_format: ?[:0]const u8 = "ethercat/maindevice/pdi/subdevices/{{subdevice_index}}/{{subdevice_name}}/{{pdo_direction}}/0x{{pdo_index_hex}}/{{pdo_name}}/0x{{pdo_entry_index_hex}}/0x{{pdo_entry_subindex_hex}}/{{pdo_entry_description}}",
     plugin_zenoh_pdo_output_publisher_key_format: ?[:0]const u8 = "ethercat/maindevice/pdi/subdevices/{{subdevice_index}}/{{subdevice_name}}/{{pdo_direction}}/0x{{pdo_index_hex}}/{{pdo_name}}/0x{{pdo_entry_index_hex}}/0x{{pdo_entry_subindex_hex}}/{{pdo_entry_description}}",
@@ -29,6 +30,7 @@ pub const Args = struct {
         .ring_position = "Optionally specify only a single subdevice at this ring position to be scanned.",
         .json = "Export the ENI as JSON instead of ZON.",
         .sim = "Also scan information required for simulation.",
+        .eni = "Only output the ethercat network information (ENI) part of the configuration. For use with gatorcat module.",
         .plugin_zenoh_enable = "Output a configuration that enables zenoh communication.",
         .plugin_zenoh_pdo_input_publisher_key_format = "Format string used to contruct zenoh publisher key expressions for input pdos.",
         .plugin_zenoh_pdo_output_publisher_key_format = "Format string used to contruct zenoh publisher key expressions for output pdos.",
@@ -88,11 +90,21 @@ pub fn scan(allocator: std.mem.Allocator, args: Args) !void {
         const writer = &std_out.interface;
 
         if (args.json) {
-            try std.json.Stringify.value(config, .{ .emit_null_optional_fields = false }, writer);
-            try writer.writeByte('\n');
+            if (args.eni) {
+                try std.json.Stringify.value(config.eni, .{ .emit_null_optional_fields = false }, writer);
+                try writer.writeByte('\n');
+            } else {
+                try std.json.Stringify.value(config, .{ .emit_null_optional_fields = false }, writer);
+                try writer.writeByte('\n');
+            }
         } else {
-            try std.zon.stringify.serialize(config, .{ .emit_default_optional_fields = false }, writer);
-            try writer.writeByte('\n');
+            if (args.eni) {
+                try std.zon.stringify.serialize(config.eni, .{ .emit_default_optional_fields = false }, writer);
+                try writer.writeByte('\n');
+            } else {
+                try std.zon.stringify.serialize(config, .{ .emit_default_optional_fields = false }, writer);
+                try writer.writeByte('\n');
+            }
         }
     }
 }

@@ -412,6 +412,7 @@ pub fn readSubdeviceConfigurationLeaky(
                     subdevice.runtime_info.coe.?.config,
                     pdo_index,
                 );
+                var full_service_data_buffer: [4096]u8 = undefined; // TODO: this is arbitrary
                 const object_description = try coe.readObjectDescription(
                     self.port,
                     station_address,
@@ -420,6 +421,7 @@ pub fn readSubdeviceConfigurationLeaky(
                     &subdevice.runtime_info.coe.?.cnt,
                     subdevice.runtime_info.coe.?.config,
                     pdo_index,
+                    &full_service_data_buffer,
                 );
 
                 var entries = std.ArrayList(ENI.SubdeviceConfiguration.PDO.Entry).empty;
@@ -435,6 +437,7 @@ pub fn readSubdeviceConfigurationLeaky(
                             .type = .UNKNOWN,
                         });
                     } else {
+                        var ed_full_service_data_buffer: [4096]u8 = undefined; // TODO: this is arbitrary
                         const entry_description = try coe.readEntryDescription(
                             self.port,
                             station_address,
@@ -445,6 +448,7 @@ pub fn readSubdeviceConfigurationLeaky(
                             entry.index,
                             entry.subindex,
                             .description_only,
+                            &ed_full_service_data_buffer,
                         );
 
                         try entries.append(allocator, ENI.SubdeviceConfiguration.PDO.Entry{

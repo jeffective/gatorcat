@@ -1208,6 +1208,7 @@ pub fn readObjectDescription(
     cnt: *Cnt,
     config: mailbox.Configuration,
     index: u16,
+    full_service_data_buffer: []u8,
 ) !server.GetObjectDescriptionResponse {
     const request = mailbox.OutContent{
         .coe = .{
@@ -1222,8 +1223,7 @@ pub fn readObjectDescription(
         request,
     );
 
-    var full_service_data_buffer: [4096]u8 = undefined; // TODO: this is arbitrary
-    var writer = std.Io.Writer.fixed(&full_service_data_buffer);
+    var writer = std.Io.Writer.fixed(full_service_data_buffer);
     readSDOInfoFragments(
         port,
         station_address,
@@ -1252,6 +1252,7 @@ pub fn readEntryDescription(
     index: u16,
     subindex: u8,
     value_info: ValueInfo,
+    full_service_data_buffer: []u8,
 ) !server.GetEntryDescriptionResponse {
     const request = mailbox.OutContent{
         .coe = .{ .get_entry_description_request = .init(cnt.nextCnt(), index, subindex, value_info) },
@@ -1264,8 +1265,7 @@ pub fn readEntryDescription(
         request,
     );
 
-    var full_service_data_buffer: [4096]u8 = undefined; // TODO: this is arbitrary
-    var writer = std.Io.Writer.fixed(&full_service_data_buffer);
+    var writer = std.Io.Writer.fixed(full_service_data_buffer);
     readSDOInfoFragments(
         port,
         station_address,
