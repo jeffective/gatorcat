@@ -244,7 +244,7 @@ pub const LogLevel = enum { trace, debug, info, warn, @"error" };
 pub const ZenohHandler = struct {
     arena: *std.heap.ArenaAllocator,
     session: zenoh.Session,
-    pubs: std.StringArrayHashMap(zenoh.Publisher),
+    pubs: std.StringArrayHashMap(zenoh.AdvancedPublisher),
     subs: *const std.StringArrayHashMap(SubscriberClosure),
     pdi_write_mutex: *std.Thread.Mutex,
 
@@ -280,7 +280,7 @@ pub const ZenohHandler = struct {
         var session = try zenoh.Session.open(&config, &zenoh.Session.OpenOptions.init());
         errdefer session.deinit();
 
-        var pubs = std.StringArrayHashMap(zenoh.Publisher).init(allocator);
+        var pubs = std.StringArrayHashMap(zenoh.AdvancedPublisher).init(allocator);
         errdefer pubs.deinit();
         errdefer {
             for (pubs.values()) |*publisher| {
@@ -365,10 +365,11 @@ pub const ZenohHandler = struct {
                         );
                         errdefer closure.deinit();
 
-                        var subscriber_options = zenoh.Session.SubscriberOptions.init();
-                        const subscriber = try allocator.create(zenoh.Subscriber);
+                        var subscriber_options = zenoh.Session.AdvancedSubscriberOptions.init();
+                        subscriber_options._c.subscriber_detection = true;
+                        const subscriber = try allocator.create(zenoh.AdvancedSubscriber);
                         errdefer allocator.destroy(subscriber);
-                        subscriber.* = try session.declareSubscriber(&key_expr, closure, &subscriber_options);
+                        subscriber.* = try session.declareAdvancedSubscriber(&key_expr, closure, &subscriber_options);
                         errdefer subscriber.deinit();
 
                         std.log.warn("zenoh: declared subscriber: {s}, ethercat type: {s}, bit_pos: {}", .{
@@ -404,7 +405,7 @@ pub const ZenohHandler = struct {
 
     const SubscriberClosure = struct {
         closure: *zenoh.ClosureSample,
-        subscriber: *zenoh.Subscriber,
+        subscriber: *zenoh.AdvancedSubscriber,
         pub fn deinit(self: SubscriberClosure) void {
             self.closure.deinit();
             self.subscriber.deinit();
@@ -420,16 +421,17 @@ pub const ZenohHandler = struct {
     };
 
     fn createPublisher(
-        pubs: *std.StringArrayHashMap(zenoh.Publisher),
+        pubs: *std.StringArrayHashMap(zenoh.AdvancedPublisher),
         session: *zenoh.Session,
         key: [:0]const u8,
     ) !void {
         const key_expr = try zenoh.KeyExpr.initFromStr(key);
 
-        var publisher_options = zenoh.Session.PublisherOptions.init();
-        publisher_options._c.congestion_control = zenoh.c.Z_CONGESTION_CONTROL_DROP;
+        var publisher_options = zenoh.Session.AdvancedPublisherOptions.init();
+        publisher_options._c.publisher_options.congestion_control = zenoh.c.Z_CONGESTION_CONTROL_DROP;
+        publisher_options._c.publisher_detection = true;
 
-        var publisher = try session.declarePublisher(&key_expr, &publisher_options);
+        var publisher = try session.declareAdvancedPublisher(&key_expr, &publisher_options);
         errdefer publisher.deinit();
 
         const put_result = try pubs.getOrPutValue(key, publisher);
@@ -807,10 +809,10 @@ pub const ZenohHandler = struct {
 
     /// Asserts the given key exists.
     fn publishAssumeKey(self: *ZenohHandler, key: [:0]const u8, payload: []const u8) !void {
-        var put_options = zenoh.Publisher.PutOptions.init();
+        var put_options = zenoh.AdvancedPublisher.PutOptions.init();
         var encoding: zenoh.c.z_owned_encoding_t = undefined;
         zenoh.c.z_encoding_clone(&encoding, zenoh.c.z_encoding_application_cbor());
-        put_options._c.encoding = zenoh.move(&encoding);
+        put_options._c.put_options.encoding = zenoh.move(&encoding);
 
         var bytes = try zenoh.Bytes.init(payload);
         errdefer bytes.deinit();
