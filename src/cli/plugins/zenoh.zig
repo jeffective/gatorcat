@@ -243,10 +243,8 @@ pub const LogLevel = enum { trace, debug, info, warn, @"error" };
 
 pub const ZenohHandler = struct {
     arena: *std.heap.ArenaAllocator,
-    config: *zenoh.c.z_owned_config_t,
-    session: *zenoh.c.z_owned_session_t,
-    // TODO: store string keys as [:0] const u8 by calling hash map ourselves with StringContext
-    pubs: std.StringArrayHashMap(zenoh.c.z_owned_publisher_t),
+    session: zenoh.Session,
+    pubs: std.StringArrayHashMap(zenoh.Publisher),
     subs: *const std.StringArrayHashMap(SubscriberClosure),
     pdi_write_mutex: *std.Thread.Mutex,
 
@@ -270,27 +268,23 @@ pub const ZenohHandler = struct {
         // TODO: set log level from cli
         try zenoh.err(zenoh.c.zc_init_log_from_env_or(gcat.exhaustiveTagName(log_level)));
 
-        const config = try allocator.create(zenoh.c.z_owned_config_t);
-        if (maybe_config_file) |config_file| {
-            try zenoh.err(zenoh.c.zc_config_from_file(config, config_file.ptr));
-        } else {
-            try zenoh.err(zenoh.c.z_config_default(config));
-        }
-        errdefer zenoh.drop(zenoh.move(config));
+        var config = blk: {
+            if (maybe_config_file) |config_file| {
+                break :blk try zenoh.Config.initFromFile(config_file);
+            } else {
+                break :blk try zenoh.Config.initDefault();
+            }
+        };
+        errdefer config.deinit();
 
-        var open_options: zenoh.c.z_open_options_t = undefined;
-        zenoh.c.z_open_options_default(&open_options);
+        var session = try zenoh.Session.open(&config, &zenoh.Session.OpenOptions.init());
+        errdefer session.deinit();
 
-        const session = try allocator.create(zenoh.c.z_owned_session_t);
-        const open_result = zenoh.c.z_open(session, zenoh.move(config), &open_options);
-        try zenoh.err(open_result);
-        errdefer zenoh.drop(zenoh.move(session));
-
-        var pubs = std.StringArrayHashMap(zenoh.c.z_owned_publisher_t).init(allocator);
+        var pubs = std.StringArrayHashMap(zenoh.Publisher).init(allocator);
         errdefer pubs.deinit();
         errdefer {
             for (pubs.values()) |*publisher| {
-                zenoh.drop(zenoh.move(publisher));
+                publisher.deinit();
             }
         }
 
@@ -312,7 +306,7 @@ pub const ZenohHandler = struct {
                     };
                     for (pv.publishers) |publisher| {
                         std.log.warn("zenoh: declaring publisher: {s}", .{publisher.key_expr});
-                        try createPublisher(allocator, &pubs, session, publisher.key_expr);
+                        try createPublisher(&pubs, &session, publisher.key_expr);
                     }
                 }
             }
@@ -370,7 +364,7 @@ pub const ZenohHandler = struct {
                         zenoh.c.z_subscriber_options_default(&subscriber_options);
 
                         const subscriber = try allocator.create(zenoh.c.z_owned_subscriber_t);
-                        try zenoh.err(zenoh.c.z_declare_subscriber(zenoh.loan(session), subscriber, zenoh.loan(key_expr), zenoh.move(closure), &subscriber_options));
+                        try zenoh.err(zenoh.c.z_declare_subscriber(zenoh.loan(&session._c), subscriber, zenoh.loan(key_expr), zenoh.move(closure), &subscriber_options));
                         errdefer zenoh.drop(zenoh.move(subscriber));
                         std.log.warn("zenoh: declared subscriber: {s}, ethercat type: {s}, bit_pos: {}", .{
                             name,
@@ -396,7 +390,6 @@ pub const ZenohHandler = struct {
 
         return ZenohHandler{
             .arena = arena,
-            .config = config,
             .session = session,
             .pubs = pubs,
             .subs = subs,
@@ -422,26 +415,23 @@ pub const ZenohHandler = struct {
     };
 
     fn createPublisher(
-        allocator: std.mem.Allocator,
-        pubs: *std.StringArrayHashMap(zenoh.c.z_owned_publisher_t),
-        session: *zenoh.c.z_owned_session_t,
+        pubs: *std.StringArrayHashMap(zenoh.Publisher),
+        session: *zenoh.Session,
         key: [:0]const u8,
     ) !void {
-        var publisher: zenoh.c.z_owned_publisher_t = undefined;
-        const view_keyexpr = try allocator.create(zenoh.c.z_view_keyexpr_t);
-        const result = zenoh.c.z_view_keyexpr_from_str(view_keyexpr, key.ptr);
-        try zenoh.err(result);
-        var publisher_options: zenoh.c.z_publisher_options_t = undefined;
-        zenoh.c.z_publisher_options_default(&publisher_options);
-        publisher_options.congestion_control = zenoh.c.Z_CONGESTION_CONTROL_DROP;
-        const result2 = zenoh.c.z_declare_publisher(zenoh.loan(session), &publisher, zenoh.loan(view_keyexpr), &publisher_options);
-        try zenoh.err(result2);
-        errdefer zenoh.drop(zenoh.move(&publisher));
+        const key_expr = try zenoh.KeyExpr.initFromStr(key);
+
+        var publisher_options = zenoh.Session.PublisherOptions.init();
+        publisher_options._c.congestion_control = zenoh.c.Z_CONGESTION_CONTROL_DROP;
+
+        var publisher = try session.declarePublisher(&key_expr, &publisher_options);
+        errdefer publisher.deinit();
+
         const put_result = try pubs.getOrPutValue(key, publisher);
         if (put_result.found_existing) {
             std.log.err("duplicate key found: {s}", .{key});
             return error.PVNameConflict;
-        } // TODO: assert this?
+        }
     }
 
     // TODO: get more type safety here for subs_ctx?
@@ -812,27 +802,23 @@ pub const ZenohHandler = struct {
 
     /// Asserts the given key exists.
     fn publishAssumeKey(self: *ZenohHandler, key: [:0]const u8, payload: []const u8) !void {
-        var options: zenoh.c.z_publisher_put_options_t = undefined;
-        zenoh.c.z_publisher_put_options_default(&options);
+        var put_options = zenoh.Publisher.PutOptions.init();
         var encoding: zenoh.c.z_owned_encoding_t = undefined;
         zenoh.c.z_encoding_clone(&encoding, zenoh.c.z_encoding_application_cbor());
-        options.encoding = zenoh.move(&encoding);
-        var bytes: zenoh.c.z_owned_bytes_t = undefined;
-        const result_copy = zenoh.c.z_bytes_copy_from_buf(&bytes, payload.ptr, payload.len);
-        try zenoh.err(result_copy);
-        errdefer zenoh.drop(zenoh.move(&bytes));
+        put_options._c.encoding = zenoh.move(&encoding);
+
+        var bytes = try zenoh.Bytes.init(payload);
+        errdefer bytes.deinit();
+
         var publisher = self.pubs.get(key).?;
-        const result = zenoh.c.z_publisher_put(zenoh.loan(&publisher), zenoh.move(&bytes), &options);
-        try zenoh.err(result);
-        errdefer comptime unreachable;
+        try publisher.put(&bytes, &put_options);
     }
 
-    pub fn deinit(self: ZenohHandler, p_allocator: std.mem.Allocator) void {
+    pub fn deinit(self: *ZenohHandler, p_allocator: std.mem.Allocator) void {
         for (self.pubs.values()) |*publisher| {
-            zenoh.drop(zenoh.move(publisher));
+            publisher.deinit();
         }
-        zenoh.drop(zenoh.move(self.config));
-        zenoh.drop(zenoh.move(self.session));
+        self.session.deinit();
         self.arena.deinit();
         p_allocator.destroy(self.arena);
     }
