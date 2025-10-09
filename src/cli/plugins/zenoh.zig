@@ -343,11 +343,11 @@ pub const ZenohHandler = struct {
                         const bit_offset = pv_info.bit_offset;
                         const name = subscriber_config.key_expr;
 
-                        const key_expr = try allocator.create(zenoh.c.z_view_keyexpr_t);
-                        comptime assert(@typeInfo(@TypeOf(name)).pointer.sentinel() == 0);
-                        try zenoh.err(zenoh.c.z_view_keyexpr_from_str(key_expr, name.ptr));
+                        var key_expr = try zenoh.KeyExpr.initFromStr(name);
+                        errdefer key_expr.deinit();
 
                         const subscriber_sample_context = try allocator.create(SubscriberSampleContext);
+                        errdefer allocator.destroy(subscriber_sample_context);
                         subscriber_sample_context.* = SubscriberSampleContext{
                             .subdevice_output_process_data = md.subdevices[subdevice_index].getOutputProcessData(),
                             .type = entry.type,
@@ -356,16 +356,21 @@ pub const ZenohHandler = struct {
                             .pdi_write_mutex = pdi_write_mutex,
                         };
 
-                        const closure = try allocator.create(zenoh.c.z_owned_closure_sample_t);
-                        zenoh.c.z_closure_sample(closure, &data_handler, null, subscriber_sample_context);
-                        errdefer zenoh.drop(zenoh.move(closure));
+                        const closure = try allocator.create(zenoh.ClosureSample);
+                        errdefer allocator.destroy(closure);
+                        closure.* = zenoh.ClosureSample.init(
+                            &data_handler,
+                            null,
+                            subscriber_sample_context,
+                        );
+                        errdefer closure.deinit();
 
-                        var subscriber_options: zenoh.c.z_subscriber_options_t = undefined;
-                        zenoh.c.z_subscriber_options_default(&subscriber_options);
+                        var subscriber_options = zenoh.Session.SubscriberOptions.init();
+                        const subscriber = try allocator.create(zenoh.Subscriber);
+                        errdefer allocator.destroy(subscriber);
+                        subscriber.* = try session.declareSubscriber(&key_expr, closure, &subscriber_options);
+                        errdefer subscriber.deinit();
 
-                        const subscriber = try allocator.create(zenoh.c.z_owned_subscriber_t);
-                        try zenoh.err(zenoh.c.z_declare_subscriber(zenoh.loan(&session._c), subscriber, zenoh.loan(key_expr), zenoh.move(closure), &subscriber_options));
-                        errdefer zenoh.drop(zenoh.move(subscriber));
                         std.log.warn("zenoh: declared subscriber: {s}, ethercat type: {s}, bit_pos: {}", .{
                             name,
                             gcat.exhaustiveTagName(entry.type),
@@ -398,11 +403,11 @@ pub const ZenohHandler = struct {
     }
 
     const SubscriberClosure = struct {
-        closure: *zenoh.c.z_owned_closure_sample_t,
-        subscriber: *zenoh.c.z_owned_subscriber_t,
+        closure: *zenoh.ClosureSample,
+        subscriber: *zenoh.Subscriber,
         pub fn deinit(self: SubscriberClosure) void {
-            zenoh.drop(zenoh.move(self.subscriber));
-            zenoh.drop(zenoh.move(self.closure));
+            self.closure.deinit();
+            self.subscriber.deinit();
         }
     };
 
