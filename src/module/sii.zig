@@ -125,6 +125,7 @@ pub const SubdeviceIdentity = packed struct {
     vendor_id: u32,
     product_code: u32,
     revision_number: u32,
+    serial_number: u32,
 };
 
 /// SII Catagory Types

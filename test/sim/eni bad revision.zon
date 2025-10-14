@@ -4,7 +4,7 @@
         .identity = .{
             .vendor_id = 2,
             .product_code = 72100946,
-            .revision_number = 1114112,
+            .revision_number = 1114113,
             .serial_number = 0,
         },
         .startup_check = .{

@@ -24,6 +24,7 @@ pub const SubdeviceConfiguration = struct {
     /// ex. "EL7031-0030"
     name: ?[]const u8 = null,
     identity: sii.SubdeviceIdentity,
+    startup_check: StartupCheck = .{},
     /// SDO startup parameters
     startup_parameters: []const StartupParameter = &.{},
     /// Autoconfigure strategy
@@ -35,6 +36,26 @@ pub const SubdeviceConfiguration = struct {
 
     /// Information required for the simulator
     sim: ?Sim = null,
+
+    pub const StartupCheck = struct {
+        /// check the vendor id, or not
+        vendor_id: bool = true,
+        /// check the product code, or not
+        product_code: bool = true,
+        /// configure checking of the revision number
+        revision_number: Op = .eq,
+        /// check the serial number, or not
+        serial_number: bool = false,
+
+        pub const Op = enum {
+            /// require revision number to be greater than or equal
+            gte,
+            /// require revision number to be equal
+            eq,
+            /// don't check the revision number
+            ignore,
+        };
+    };
 
     pub const PDO = struct {
         index: u16,
@@ -394,11 +415,11 @@ test ProcessImageType {
     const eni: @This() = .{ .subdevices = &.{
         .{
             .name = "EK1100",
-            .identity = .{ .vendor_id = 2, .product_code = 72100946, .revision_number = 1114112 },
+            .identity = .{ .vendor_id = 2, .product_code = 72100946, .revision_number = 1114112, .serial_number = 0 },
         },
         .{
             .name = "EL2008",
-            .identity = .{ .vendor_id = 2, .product_code = 131608658, .revision_number = 1048576 },
+            .identity = .{ .vendor_id = 2, .product_code = 131608658, .revision_number = 1048576, .serial_number = 0 },
             .outputs = &.{
                 .{ .index = 5632, .entries = &.{.{ .index = 28672, .subindex = 1, .type = .BOOLEAN, .bits = 1, .description = "Output" }}, .name = "Channel 1" },
                 .{ .index = 5633, .entries = &.{.{ .index = 28688, .subindex = 1, .type = .BOOLEAN, .bits = 1, .description = "Output" }}, .name = "Channel 2" },

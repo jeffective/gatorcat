@@ -12,6 +12,7 @@ const beckhoff_EK1100 = gcat.ENI.SubdeviceConfiguration{
         .vendor_id = 0x2,
         .product_code = 0x44c2c52,
         .revision_number = 0x110000,
+        .serial_number = 0,
     },
 };
 
@@ -20,6 +21,7 @@ const beckhoff_EL7031_0030 = gcat.ENI.SubdeviceConfiguration{
         .vendor_id = 0x2,
         .product_code = 0x1b773052,
         .revision_number = 0x0010001e,
+        .serial_number = 0,
     },
     // .inputs_bit_length = 128,
     // .outputs_bit_length = 64,
