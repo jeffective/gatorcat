@@ -1,5 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
+const build_zig_zon = @import("build_zig_zon");
 
 const gcat = @import("gatorcat");
 
@@ -84,7 +85,11 @@ pub fn scan(allocator: std.mem.Allocator, args: Args) !void {
         }) else null;
         defer if (maybe_zenoh) |zenoh| zenoh.deinit();
 
-        const config: Config = .{ .eni = eni.value, .plugins = .{ .zenoh = if (maybe_zenoh) |zenoh| zenoh.value else null } };
+        const config: Config = .{
+            .version = build_zig_zon.version,
+            .eni = eni.value,
+            .plugins = .{ .zenoh = if (maybe_zenoh) |zenoh| zenoh.value else null },
+        };
 
         var std_out = std.fs.File.stdout().writer(&.{});
         const writer = &std_out.interface;
