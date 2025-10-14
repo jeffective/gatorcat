@@ -3,7 +3,7 @@
         .name = "EK1100",
         .identity = .{
             .vendor_id = 2,
-            .product_code = 72100946,
+            .product_code = 72100947,
             .revision_number = 1114112,
             .serial_number = 0,
         },

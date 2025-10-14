@@ -2,6 +2,7 @@ const std = @import("std");
 const Timer = std.time.Timer;
 const ns_per_us = std.time.ns_per_us;
 const assert = std.debug.assert;
+const builtin = @import("builtin");
 
 const ENI = @import("ENI.zig");
 const esc = @import("esc.zig");
@@ -174,19 +175,39 @@ pub fn transitionIP(
         eeprom_timeout_us,
     );
 
-    if (info.vendor_id != self.config.identity.vendor_id or
-        info.product_code != self.config.identity.product_code or
-        info.revision_number != self.config.identity.revision_number)
+    const vendor_id_check_failure: bool = self.config.startup_check.vendor_id and
+        info.vendor_id != self.config.identity.vendor_id;
+    const product_code_check_failure: bool = self.config.startup_check.product_code and
+        info.product_code != self.config.identity.product_code;
+    const revision_number_check_failure: bool = switch (self.config.startup_check.revision_number) {
+        .eq => !(info.revision_number == self.config.identity.revision_number),
+        .gte => !(info.revision_number >= self.config.identity.revision_number),
+        .ignore => false,
+    };
+    const serial_number_check_failure: bool = self.config.startup_check.serial_number and
+        info.serial_number != self.config.identity.serial_number;
+
+    if (vendor_id_check_failure or
+        product_code_check_failure or
+        revision_number_check_failure or
+        serial_number_check_failure)
     {
+        // TODO: fix this after std.log integrated
+        // https://github.com/ziglang/zig/issues/5738#issuecomment-1466902082
+
+        if (builtin.is_test) return error.UnexpectedSubdevice;
         logger.err(
-            "Identified subdevice: vendor id: 0x{x}, product code: 0x{x}, revision: 0x{x}, expected vendor id: 0x{x}, product code: 0x{x}, revision: 0x{x}",
+            "Identified subdevice at ring position {}: vendor id: 0x{x}, product code: 0x{x}, revision: 0x{x}, serial number: 0x{x}, expected vendor id: 0x{x}, product code: 0x{x}, revision: 0x{x}, serial number: 0x{x}",
             .{
+                self.runtime_info.ring_position,
                 info.vendor_id,
                 info.product_code,
                 info.revision_number,
+                info.serial_number,
                 self.config.identity.vendor_id,
                 self.config.identity.product_code,
                 self.config.identity.revision_number,
+                self.config.identity.serial_number,
             },
         );
         return error.UnexpectedSubdevice;

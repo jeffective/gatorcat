@@ -3,6 +3,7 @@
         .vendor_id = 2,
         .product_code = 72100946,
         .revision_number = 1114112,
+        .serial_number = 0,
     } },
     .{
         .name = "EL2008",
@@ -10,6 +11,7 @@
             .vendor_id = 2,
             .product_code = 131608658,
             .revision_number = 1048576,
+            .serial_number = 0,
         },
         .outputs = .{
             .{
@@ -108,6 +110,7 @@
             .vendor_id = 2,
             .product_code = 217198674,
             .revision_number = 1179648,
+            .serial_number = 0,
         },
         .inputs = .{
             .{
@@ -370,6 +373,7 @@
             .vendor_id = 2,
             .product_code = 460795986,
             .revision_number = 1048606,
+            .serial_number = 0,
         },
         .inputs = .{
             .{
@@ -718,6 +722,7 @@
             .vendor_id = 2,
             .product_code = 200683602,
             .revision_number = 1048576,
+            .serial_number = 0,
         },
         .inputs = .{ .{
             .index = 6656,
@@ -855,6 +860,7 @@
             .vendor_id = 2,
             .product_code = 461451346,
             .revision_number = 1638400,
+            .serial_number = 0,
         },
         .inputs = .{ .{
             .index = 6656,

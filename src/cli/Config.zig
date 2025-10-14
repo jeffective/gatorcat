@@ -7,7 +7,11 @@ const Config = @This();
 const gcat = @import("gatorcat");
 const zenoh = @import("zenoh");
 const zenoh_plugin = @import("plugins/zenoh.zig");
+const build_zig_zon = @import("build_zig_zon");
 
+/// The version of gatorcat that generated this config file.
+/// Currently does nothing.
+version: []const u8 = build_zig_zon.version,
 /// EtherCAT Network Information
 /// Description of the contents and configuration of the EtherCAT network.
 eni: gcat.ENI,

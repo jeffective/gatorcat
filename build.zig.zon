@@ -1,6 +1,6 @@
 .{
     .name = .gatorcat,
-    .version = "0.4.3",
+    .version = "0.4.4",
     .fingerprint = 0xb9356c7c4de9ca59, // Changing this has security and trust implications.
     .minimum_zig_version = "0.15.1",
     .dependencies = .{

@@ -5,7 +5,7 @@
             .vendor_id = 2,
             .product_code = 72100946,
             .revision_number = 1114112,
-            .serial_number = 0,
+            .serial_number = 1,
         },
         .startup_check = .{
             .vendor_id = true,
