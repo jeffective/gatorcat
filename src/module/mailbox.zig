@@ -88,14 +88,14 @@ pub fn writeMailboxOut(
         // This may occur if:
         // 1. the subdevice loses power etc.
         // 2. we screwed up the configuration
-        return error.InvalidMbxConfiguration;
+        return error.MisbehavingSubdevice;
     }
 
     // Mailbox out full?
     // This is an error since it should almost never happen.
     // If it happens it is an indication of incorrect use of this function
     // or malfunctioning subdevice.
-    if (act_mbx_out.status.mailbox_full) return error.MbxOutFull;
+    if (act_mbx_out.status.mailbox_full) return error.MisbehavingSubdevice; // mbx out full
 
     var buf = std.mem.zeroes([max_size]u8);
     var writer = std.Io.Writer.fixed(&buf);
@@ -191,7 +191,7 @@ pub fn readMailboxIn(
         // This may occur if:
         // 1. the subdevice loses power etc.
         // 2. we screwed up the configuration
-        return error.InvalidMbxConfiguration;
+        return error.MisbehavingSubdevice;
     }
 
     // Mailbox empty?

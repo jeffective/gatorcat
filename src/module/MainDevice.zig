@@ -284,7 +284,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
     logger.info("detected {} subdevices", .{res.wkc});
     if (res.wkc != self.subdevices.len) {
         logger.info("Found {} subdevices, expected {}.", .{ res.wkc, self.subdevices.len });
-        return error.WrongNumberOfSubdevices;
+        return error.BusConfigurationMismatch;
     }
     try self.broadcastStateChange(.INIT, change_timeout_us);
 }

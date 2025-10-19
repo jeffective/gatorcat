@@ -136,7 +136,7 @@ pub fn sdoWrite(
 
             if (in_content != .coe) {
                 logger.err("station_addr: {} returned incorrect protocol during COE write at index: {}, subindex: {}", .{ station_address, index, subindex });
-                return error.WrongProtocol;
+                return error.MisbehavingSubdevice;
             }
             switch (in_content.coe) {
                 .abort => {
@@ -145,18 +145,18 @@ pub fn sdoWrite(
                 },
                 .segment => {
                     logger.err("station_addr: {} returned unexpected segment during COE write at index: {}, subindex: {}", .{ station_address, index, subindex });
-                    return error.WrongProtocol;
+                    return error.MisbehavingSubdevice;
                 },
                 .normal => {
                     logger.err("station_addr: {} returned unexpected normal during COE write at index: {}, subindex: {}", .{ station_address, index, subindex });
-                    return error.WrongProtocol;
+                    return error.MisbehavingSubdevice;
                 },
                 .emergency => {
                     logger.err("station_addr: {} returned emergency during COE write at index: {}, subindex: {}", .{ station_address, index, subindex });
                     return error.Emergency;
                 },
                 .expedited => return,
-                else => return error.WrongProtocol,
+                else => return error.MisbehavingSubdevice,
             }
         },
     }
@@ -272,7 +272,7 @@ pub fn sdoRead(
             );
 
             if (in_content != .coe) {
-                return error.WrongProtocol;
+                return error.MisbehavingSubdevice;
             }
             switch (in_content.coe) {
                 .abort => {
@@ -281,13 +281,13 @@ pub fn sdoRead(
                 },
                 .expedited => continue :state .expedited,
                 .segment => {
-                    return error.WrongProtocol;
+                    return error.MisbehavingSubdevice;
                 },
                 .normal => continue :state .normal,
                 .emergency => {
                     return error.Emergency;
                 },
-                else => return error.WrongProtocol,
+                else => return error.MisbehavingSubdevice,
             }
         },
         .expedited => {
@@ -1039,7 +1039,7 @@ pub fn readSMPDOAssigns(
     for (sync_managers, 0..) |sm_config, sm_idx| {
         switch (sm_config.syncM_type) {
             .mailbox_in, .mailbox_out, .not_used_or_unknown => {},
-            _ => return error.SMAssigns,
+            _ => return error.MisbehavingSubdevice,
             .process_data_inputs, .process_data_outputs => |direction| {
                 res.addSyncManager(sm_config, @intCast(sm_idx)) catch |err| switch (err) {
                     error.Overflow => return error.InvalidCoE,
@@ -1050,7 +1050,7 @@ pub fn readSMPDOAssigns(
                 for (sm_pdo_assignment.slice()) |pdo_index| {
                     const pdo_mapping = try mailbox.coe.readPDOMapping(port, station_address, recv_timeout_us, mbx_timeout_us, cnt, config, pdo_index);
                     for (pdo_mapping.entries.slice()) |entry| {
-                        try res.addPDOBitsToSM(
+                        res.addPDOBitsToSM(
                             entry.bit_length,
                             @intCast(sm_idx),
                             switch (direction) {
@@ -1058,7 +1058,9 @@ pub fn readSMPDOAssigns(
                                 .process_data_outputs => .output,
                                 else => unreachable,
                             },
-                        );
+                        ) catch |err| switch (err) {
+                            error.SyncManagerNotFound, error.WrongDirection => return error.InvalidCoE,
+                        };
                     }
                 }
             },
@@ -1104,7 +1106,7 @@ pub fn readODListLengths(
         .num_object_in_5_lists,
     );
 
-    if (index_list.len != 5) return error.WrongProtocol;
+    if (index_list.len != 5) return error.MisbehavingSubdevice;
     assert(index_list.len == 5);
     return ODListLengths{
         .all_objects = index_list.slice()[0],
@@ -1150,7 +1152,7 @@ pub fn readODList(
     );
     const full_service_data = writer.buffered();
     const response = try server.GetODListResponse.deserialize(full_service_data);
-    if (response.list_type != list_type) return error.WrongProtocol;
+    if (response.list_type != list_type) return error.MisbehavingSubdevice;
     return response.index_list;
 }
 
@@ -1166,7 +1168,7 @@ pub fn readSDOInfoFragments(
     var expected_fragments_left: u16 = 0;
     get_fragments: for (0..1024) |i| {
         const in_content = try mailbox.readMailboxInTimeout(port, station_address, recv_timeout_us, config.mbx_in, mbx_timeout_us);
-        if (in_content != .coe) return error.WrongProtocol;
+        if (in_content != .coe) return error.MisbehavingSubdevice;
         switch (in_content.coe) {
             .abort => {
                 return error.Aborted;
@@ -1174,7 +1176,7 @@ pub fn readSDOInfoFragments(
             .emergency => return error.Emergency,
             .sdo_info_response => |response| {
                 if (i == 0) expected_fragments_left = response.sdo_info_header.fragments_left;
-                if (response.sdo_info_header.opcode != opcode) return error.WrongProtocol;
+                if (response.sdo_info_header.opcode != opcode) return error.MisbehavingSubdevice;
                 if (response.sdo_info_header.fragments_left != expected_fragments_left) return error.MissedFragment;
                 try writer.writeAll(response.service_data);
                 if (response.sdo_info_header.fragments_left == 0) break :get_fragments;
@@ -1194,10 +1196,10 @@ pub fn readSDOInfoFragments(
                         return error.ObjectDoesNotExist;
                     }
                 }
-                return error.WrongProtocol;
+                return error.MisbehavingSubdevice;
             },
         }
-    } else return error.WrongProtocol;
+    } else return error.MisbehavingSubdevice;
 }
 
 pub fn readObjectDescription(
@@ -1238,7 +1240,7 @@ pub fn readObjectDescription(
     };
     const full_service_data = writer.buffered();
     const response = try server.GetObjectDescriptionResponse.deserialize(full_service_data);
-    if (response.index != index) return error.WrongProtocol;
+    if (response.index != index) return error.MisbehavingSubdevice;
     return response;
 }
 
@@ -1280,7 +1282,7 @@ pub fn readEntryDescription(
     };
     const full_service_data = writer.buffered();
     const response = try server.GetEntryDescriptionResponse.deserialize(full_service_data);
-    if (response.index != index or response.subindex != subindex or response.value_info != value_info) return error.WrongProtocol;
+    if (response.index != index or response.subindex != subindex or response.value_info != value_info) return error.MisbehavingSubdevice;
     return response;
 }
 

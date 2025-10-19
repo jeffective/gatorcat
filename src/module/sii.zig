@@ -388,7 +388,7 @@ pub fn readSIIString(
     );
 
     const n_strings: u8 = stream.reader.takeByte() catch |err| switch (err) {
-        error.EndOfStream => return error.InvalidSII,
+        error.EndOfStream => unreachable,
         error.ReadFailed => return error.ReadFailed,
     };
 
@@ -400,7 +400,7 @@ pub fn readSIIString(
     var str_len: u8 = undefined;
     for (0..index) |i| {
         str_len = stream.reader.takeByte() catch |err| switch (err) {
-            error.EndOfStream => return error.InvalidSII,
+            error.EndOfStream => unreachable,
             error.ReadFailed => return error.ReadFailed,
         };
         if (str_len % 2 == 0 and i != index - 1) {
@@ -408,7 +408,7 @@ pub fn readSIIString(
         } else {
             stream.reader.readSliceAll(string_buf[0..str_len]) catch |err| switch (err) {
                 error.ReadFailed => return error.ReadFailed,
-                error.EndOfStream => return error.InvalidSII,
+                error.EndOfStream => unreachable,
             };
         }
     }
@@ -769,7 +769,7 @@ pub fn findCatagoryFP(
     for (0..1000) |_| {
         const catagory_header = wire.packFromECatReader(CatagoryHeader, &stream.reader) catch |err| switch (err) {
             error.ReadFailed => return error.ReadFailed,
-            error.EndOfStream => return error.InvalidSII,
+            error.EndOfStream => unreachable,
         };
 
         if (catagory_header.catagory_type == catagory) {
@@ -811,7 +811,7 @@ pub fn readSIIFP_ps(
         &buffer,
     );
     stream.reader.readSliceAll(&bytes) catch |err| switch (err) {
-        error.EndOfStream => return error.InvalidSII,
+        error.EndOfStream => unreachable,
         error.ReadFailed => return error.ReadFailed,
     };
     return wire.packFromECat(T, bytes);
@@ -1403,14 +1403,14 @@ pub const FMMUConfiguration = struct {
         outputs_area: pdi.LogicalMemoryArea,
     ) !FMMUConfiguration {
         const totals = sm_assigns.totalBitLengths();
-        if (totals.inputs_bit_length != inputs_area.bit_length) return error.WrongInputsBitLength;
-        if (totals.outputs_bit_length != outputs_area.bit_length) return error.WrongOutputsBitLength;
+        if (totals.inputs_bit_length != inputs_area.bit_length) return error.BusConfigurationMismatch;
+        if (totals.outputs_bit_length != outputs_area.bit_length) return error.BusConfigurationMismatch;
 
         var res = FMMUConfiguration{ .inputs_area = inputs_area, .outputs_area = outputs_area };
 
         for (sm_assigns.data.slice()) |sm_assign| {
             if (sm_assign.pdo_bit_length > 0) res.addSM(sm_assign) catch |err| switch (err) {
-                error.Overflow => return error.NotEnoughFMMUs,
+                error.Overflow => return error.BusConfigurationMismatch, // not enough FMMUs
             };
         }
         return res;

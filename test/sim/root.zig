@@ -88,7 +88,7 @@ test "bad vendor id" {
 
         try md.busInit(5_000_000);
         try std.testing.expectError(
-            error.UnexpectedSubdevice,
+            error.BusConfigurationMismatch,
             md.busPreop(5_000_000),
         );
     }

@@ -195,7 +195,7 @@ pub fn transitionIP(
         // TODO: fix this after std.log integrated
         // https://github.com/ziglang/zig/issues/5738#issuecomment-1466902082
 
-        if (builtin.is_test) return error.UnexpectedSubdevice;
+        if (builtin.is_test) return error.BusConfigurationMismatch;
         logger.err(
             "Identified subdevice at ring position {}: vendor id: 0x{x}, product code: 0x{x}, revision: 0x{x}, serial number: 0x{x}, expected vendor id: 0x{x}, product code: 0x{x}, revision: 0x{x}, serial number: 0x{x}",
             .{
@@ -210,7 +210,7 @@ pub fn transitionIP(
                 self.config.identity.serial_number,
             },
         );
-        return error.UnexpectedSubdevice;
+        return error.BusConfigurationMismatch;
     }
 
     const general_catagory = try sii.readGeneralCatagory(
@@ -441,7 +441,10 @@ pub fn transitionPS(
                 recv_timeout_us,
                 eeprom_timeout_us,
             );
-            if (fmmus.len < min_fmmu_required) return error.NotEnoughFMMUs;
+            if (fmmus.len < min_fmmu_required) {
+                logger.err("station addr: 0x{x}, does not have enough FMMUs. Has: {}, needs: {}.", .{ station_address, fmmus.len, min_fmmu_required });
+                return error.BusConfigurationMismatch;
+            }
 
             const totals = sm_assigns.totalBitLengths();
 
@@ -450,14 +453,14 @@ pub fn transitionPS(
                     "station addr: 0x{x}, expected inputs bit length: {}, got {}",
                     .{ station_address, self.config.inputsBitLength(), totals.inputs_bit_length },
                 );
-                return error.InvalidInputsBitLength;
+                return error.BusConfigurationMismatch;
             }
             if (totals.outputs_bit_length != self.config.outputsBitLength()) {
                 logger.err(
                     "station addr: 0x{x}, expected outputs bit length: {}, got {}",
                     .{ station_address, self.config.outputsBitLength(), totals.outputs_bit_length },
                 );
-                return error.InvalidOutputsBitLength;
+                return error.BusConfigurationMismatch;
             }
             logger.info("station addr: 0x{x}, inputs_bit_length: {}", .{ station_address, totals.inputs_bit_length });
             logger.info("station addr: 0x{x}, outputs_bit_length: {}", .{ station_address, totals.outputs_bit_length });
@@ -469,7 +472,7 @@ pub fn transitionPS(
             );
             logger.info("station addr: 0x{x}, n_FMMU: {}, FMMU config: {any}", .{ station_address, fmmu_config.data.slice().len, fmmu_config.data.slice() });
             // TODO: Sort FMMUs according to order defined in SII
-            if (fmmu_config.data.slice().len > fmmus.len) return error.NotEnoughFMMUs;
+            if (fmmu_config.data.slice().len > fmmus.len) return error.BusConfigurationMismatch;
 
             // write fmmu configuration
             try port.fpwrPackWkc(
@@ -494,14 +497,12 @@ pub fn transitionSO(
 ) !void {
     self.doStartupParameters(port, .SO, recv_timeout_us) catch |err| switch (err) {
         error.MbxTimeout,
-        error.InvalidMbxConfiguration,
-        error.MbxOutFull,
         error.InvalidMbxContent,
         error.NotImplemented,
         error.CoENotSupported,
         error.CoECompleteAccessNotSupported,
         error.Aborted,
-        error.WrongProtocol,
+        error.MisbehavingSubdevice,
         => return error.StartupParametersFailed,
         error.LinkError => return error.LinkError,
         error.Emergency => return error.Emergency,

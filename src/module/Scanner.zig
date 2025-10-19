@@ -595,7 +595,7 @@ pub fn readSubdeviceConfigurationLeaky(
         const eeprom_content = try allocator.alloc(u8, sii_byte_length);
         reader.readSliceAll(eeprom_content) catch |err| switch (err) {
             error.ReadFailed => return error.ReadFailed,
-            error.EndOfStream => return error.InvalidSII,
+            error.EndOfStream => unreachable,
         };
 
         const physical_memory = try allocator.create([4096]u8);
