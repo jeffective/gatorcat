@@ -90,6 +90,7 @@ pub fn scan(allocator: std.mem.Allocator, args: Args) !void {
             .eni = eni.value,
             .plugins = .{ .zenoh = if (maybe_zenoh) |zenoh| zenoh.value else null },
         };
+        config.validate() catch unreachable; // generated an invalid config, this is a bug
 
         var std_out = std.fs.File.stdout().writer(&.{});
         const writer = &std_out.interface;

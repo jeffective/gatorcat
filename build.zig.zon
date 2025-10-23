@@ -1,8 +1,8 @@
 .{
     .name = .gatorcat,
-    .version = "0.4.6",
+    .version = "0.4.7",
     .fingerprint = 0xb9356c7c4de9ca59, // Changing this has security and trust implications.
-    .minimum_zig_version = "0.15.1",
+    .minimum_zig_version = "0.15.2",
     .dependencies = .{
         .flags = .{
             .url = "git+https://github.com/jeffective/flags?ref=update-zig-0.15.1#34faaa5b4c58e14d3241c567b4fcdc2e8b36ea24",

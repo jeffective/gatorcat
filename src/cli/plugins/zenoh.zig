@@ -41,6 +41,36 @@ pub const Config = struct {
         //         max_publishing_interval_us: u32,
         //     },
         // };
+
+        /// For publishers, define how to scale the process data value before publishing on zenoh.
+        /// For subscribers, define how to scale the incoming value from zenoh before applying it to the
+        /// process data.
+        ///
+        /// Out-of-bounds results of scaling are clamped to the nearest valid value.
+        /// NaNs are dropped.
+        scale: ?Scale = null,
+
+        pub const Scale = union(enum) {
+            /// inverts bools
+            not,
+            /// y = coeffs[0]*x*x + coeffs[1]*x + coeffs[2]
+            polynomial: struct {
+                /// The coefficients of a polynomial in decreasing order.
+                /// For example, a y=2x+1 scaling would be &.{2.0, 1.0}.
+                coeffs: []const f64,
+
+                /// For publishers, the type placed on zenoh.
+                /// For subscribers, the type accepted from zenoh.
+                type: enum { f64 } = .f64,
+            },
+            /// a function of the form y = coeffs[0]*10^(coeffs[1]*x + coeffs[2]) + coeffs[3]
+            exp10: struct {
+                coeffs: [4]f64,
+                /// For publishers, the type placed on zenoh.
+                /// For subscribers, the type accepted from zenoh.
+                type: enum { f64 } = .f64,
+            },
+        };
     };
 
     pub const Options = struct {
@@ -354,6 +384,7 @@ pub const ZenohHandler = struct {
                             .bit_count = entry.bits,
                             .bit_offset_in_process_data = bit_offset,
                             .pdi_write_mutex = pdi_write_mutex,
+                            .scale = subscriber_config.scale,
                         };
 
                         const closure = try allocator.create(zenoh.ClosureSample);
@@ -418,6 +449,7 @@ pub const ZenohHandler = struct {
         bit_count: u16,
         bit_offset_in_process_data: u32,
         pdi_write_mutex: *std.Thread.Mutex,
+        scale: ?Config.PubSub.Scale,
     };
 
     fn createPublisher(
@@ -480,9 +512,15 @@ pub const ZenohHandler = struct {
         };
         switch (ctx.type) {
             .BOOLEAN => {
-                const value = zbor.parse(bool, data_item, .{}) catch {
+                var value = zbor.parse(bool, data_item, .{}) catch {
                     std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
                     return;
+                };
+                if (ctx.scale) |sc| switch (sc) {
+                    .not => {
+                        value = !value;
+                    },
+                    .polynomial, .exp10 => unreachable,
                 };
                 gcat.wire.writeBitsAtPos(
                     ctx.subdevice_output_process_data,
@@ -492,304 +530,79 @@ pub const ZenohHandler = struct {
                 );
             },
             .BIT1 => {
-                const value = zbor.parse(u1, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(u1, ctx, data_item, key_slice, raw_data);
             },
             .BIT2 => {
-                const value = zbor.parse(u2, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(u2, ctx, data_item, key_slice, raw_data);
             },
             .BIT3 => {
-                const value = zbor.parse(u3, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(u3, ctx, data_item, key_slice, raw_data);
             },
             .BIT4 => {
-                const value = zbor.parse(u4, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(u4, ctx, data_item, key_slice, raw_data);
             },
             .BIT5 => {
-                const value = zbor.parse(u5, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(u5, ctx, data_item, key_slice, raw_data);
             },
             .BIT6 => {
-                const value = zbor.parse(u6, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(u6, ctx, data_item, key_slice, raw_data);
             },
             .BIT7 => {
-                const value = zbor.parse(u7, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(u7, ctx, data_item, key_slice, raw_data);
             },
             .BIT8, .UNSIGNED8, .BYTE, .BITARR8 => {
-                const value = zbor.parse(u8, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(u8, ctx, data_item, key_slice, raw_data);
             },
             .INTEGER8 => {
-                const value = zbor.parse(i8, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(i8, ctx, data_item, key_slice, raw_data);
             },
             .INTEGER16 => {
-                const value = zbor.parse(i16, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(i16, ctx, data_item, key_slice, raw_data);
             },
             .INTEGER32 => {
-                const value = zbor.parse(i32, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(i32, ctx, data_item, key_slice, raw_data);
             },
             .UNSIGNED16, .BITARR16 => {
-                const value = zbor.parse(u16, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(u16, ctx, data_item, key_slice, raw_data);
             },
             .UNSIGNED24 => {
-                const value = zbor.parse(u24, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(u24, ctx, data_item, key_slice, raw_data);
             },
             .UNSIGNED32, .BITARR32 => {
-                const value = zbor.parse(u32, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(u32, ctx, data_item, key_slice, raw_data);
             },
             .UNSIGNED40 => {
-                const value = zbor.parse(u40, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(u40, ctx, data_item, key_slice, raw_data);
             },
             .UNSIGNED48 => {
-                const value = zbor.parse(u48, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(u48, ctx, data_item, key_slice, raw_data);
             },
             .UNSIGNED56 => {
-                const value = zbor.parse(u56, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(u56, ctx, data_item, key_slice, raw_data);
             },
             .UNSIGNED64 => {
-                const value = zbor.parse(u64, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(u64, ctx, data_item, key_slice, raw_data);
             },
             .REAL32 => {
-                const value = zbor.parse(f32, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(f32, ctx, data_item, key_slice, raw_data);
             },
             .REAL64 => {
-                const value = zbor.parse(f64, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(f64, ctx, data_item, key_slice, raw_data);
             },
             .INTEGER24 => {
-                const value = zbor.parse(i24, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(i24, ctx, data_item, key_slice, raw_data);
             },
             .INTEGER40 => {
-                const value = zbor.parse(i40, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(i40, ctx, data_item, key_slice, raw_data);
             },
             .INTEGER48 => {
-                const value = zbor.parse(i48, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(i48, ctx, data_item, key_slice, raw_data);
             },
             .INTEGER56 => {
-                const value = zbor.parse(i56, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(i56, ctx, data_item, key_slice, raw_data);
             },
             .INTEGER64 => {
-                const value = zbor.parse(i64, data_item, .{}) catch {
-                    std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
-                    return;
-                };
-                gcat.wire.writeBitsAtPos(
-                    ctx.subdevice_output_process_data,
-                    ctx.bit_offset_in_process_data,
-                    ctx.bit_count,
-                    value,
-                );
+                writeMaybeScaledIntsFloats(i64, ctx, data_item, key_slice, raw_data);
             },
             .OCTET_STRING,
             .UNICODE_STRING,
@@ -852,7 +665,7 @@ pub const ZenohHandler = struct {
                 var out_buffer: [32]u8 = undefined; // TODO: this is arbitrary
                 var writer = std.Io.Writer.fixed(&out_buffer);
                 input_bit_reader.readBitsNoEof(void, pv_info.bit_offset) catch unreachable;
-                zborSerialize(pv_info.entry, &input_bit_reader, &writer) catch {
+                zborSerialize(pv_info.entry, &input_bit_reader, &writer, publisher_config.scale) catch {
                     std.log.err("cannot serialize to cbor: {any}", .{pv});
                 };
                 try self.publishAssumeKey(publisher_config.key_expr, writer.buffered());
@@ -863,10 +676,17 @@ pub const ZenohHandler = struct {
         entry: gcat.ENI.SubdeviceConfiguration.PDO.Entry,
         bit_reader: *gcat.wire.LossyBitReader,
         writer: *std.Io.Writer,
+        scale: ?Config.PubSub.Scale,
     ) error{UnsupportedType}!void {
         switch (entry.type) {
             .BOOLEAN => {
-                const value = bit_reader.readBitsNoEof(bool, entry.bits) catch unreachable;
+                var value = bit_reader.readBitsNoEof(bool, entry.bits) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .not => {
+                        value = !value;
+                    },
+                    .polynomial, .exp10 => unreachable,
+                };
                 switch (value) {
                     false => zbor.stringify(false, .{}, writer) catch unreachable,
                     true => zbor.stringify(true, .{}, writer) catch unreachable,
@@ -874,106 +694,406 @@ pub const ZenohHandler = struct {
             },
             .BIT1 => {
                 const value = bit_reader.readBitsNoEof(u1, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .BIT2 => {
                 const value = bit_reader.readBitsNoEof(u2, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .BIT3 => {
                 const value = bit_reader.readBitsNoEof(u3, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .BIT4 => {
                 const value = bit_reader.readBitsNoEof(u4, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .BIT5 => {
                 const value = bit_reader.readBitsNoEof(u5, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .BIT6 => {
                 const value = bit_reader.readBitsNoEof(u6, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .BIT7 => {
                 const value = bit_reader.readBitsNoEof(u7, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             // TODO: encode as bit array?
             .BIT8, .UNSIGNED8, .BYTE, .BITARR8 => {
                 const value = bit_reader.readBitsNoEof(u8, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .INTEGER8 => {
                 const value = bit_reader.readBitsNoEof(i8, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .INTEGER16 => {
                 const value = bit_reader.readBitsNoEof(i16, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .INTEGER32 => {
                 const value = bit_reader.readBitsNoEof(i32, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             // TODO: encode as bit array?
             .UNSIGNED16, .BITARR16 => {
                 const value = bit_reader.readBitsNoEof(u16, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .UNSIGNED24 => {
                 const value = bit_reader.readBitsNoEof(u24, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             // TODO: encode as bit array?
             .UNSIGNED32, .BITARR32 => {
                 const value = bit_reader.readBitsNoEof(u32, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .UNSIGNED40 => {
                 const value = bit_reader.readBitsNoEof(u40, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .UNSIGNED48 => {
                 const value = bit_reader.readBitsNoEof(u48, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .UNSIGNED56 => {
                 const value = bit_reader.readBitsNoEof(u56, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .UNSIGNED64 => {
                 const value = bit_reader.readBitsNoEof(u64, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .REAL32 => {
                 const value = bit_reader.readBitsNoEof(f32, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatCast(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatCast(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .REAL64 => {
                 const value = bit_reader.readBitsNoEof(f64, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, value);
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, value);
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .INTEGER24 => {
                 const value = bit_reader.readBitsNoEof(i24, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .INTEGER40 => {
                 const value = bit_reader.readBitsNoEof(i40, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .INTEGER48 => {
                 const value = bit_reader.readBitsNoEof(i48, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .INTEGER56 => {
                 const value = bit_reader.readBitsNoEof(i56, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .INTEGER64 => {
                 const value = bit_reader.readBitsNoEof(i64, entry.bits) catch unreachable;
-                zbor.stringify(value, .{}, writer) catch unreachable;
+                if (scale) |sc| switch (sc) {
+                    .polynomial => |params| {
+                        const fval = poly(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .exp10 => |params| {
+                        const fval = exp10(params.coeffs, @floatFromInt(value));
+                        zbor.stringify(fval, .{}, writer) catch unreachable;
+                    },
+                    .not => unreachable,
+                } else {
+                    zbor.stringify(value, .{}, writer) catch unreachable;
+                }
             },
             .OCTET_STRING,
             .UNICODE_STRING,
@@ -994,3 +1114,88 @@ pub const ZenohHandler = struct {
         }
     }
 };
+
+/// Evaluate a polynomial with coefficients `coeffs` at `x`.
+///
+/// coeffs are in decreasing order.
+///
+/// For example:
+/// coeffs &.{1.0, 2.0, -3.0} is polynomial y = 1.0*x^2 + 2.0*x - 3.0.
+///
+/// Special cases:
+/// - when coeffs.len == 0, always returns zero.
+fn poly(coeffs: []const f64, x: f64) f64 {
+    // Horner's method.
+    // https://en.wikipedia.org/wiki/Horner%27s_method
+    var result: f64 = 0;
+    for (coeffs) |coeff| {
+        result = result * x + coeff;
+    }
+    return result;
+}
+
+test poly {
+    try std.testing.expectEqual(2.0, poly(&.{ 2.0, 0.0 }, 1.0));
+    try std.testing.expectEqual(2.0, poly(&.{ 2.0, 0.0 }, 1.0));
+    try std.testing.expectEqual(4.0, poly(&.{ 2.0, 0.0 }, 2.0));
+    try std.testing.expectEqual(21.0, poly(&.{ 1.0, 1.0, 1.0 }, 4.0));
+}
+
+fn exp10(coeffs: [4]f64, x: f64) f64 {
+    return coeffs[0] * std.math.pow(f64, 10.0, coeffs[1] * x + coeffs[2]) + coeffs[3];
+}
+
+test exp10 {
+    try std.testing.expectEqual(1.0, exp10(.{ 1.0, 0.0, 0.0, 0.0 }, 0.0));
+    try std.testing.expectEqual(1.0000000000004e13, exp10(.{ 1.0, 2.0, 3.0, 4.0 }, 5.0));
+    try std.testing.expectEqual(7.1021965193816e13, exp10(.{ 1.1, 2.1, 3.1, 4.1 }, 5.1));
+}
+
+fn writeMaybeScaledIntsFloats(
+    comptime T: type,
+    ctx: *const ZenohHandler.SubscriberSampleContext,
+    data_item: zbor.DataItem,
+    key_slice: []const u8,
+    raw_data: []const u8,
+) void {
+    if (ctx.scale) |sc| switch (sc) {
+        .not => unreachable,
+        .polynomial => |params| {
+            const value = zbor.parse(f64, data_item, .{}) catch {
+                std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
+                return;
+            };
+            const scaled = poly(params.coeffs, value);
+            gcat.wire.writeBitsAtPos(
+                ctx.subdevice_output_process_data,
+                ctx.bit_offset_in_process_data,
+                ctx.bit_count,
+                std.math.lossyCast(T, scaled),
+            );
+        },
+        .exp10 => |params| {
+            const value = zbor.parse(f64, data_item, .{}) catch {
+                std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
+                return;
+            };
+            const scaled = exp10(params.coeffs, value);
+            gcat.wire.writeBitsAtPos(
+                ctx.subdevice_output_process_data,
+                ctx.bit_offset_in_process_data,
+                ctx.bit_count,
+                std.math.lossyCast(T, scaled),
+            );
+        },
+    } else {
+        const value = zbor.parse(T, data_item, .{}) catch {
+            std.log.err("Failed to decode cbor data for key: {s}, data: {x}", .{ key_slice, raw_data });
+            return;
+        };
+        gcat.wire.writeBitsAtPos(
+            ctx.subdevice_output_process_data,
+            ctx.bit_offset_in_process_data,
+            ctx.bit_count,
+            value,
+        );
+    }
+}

@@ -12,11 +12,12 @@ services:
     environment:
      - PYTHONUNBUFFERED=1
   gatorcat:
-    image: ghcr.io/jeffective/gatorcat:0.4.3
-    command: run --ifname enx00e04c68191a --plugin-zenoh-config-default --auto-scan-plugin-zenoh-enable
+    image: ghcr.io/jeffective/gatorcat:0.4.7
+    command: run --ifname enx00e04c68191a --plugin-zenoh-config-default --auto-scan-plugin-zenoh-enable --config-file /eni.zon
     volumes:
       - /dev/shm/:/dev/shm/
       - /tmp
+      - ./eni.zon:/eni.zon:ro
     network_mode: host
     restart: always
   zenoh-router:
