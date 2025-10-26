@@ -32,7 +32,7 @@ pub fn init(port: *Port, settings: MainDevice.Settings) Scanner {
 pub fn countSubdevices(self: *const Scanner) !u16 {
     // count subdevices
     const res = try self.port.brdPack(
-        esc.ALStatusRegister,
+        esc.ALStatus,
         .{
             .autoinc_address = 0,
             .offset = @intFromEnum(esc.Register.al_status),
@@ -46,7 +46,7 @@ pub fn busInit(self: *const Scanner, state_change_timeout_us: u32, subdevice_cou
 
     // open all ports
     try self.port.bwrPackWkc(
-        esc.DLControlRegisterCompact{
+        esc.DLControlCompact{
             .forwarding_rule = true, // destroy non-ecat frames
             .temporary_loop_control = false, // permanent settings
             .loop_control_port0 = .auto,
@@ -68,7 +68,7 @@ pub fn busInit(self: *const Scanner, state_change_timeout_us: u32, subdevice_cou
     try self.port.bwrPackWkc(
         // a write to any one of these counters will reset them all,
         // but I am too lazt to do it any differently.
-        esc.RXErrorCounterRegister{
+        esc.RXErrorCounter{
             .port0_frame_errors = 0,
             .port0_physical_errors = 0,
             .port1_frame_errors = 0,
@@ -90,7 +90,7 @@ pub fn busInit(self: *const Scanner, state_change_timeout_us: u32, subdevice_cou
 
     // reset FMMUs
     try self.port.bwrPackWkc(
-        std.mem.zeroes(esc.FMMURegister),
+        std.mem.zeroes(esc.AllFMMUAttributes),
         .{ .autoinc_address = 0, .offset = @intFromEnum(esc.Register.fmmu0) },
         self.settings.recv_timeout_us,
         subdevice_count,
@@ -98,7 +98,7 @@ pub fn busInit(self: *const Scanner, state_change_timeout_us: u32, subdevice_cou
 
     // reset SMs
     try self.port.bwrPackWkc(
-        std.mem.zeroes(esc.SMRegister),
+        std.mem.zeroes(esc.AllSMAttributes),
         .{ .autoinc_address = 0, .offset = @intFromEnum(esc.Register.sm0) },
         self.settings.recv_timeout_us,
         subdevice_count,
@@ -111,7 +111,7 @@ pub fn busInit(self: *const Scanner, state_change_timeout_us: u32, subdevice_cou
 
     // disable alias address
     try self.port.bwrPackWkc(
-        esc.DLControlEnableAliasAddressRegister{
+        esc.DLControlEnableAliasAddress{
             .enable_alias_address = false,
         },
         .{ .autoinc_address = 0, .offset = @intFromEnum(esc.Register.dl_control_enable_alias_address) },
@@ -121,7 +121,7 @@ pub fn busInit(self: *const Scanner, state_change_timeout_us: u32, subdevice_cou
 
     // request INIT
     try self.port.bwrPackWkc(
-        esc.ALControlRegister{
+        esc.ALControl{
             .state = .INIT,
 
             // Ack errors not required for init transition.
@@ -143,7 +143,7 @@ pub fn busInit(self: *const Scanner, state_change_timeout_us: u32, subdevice_cou
 
     // Force take away EEPROM from PDI
     try self.port.bwrPackWkc(
-        esc.SIIAccessRegisterCompact{
+        esc.SIIAccessCompact{
             .owner = .ethercat_dl,
             .lock = true,
         },
@@ -157,7 +157,7 @@ pub fn busInit(self: *const Scanner, state_change_timeout_us: u32, subdevice_cou
 
     // Maindevice controls EEPROM
     try self.port.bwrPackWkc(
-        esc.SIIAccessRegisterCompact{
+        esc.SIIAccessCompact{
             .owner = .ethercat_dl,
             .lock = false,
         },
@@ -173,7 +173,7 @@ pub fn busInit(self: *const Scanner, state_change_timeout_us: u32, subdevice_cou
     // SOEM does this...something about netX100
     for (0..1) |_| {
         self.port.bwrPackWkc(
-            esc.ALControlRegister{
+            esc.ALControl{
                 .state = .INIT,
                 .ack = false,
                 .request_id = false,
@@ -653,7 +653,7 @@ pub fn broadcastALStatusCheck(
 
     while (timer.read() < @as(u64, change_timeout_us) * ns_per_us) {
         const status_res = try self.port.brdPack(
-            esc.ALStatusRegister,
+            esc.ALStatus,
             .{
                 .autoinc_address = 0,
                 .offset = @intFromEnum(esc.Register.al_status),

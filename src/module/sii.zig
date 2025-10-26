@@ -288,8 +288,8 @@ pub const SyncM = packed struct(u64) {
     length: u16,
 
     /// control register
-    control: esc.SyncManagerControlRegister,
-    status: esc.SyncManagerActivateRegister,
+    control: esc.SyncManagerControl,
+    status: esc.SyncManagerActivate,
     enable_sync_manager: EnableSyncMangager,
     syncM_type: SyncMType,
 };
@@ -312,8 +312,8 @@ pub fn escSMFromSIISM(sii_sm: SyncM) esc.SyncManagerAttributes {
 }
 
 // please don't make fun of me for this, packed structs cannot currently contain arrays.
-pub fn escSMsFromSIISMs(sii_sms: []const SyncM) esc.SMRegister {
-    var res = std.mem.zeroes(esc.SMRegister);
+pub fn escSMsFromSIISMs(sii_sms: []const SyncM) esc.AllSMAttributes {
+    var res = std.mem.zeroes(esc.AllSMAttributes);
 
     if (sii_sms.len > 0) res.sm0 = escSMFromSIISM(sii_sms[0]);
     if (sii_sms.len > 1) res.sm1 = escSMFromSIISM(sii_sms[1]);
@@ -903,7 +903,7 @@ pub fn readSII4ByteFP(
 ) ReadSIIError![4]u8 {
     // set eeprom access to main device
     port.fpwrPackWkc(
-        esc.SIIAccessRegisterCompact{
+        esc.SIIAccessCompact{
             .owner = .ethercat_dl,
             .lock = false,
         },
@@ -921,7 +921,7 @@ pub fn readSII4ByteFP(
 
     // ensure there is a rising edge in the read command by first sending zeros
     port.fpwrPackWkc(
-        @as(u16, @bitCast(wire.zerosFromPack(esc.SIIControlStatusRegister))),
+        @as(u16, @bitCast(wire.zerosFromPack(esc.SIIControlStatus))),
         .{
             .station_address = station_address,
             .offset = @intFromEnum(esc.Register.sii_control_status),
@@ -935,7 +935,7 @@ pub fn readSII4ByteFP(
     };
     // send read command
     port.fpwrPackWkc(
-        esc.SIIControlStatusAddressRegister{
+        esc.SIIControlStatusAddress{
             .write_access = false,
             .eeprom_emulation = false,
             .read_size = .four_bytes,
@@ -968,7 +968,7 @@ pub fn readSII4ByteFP(
     // wait for eeprom to be not busy
     while (timer.read() < @as(u64, eeprom_timeout_us) * ns_per_us) {
         const sii_status = port.fprdPackWkc(
-            esc.SIIControlStatusRegister,
+            esc.SIIControlStatus,
             .{
                 .station_address = station_address,
                 .offset = @intFromEnum(
@@ -1478,8 +1478,8 @@ pub const FMMUConfiguration = struct {
         }
     }
 
-    pub fn dumpFMMURegister(self: *const FMMUConfiguration) esc.FMMURegister {
-        var res = std.mem.zeroes(esc.FMMURegister);
+    pub fn dumpFMMURegister(self: *const FMMUConfiguration) esc.AllFMMUAttributes {
+        var res = std.mem.zeroes(esc.AllFMMUAttributes);
         for (self.data.slice(), 0..) |fmmu, i| {
             res.writeFMMUConfig(fmmu, @intCast(i));
         }

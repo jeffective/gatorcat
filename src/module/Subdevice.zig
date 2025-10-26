@@ -61,11 +61,11 @@ pub fn getALStatus(
     self: *const Subdevice,
     port: *Port,
     recv_timeout_us: u32,
-) !esc.ALStatusRegister {
+) !esc.ALStatus {
     // TODO: consider not using the ack bit
     const station_address: u16 = stationAddressFromRingPos(self.runtime_info.ring_position);
     return try port.fprdPackWkc(
-        esc.ALStatusRegister,
+        esc.ALStatus,
         .{ .station_address = station_address, .offset = @intFromEnum(esc.Register.al_status) },
         recv_timeout_us,
         1,
@@ -83,7 +83,7 @@ pub fn setALState(
     const station_address: u16 = stationAddressFromRingPos(self.runtime_info.ring_position);
 
     try port.fpwrPackWkc(
-        esc.ALControlRegister{
+        esc.ALControl{
             .state = state,
             // simple subdevices will copy the ack bit
             // into the AL status error bit.
@@ -103,7 +103,7 @@ pub fn setALState(
     var timer = std.time.Timer.start() catch @panic("timer not supported");
     while (timer.read() < @as(u64, change_timeout_us) * ns_per_us) {
         const status = try port.fprdPackWkc(
-            esc.ALStatusRegister,
+            esc.ALStatus,
             .{
                 .station_address = station_address,
                 .offset = @intFromEnum(esc.Register.al_status),
@@ -222,7 +222,7 @@ pub fn transitionIP(
 
     // wipe FMMUs
     try port.fpwrPackWkc(
-        std.mem.zeroes(esc.FMMURegister),
+        std.mem.zeroes(esc.AllFMMUAttributes),
         .{
             .station_address = station_address,
             .offset = @intFromEnum(
@@ -235,7 +235,7 @@ pub fn transitionIP(
 
     // wipe SMs
     try port.fpwrPackWkc(
-        std.mem.zeroes(esc.SMRegister),
+        std.mem.zeroes(esc.AllSMAttributes),
         .{
             .station_address = station_address,
             .offset = @intFromEnum(
@@ -248,7 +248,7 @@ pub fn transitionIP(
 
     // During the IP transition, we should configure the mailbox sync managers.
 
-    const sms: esc.SMRegister = switch (self.config.auto_config) {
+    const sms: esc.AllSMAttributes = switch (self.config.auto_config) {
         .auto => blk_sms: {
 
             // The information for the mailbox sync managers can come from two sources.
@@ -264,7 +264,7 @@ pub fn transitionIP(
             // SM1 should be used for Mailbox In (from subdevice to maindevice)
             // Ref: IEC 61158-4-12
 
-            var sms = std.mem.zeroes(esc.SMRegister);
+            var sms = std.mem.zeroes(esc.AllSMAttributes);
 
             const sii_sms = try sii.readSMCatagory(
                 port,

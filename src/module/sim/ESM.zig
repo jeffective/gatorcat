@@ -13,7 +13,7 @@ const Subdevice = @import("Subdevice.zig");
 
 pub const ESM = @This();
 
-status: esc.ALStatusRegister = .{
+status: esc.ALStatus = .{
     .err = false,
     .id_loaded = false,
     .state = .INIT,
@@ -51,7 +51,7 @@ const LocalALControlRegister = packed struct(u16) {
     request_id: bool,
     reserved: u10 = 0,
     comptime {
-        assert(@bitSizeOf(LocalALControlRegister) == @bitSizeOf(esc.ALControlRegister));
+        assert(@bitSizeOf(LocalALControlRegister) == @bitSizeOf(esc.ALControl));
     }
 
     fn state_unknown(self: LocalALControlRegister) bool {
@@ -64,7 +64,7 @@ const LocalALControlRegister = packed struct(u16) {
 
 pub fn tick(self: *ESM, phys_mem: *sim.Subdevice.PhysMem) void {
     const control = Subdevice.readRegister(LocalALControlRegister, .al_control, phys_mem);
-    self.status = Subdevice.readRegister(esc.ALStatusRegister, .al_status, phys_mem);
+    self.status = Subdevice.readRegister(esc.ALStatus, .al_status, phys_mem);
     defer Subdevice.writeRegister(self.status, .al_status, phys_mem);
 
     // TODO: implement ethercat state machine

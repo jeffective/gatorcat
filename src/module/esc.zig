@@ -84,13 +84,6 @@ pub const Register = enum(u16) {
     dc_sync_activation = 0x0981,
 };
 
-pub fn addr(comptime T: type) u16 {
-    return switch (T) {
-        DLInformationRegister => T._address,
-        StationAddressRegister => 0x0,
-    };
-}
-
 pub fn getSMAddr(sm: u4) u16 {
     return @as(u16, @intFromEnum(Register.sm0)) + 8 * @as(u16, sm);
 }
@@ -107,7 +100,7 @@ pub const PortDescriptor = enum(u2) {
 /// The DL information registers contain type, version, and supported resources of the subdevice controller (ESC).
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.1
-pub const DLInformationRegister = packed struct {
+pub const DLInformation = packed struct {
     pub const _address: u16 = 0x0000;
 
     type: u8,
@@ -157,7 +150,7 @@ pub const DLInformationRegister = packed struct {
 /// set to active the FPRD, FPRW, FRMW, FPWR service in the subdevice.
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.2
-pub const StationAddressRegister = packed struct {
+pub const StationAddress = packed struct {
     pub const _address: u16 = 0x0010;
 
     /// Configured station address to be initialized
@@ -167,7 +160,7 @@ pub const StationAddressRegister = packed struct {
     configured_station_alias: u16,
 };
 
-pub const ConfiguredStationAddressRegister = packed struct(u16) {
+pub const ConfiguredStationAddress = packed struct(u16) {
     pub const _address: u16 = 0x0010;
 
     configured_station_address: u16,
@@ -195,7 +188,7 @@ pub const LoopControlSettings = enum(u2) {
 /// the maindevice.
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.3
-pub const DLControlRegister = packed struct {
+pub const DLControl = packed struct {
     pub const _address: u16 = 0x0100;
     /// false:
     /// - ethercat farmes are processed.
@@ -226,7 +219,7 @@ pub const DLControlRegister = packed struct {
 /// Smaller version of the DL Control Register with fewer settings.
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.3
-pub const DLControlRegisterCompact = packed struct {
+pub const DLControlCompact = packed struct {
     pub const _address: u16 = 0x0100;
 
     forwarding_rule: bool,
@@ -241,7 +234,7 @@ pub const DLControlRegisterCompact = packed struct {
 /// Just the enable alias address bit of the DL Control Register.
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.3
-pub const DLControlEnableAliasAddressRegister = packed struct(u8) {
+pub const DLControlEnableAliasAddress = packed struct(u8) {
     pub const _address: u16 = 0x0103;
 
     enable_alias_address: bool,
@@ -254,7 +247,7 @@ pub const DLControlEnableAliasAddressRegister = packed struct(u8) {
 /// of the interface between the DL-user and the DL.
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.4
-pub const DLStatusRegister = packed struct {
+pub const DLStatus = packed struct {
     pub const _address: u16 = 0x0110;
 
     dls_user_operational: bool,
@@ -294,7 +287,7 @@ pub const ALStateControl = enum(u4) {
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.5.4
 /// Ref: IEC 61158-6-12:2019 5.3.1
-pub const ALControlRegister = packed struct(u16) {
+pub const ALControl = packed struct(u16) {
     pub const _address: u16 = 0x0120;
 
     state: ALStateControl,
@@ -380,7 +373,7 @@ pub const ALStateStatus = enum(u4) {
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.5.4
 /// Ref: IEC 61158-6-12:2019 5.3.2
-pub const ALStatusRegister = packed struct(u48) {
+pub const ALStatus = packed struct(u48) {
     pub const _address: u16 = 0x0130;
 
     state: ALStateStatus, // R3
@@ -398,7 +391,7 @@ pub const ALStatusRegister = packed struct(u48) {
 ///
 /// RefL IEC 61158-4-12:2019 6.1.5.4
 /// Ref: IEC 61158-6-12:2019 5.3.4
-pub const PDIControlRegister = packed struct(u16) {
+pub const PDIControl = packed struct(u16) {
     pub const _address: u16 = 0x0140;
 
     PDI_type: u8,
@@ -416,7 +409,7 @@ pub const PDIControlRegister = packed struct(u16) {
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.5.4
 /// Ref: IEC 61158-6-12:2019 5.3.4
-pub const SyncConfigurationRegister = packed struct(u8) {
+pub const SyncConfiguration = packed struct(u8) {
     pub const _address = 0x0150; // NOTE: spec is ambiguous!
 
     signal_conditioning_sync0: u2,
@@ -434,7 +427,7 @@ pub const SyncConfigurationRegister = packed struct(u8) {
 /// The events can be masked.
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.6
-pub const DLUserEventRegister = packed struct(u32) {
+pub const DLUserEvent = packed struct(u32) {
     pub const _address: u16 = 0x0220;
 
     /// event active R1 was written
@@ -469,7 +462,7 @@ pub const DLUserEventRegister = packed struct(u32) {
 /// DL User Event Mask
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.6
-pub const DLUserEventMaskRegister = packed struct(u32) {
+pub const DLUserEventMask = packed struct(u32) {
     pub const _address: u16 = 0x0204;
 
     event_mask: u32,
@@ -482,7 +475,7 @@ pub const DLUserEventMaskRegister = packed struct(u32) {
 /// the corresponding bit in the IRQ parameter of a PDU is set.
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.6
-pub const ExternalEventRegister = packed struct {
+pub const ExternalEvent = packed struct {
     pub const _address: u16 = 0x0210;
 
     dc0: bool,
@@ -506,7 +499,7 @@ pub const ExternalEventRegister = packed struct {
 /// portion of all datagrams that pass through the subdevice.
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.6
-pub const ExternalEventMaskRegister = packed struct {
+pub const ExternalEventMask = packed struct {
     pub const _address: u16 = 0x0200;
 
     event_mask: u16,
@@ -520,7 +513,7 @@ pub const ExternalEventMaskRegister = packed struct {
 /// value of 255.
 ///
 /// Ref: IEC 61158-4-12:2019 6.2.1
-pub const RXErrorCounterRegister = packed struct {
+pub const RXErrorCounter = packed struct {
     pub const _address: u16 = 0x0300;
 
     port0_frame_errors: u8,
@@ -540,7 +533,7 @@ pub const RXErrorCounterRegister = packed struct {
 /// Each counter is stopped if the counter reaches the maximum of 255.
 ///
 /// Ref: IEC 61158-4-12:2019 6.2.2
-pub const LostLinkCounterRegister = packed struct {
+pub const LostLinkCounter = packed struct {
     pub const _address: u16 = 0x0310;
 
     port0: u8,
@@ -561,7 +554,7 @@ pub const LostLinkCounterRegister = packed struct {
 ///
 /// The optional local counter counts occurances of local problems (problems within the subdevice). The counter is cleared when written.
 /// The counter stops when the maximum value of 255 is reached.
-pub const AdditionalCounterRegister = packed struct {
+pub const AdditionalCounter = packed struct {
     pub const _address: u16 = 0x0308;
 
     port0_prev_errors: u8,
@@ -580,7 +573,7 @@ pub const AdditionalCounterRegister = packed struct {
 /// that represents the basic watchdog increment (default value is 100 us = 2498).
 ///
 /// Ref: IEC 61158-4-12:2019 6.3.1
-pub const WatchdogDividerRegister = packed struct {
+pub const WatchdogDivider = packed struct {
     pub const _address: u16 = 0x0400;
 
     watchdog_divider: u16,
@@ -596,7 +589,7 @@ pub const WatchdogDividerRegister = packed struct {
 /// Default value 1000 with watchdog divider 100 us means 100 ms watchdog.
 ///
 /// Ref: IEC 61158-4-12:2019 6.3.2
-pub const DLSUserWatchdogRegister = packed struct {
+pub const DLSUserWatchdog = packed struct {
     pub const _address: u16 = 0x0410;
 
     dls_user_watchdog: u16,
@@ -609,7 +602,7 @@ pub const DLSUserWatchdogRegister = packed struct {
 /// option is enabled by this sync manager.
 ///
 /// Ref: IEC 61158-4-12:2019 6.3.3
-pub const SyncMangagerWatchdogRegister = packed struct {
+pub const SyncMangagerWatchdog = packed struct {
     pub const _address: u16 = 0x0420;
 
     sync_manager_watchdog: u16,
@@ -634,7 +627,7 @@ pub const SyncManagerWatchDogStatus = packed struct {
 /// Writes will reset all watchdog counters.
 ///
 /// Ref: IEC 61158-4-12:2019 6.3.5
-pub const WatchdogCounterRegister = packed struct {
+pub const WatchdogCounter = packed struct {
     pub const _address: u16 = 0x0442;
 
     sm_watchdog_counter: u8,
@@ -649,7 +642,7 @@ pub const SIIAccessOwner = enum(u1) {
 /// Subdevice Information Interface (SII) Access Register
 ///
 /// Ref: IEC 61158-4-12:2019 6.4.2
-pub const SIIAccessRegister = packed struct {
+pub const SIIAccess = packed struct {
     owner: SIIAccessOwner,
     lock: bool,
     _reserved: u6 = 0,
@@ -657,7 +650,7 @@ pub const SIIAccessRegister = packed struct {
     _reserved2: u7 = 0,
 };
 
-pub const SIIAccessRegisterCompact = packed struct(u8) {
+pub const SIIAccessCompact = packed struct(u8) {
     owner: SIIAccessOwner,
     lock: bool,
     _reserved: u6 = 0,
@@ -678,7 +671,7 @@ pub const SIIAddressAlgorithm = enum(u1) {
 /// Read and write operations to the SII is controlled via this register.
 ///
 /// Ref: IEC 61158-4-12:2019 6.4.3
-pub const SIIControlStatusRegister = packed struct {
+pub const SIIControlStatus = packed struct {
     write_access: bool,
     _reserved: u4 = 0,
     eeprom_emulation: bool,
@@ -694,7 +687,7 @@ pub const SIIControlStatusRegister = packed struct {
     busy: bool,
 };
 
-pub const SIIControlStatusAddressRegister = packed struct {
+pub const SIIControlStatusAddress = packed struct {
     write_access: bool,
     _reserved: u4 = 0,
     eeprom_emulation: bool,
@@ -721,7 +714,7 @@ pub const SIIControlStatusAddressRegister = packed struct {
 /// 16 bits (address 0x0504-0x0505) will be used.
 ///
 /// Ref: IEC 61158-4-12:2019 6.4.4
-pub const SIIAddressRegister = packed struct {
+pub const SIIAddress = packed struct {
     sii_address: u16,
     unused: u16 = 0,
 };
@@ -749,7 +742,7 @@ pub const SIIDataRegister8Byte = packed struct {
 /// MII Control / Status Register
 ///
 /// Ref: IEC 61158-4-12 6.5.1
-pub const MIIControlStatusRegister = packed struct {
+pub const MIIControlStatus = packed struct {
     write_access: bool,
     access_pdi: bool,
     mii_link_det: bool,
@@ -765,7 +758,7 @@ pub const MIIControlStatusRegister = packed struct {
 /// MII Address Register
 ///
 /// Ref: IEC 61158-4-12:2019 6.5.2
-pub const MIIAddressRegister = packed struct {
+pub const MIIAddress = packed struct {
     /// address of the PHY (0-63)
     phy_address: u8,
     /// PHY register address
@@ -779,7 +772,7 @@ pub const MIIAddressRegister = packed struct {
 /// read operation.
 ///
 /// Ref: IEC 61158-4-12:2019 6.5.3
-pub const MIIDataRegister = packed struct {
+pub const MIIData = packed struct {
     data: u16,
 };
 
@@ -793,7 +786,7 @@ pub const MIIAccessState = enum(u1) {
 /// The MII Access register manages the MII access.
 ///
 /// Ref: IEC 61158-4-12:2019 6.5.4
-pub const MIIAccessRegister = packed struct {
+pub const MIIAccess = packed struct {
     mii_access: bool,
     _reserved: u7 = 0,
     access_state: MIIAccessState,
@@ -1030,7 +1023,7 @@ pub const FMMUArray = stdx.BoundedArray(FMMUAttributes, max_fmmu);
 /// The FMMU register contains the settings for the FMMU entities.
 ///
 /// Ref: IEC 61158-4-12:2019 6.6.2
-pub const FMMURegister = packed struct {
+pub const AllFMMUAttributes = packed struct {
     fmmu0: FMMUAttributes,
     fmmu1: FMMUAttributes,
     fmmu2: FMMUAttributes,
@@ -1048,7 +1041,7 @@ pub const FMMURegister = packed struct {
     fmmu14: FMMUAttributes,
     fmmu15: FMMUAttributes,
 
-    pub fn writeFMMUConfig(self: *FMMURegister, config: FMMUAttributes, fmmu_idx: u4) void {
+    pub fn writeFMMUConfig(self: *AllFMMUAttributes, config: FMMUAttributes, fmmu_idx: u4) void {
         switch (fmmu_idx) {
             0 => self.fmmu0 = config,
             1 => self.fmmu1 = config,
@@ -1090,7 +1083,7 @@ pub const SyncMangagerBufferedState = enum(u2) {
     buffer_locked = 0x03,
 };
 
-pub const SyncManagerControlRegister = packed struct(u8) {
+pub const SyncManagerControl = packed struct(u8) {
     buffer_type: SyncManagerBufferType,
     direction: SyncManagerDirection,
     ecat_event_enable: bool,
@@ -1099,7 +1092,7 @@ pub const SyncManagerControlRegister = packed struct(u8) {
     reserved: u1 = 0,
 };
 
-pub const SyncManagerStatusRegister = packed struct(u8) {
+pub const SyncManagerStatus = packed struct(u8) {
     write_event: bool,
     read_event: bool,
     reserved2: u1 = 0,
@@ -1108,7 +1101,7 @@ pub const SyncManagerStatusRegister = packed struct(u8) {
     read_buffer_open: bool,
     write_buffer_open: bool,
 };
-pub const SyncManagerActivateRegister = packed struct(u8) {
+pub const SyncManagerActivate = packed struct(u8) {
     channel_enable: bool,
     repeat: bool,
     reserved3: u4 = 0,
@@ -1124,9 +1117,9 @@ pub const SyncManagerActivateRegister = packed struct(u8) {
 pub const SyncManagerAttributes = packed struct(u64) {
     physical_start_address: u16,
     length: u16,
-    control: SyncManagerControlRegister,
-    status: SyncManagerStatusRegister,
-    activate: SyncManagerActivateRegister,
+    control: SyncManagerControl,
+    status: SyncManagerStatus,
+    activate: SyncManagerActivate,
     channel_enable_pdi: bool,
     repeat_ack: bool,
     reserved: u6 = 0,
@@ -1214,7 +1207,7 @@ pub const SyncManagerAttributes = packed struct(u64) {
 /// The specification only mentions the first 16 sync managers.
 /// But the CoE specification shows up to 32.
 /// TODO: how many sync managers are there???
-pub const SMRegister = packed struct(u2048) {
+pub const AllSMAttributes = packed struct(u2048) {
     sm0: SyncManagerAttributes,
     sm1: SyncManagerAttributes,
     sm2: SyncManagerAttributes,
@@ -1248,7 +1241,7 @@ pub const SMRegister = packed struct(u2048) {
     sm30: SyncManagerAttributes,
     sm31: SyncManagerAttributes,
 
-    pub fn asArray(self: SMRegister) [32]SyncManagerAttributes {
+    pub fn asArray(self: AllSMAttributes) [32]SyncManagerAttributes {
         var res: [32]SyncManagerAttributes = undefined;
         res[0] = self.sm0;
         res[1] = self.sm1;
@@ -1285,7 +1278,7 @@ pub const SMRegister = packed struct(u2048) {
         return res;
     }
 
-    pub fn set(self: SMRegister, i: usize, sm: SyncManagerAttributes) void {
+    pub fn set(self: AllSMAttributes, i: usize, sm: SyncManagerAttributes) void {
         assert(i < 32);
         if (i == 0) self.sm0 = sm;
         if (i == 1) self.sm1 = sm;
@@ -1327,7 +1320,7 @@ pub const SMRegister = packed struct(u2048) {
 /// DC Settings Register
 ///
 /// Ref: IEC 61158-4-12:2019 6.8.5
-pub const DCRegister = packed struct {
+pub const DC = packed struct {
     port0_recv_time_ns: u32,
     port1_recv_time_ns: u32,
     port2_recv_time_ns: u32,
@@ -1345,7 +1338,7 @@ pub const DCRegister = packed struct {
 /// DC User Settings Register
 ///
 /// Ref: IEC 61158-4-12:2019 6.8.5
-pub const DCUserRegister = packed struct {
+pub const DCUser = packed struct {
     _reserved: u8 = 0,
     DC_user_p1: u8,
     DC_user_p2: u16,
@@ -1375,7 +1368,7 @@ pub const DCUserRegister = packed struct {
 /// Mapped to DC User P1
 ///
 /// Ref: IEC 61158-6-12:2019 5.5
-const DCSyncActivationRegister = packed struct(u8) {
+const DCSyncActivation = packed struct(u8) {
     enable_cylic_operation: bool,
     generate_sync0: bool,
     generate_sync1: bool,

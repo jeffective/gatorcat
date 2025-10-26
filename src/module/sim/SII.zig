@@ -11,7 +11,7 @@ const Subdevice = @import("Subdevice.zig");
 /// Ref: IEC 61158-4-12:2019 8.2.5
 const SII = @This();
 
-status: esc.SIIControlStatusAddressRegister = .{
+status: esc.SIIControlStatusAddress = .{
     .write_access = false,
     .eeprom_emulation = false,
     .read_size = .four_bytes,
@@ -38,7 +38,7 @@ pub fn tick(self: *SII, phys_mem: *sim.Subdevice.PhysMem, eeprom: []const u8) vo
     defer Subdevice.writeRegister(self.status, esc.Register.sii_control_status, phys_mem);
     defer Subdevice.writeRegister(self.data, esc.Register.sii_data, phys_mem);
 
-    const cmd = Subdevice.readRegister(esc.SIIControlStatusAddressRegister, esc.Register.sii_control_status, phys_mem);
+    const cmd = Subdevice.readRegister(esc.SIIControlStatusAddress, esc.Register.sii_control_status, phys_mem);
 
     const n_ops: u2 = @intFromBool(cmd.read_operation) + @intFromBool(cmd.write_operation) + @intFromBool(cmd.reload_operation);
     const too_many_ops: bool = n_ops > 1;

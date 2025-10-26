@@ -234,7 +234,7 @@ fn printSubdeviceDetails(
     try writer.print("#### Physical Memory\n\n", .{});
 
     const dl_status = try port.fprdPackWkc(
-        gcat.esc.DLStatusRegister,
+        gcat.esc.DLStatus,
         .{
             .station_address = station_address,
             .offset = @intFromEnum(gcat.esc.Register.dl_status),
@@ -347,12 +347,12 @@ fn printSubdeviceDetails(
             try writer.print("    physical start addr: 0x{x}\n", .{sm.physical_start_address});
             try writer.print("    length: {}\n", .{sm.length});
             try writer.print("    control:\n", .{});
-            inline for (std.meta.fields(gcat.esc.SyncManagerControlRegister)) |field| {
+            inline for (std.meta.fields(gcat.esc.SyncManagerControl)) |field| {
                 if (comptime std.mem.eql(u8, field.name, "reserved")) continue;
                 try writer.print("        {s:<26}  {}\n", .{ field.name, @field(sm.control, field.name) });
             }
             try writer.print("    status:\n", .{});
-            inline for (std.meta.fields(gcat.esc.SyncManagerActivateRegister)) |field| {
+            inline for (std.meta.fields(gcat.esc.SyncManagerActivate)) |field| {
                 if (comptime std.mem.eql(u8, field.name, "reserved")) continue;
                 try writer.print("        {s:<26}  {}\n", .{ field.name, @field(sm.status, field.name) });
             }

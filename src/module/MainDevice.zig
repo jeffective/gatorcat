@@ -23,7 +23,7 @@ transactions: Transactions,
 first_cycle_time: ?std.time.Instant = null,
 
 pub const Transactions = struct {
-    state_check_res: *[wire.packedSize(esc.ALStatusRegister)]u8,
+    state_check_res: *[wire.packedSize(esc.ALStatus)]u8,
     /// 0: state_check
     /// 1..: process data
     all: []Port.Transaction,
@@ -55,7 +55,7 @@ pub fn init(
     errdefer allocator.free(transactions);
     initProcessDataTransactions(transactions[1..], process_image);
 
-    const state_check_result = try allocator.create([wire.packedSize(esc.ALStatusRegister)]u8);
+    const state_check_result = try allocator.create([wire.packedSize(esc.ALStatus)]u8);
     errdefer allocator.destroy(state_check_result);
     @memset(state_check_result.*[0..], 0);
 
@@ -135,7 +135,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
 
     // open all ports
     var wkc = try self.port.bwrPack(
-        esc.DLControlRegisterCompact{
+        esc.DLControlCompact{
             .forwarding_rule = true, // destroy non-ecat frames
             .temporary_loop_control = false, // permanent settings
             .loop_control_port0 = .auto,
@@ -158,7 +158,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
 
         // a write to any one of these counters will reset them all,
         // but I am too lazt to do it any differently.
-        esc.RXErrorCounterRegister{
+        esc.RXErrorCounter{
             .port0_frame_errors = 0,
             .port0_physical_errors = 0,
             .port1_frame_errors = 0,
@@ -180,7 +180,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
 
     // reset FMMUs
     wkc = try self.port.bwrPack(
-        std.mem.zeroes(esc.FMMURegister),
+        std.mem.zeroes(esc.AllFMMUAttributes),
         .{
             .autoinc_address = 0,
             .offset = @intFromEnum(
@@ -193,7 +193,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
 
     // reset SMs
     wkc = try self.port.bwrPack(
-        std.mem.zeroes(esc.SMRegister),
+        std.mem.zeroes(esc.AllSMAttributes),
         .{
             .autoinc_address = 0,
             .offset = @intFromEnum(
@@ -211,7 +211,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
 
     // disable alias address
     wkc = try self.port.bwrPack(
-        esc.DLControlEnableAliasAddressRegister{
+        esc.DLControlEnableAliasAddress{
             .enable_alias_address = false,
         },
         .{
@@ -224,7 +224,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
 
     // request INIT
     wkc = try self.port.bwrPack(
-        esc.ALControlRegister{
+        esc.ALControl{
             .state = .INIT,
 
             // Ack errors not required for init transition.
@@ -246,7 +246,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
 
     // Force take away EEPROM from PDI
     wkc = try self.port.bwrPack(
-        esc.SIIAccessRegisterCompact{
+        esc.SIIAccessCompact{
             .owner = .ethercat_dl,
             .lock = true,
         },
@@ -260,7 +260,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
 
     // Maindevice controls EEPROM
     wkc = try self.port.bwrPack(
-        esc.SIIAccessRegisterCompact{
+        esc.SIIAccessCompact{
             .owner = .ethercat_dl,
             .lock = false,
         },
@@ -274,7 +274,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
 
     // count subdevices
     const res = try self.port.brdPack(
-        esc.ALStatusRegister,
+        esc.ALStatus,
         .{
             .autoinc_address = 0,
             .offset = @intFromEnum(esc.Register.al_status),
@@ -325,7 +325,7 @@ pub fn busSafeop(self: *MainDevice, change_timeout_us: u32) !void {
     }
 
     const state_change_wkc = try self.port.bwrPack(
-        esc.ALControlRegister{
+        esc.ALControl{
             .state = .SAFEOP,
             .ack = false,
             .request_id = false,
@@ -365,7 +365,7 @@ pub fn busOp(self: *MainDevice, change_timeout_us: u32) !void {
     }
 
     const state_change_wkc = try self.port.bwrPack(
-        esc.ALControlRegister{
+        esc.ALControl{
             .state = .OP,
             .ack = false,
             .request_id = false,
@@ -449,7 +449,7 @@ pub fn sendCyclicFrames(self: *MainDevice) error{LinkError}!void {
 }
 
 pub const CyclicResult = struct {
-    brd_status: esc.ALStatusRegister,
+    brd_status: esc.ALStatus,
     brd_status_wkc: u16,
     process_data_wkc: u16,
 };
@@ -480,7 +480,7 @@ fn resultFromTransactions(self: *MainDevice) CyclicResult {
 
     const brd_status_wkc = self.transactions.all[0].data.recv_datagram.wkc;
     const al_status = wire.packFromECat(
-        esc.ALStatusRegister,
+        esc.ALStatus,
         self.transactions.state_check_res.*,
     );
 
@@ -493,7 +493,7 @@ fn resultFromTransactions(self: *MainDevice) CyclicResult {
 
 pub fn broadcastStateChange(self: *MainDevice, state: esc.ALStateControl, change_timeout_us: u32) !void {
     const wkc = try self.port.bwrPack(
-        esc.ALControlRegister{
+        esc.ALControl{
             .state = state,
             // simple subdevices will copy the ack bit
             // into the AL status error bit.
@@ -513,7 +513,7 @@ pub fn broadcastStateChange(self: *MainDevice, state: esc.ALStateControl, change
     var timer = std.time.Timer.start() catch @panic("timer not supported");
     while (timer.read() < @as(u64, change_timeout_us) * std.time.ns_per_us) {
         const res = try self.port.brdPack(
-            esc.ALStatusRegister,
+            esc.ALStatus,
             .{
                 .autoinc_address = 0,
                 .offset = @intFromEnum(esc.Register.al_status),
@@ -564,7 +564,7 @@ pub fn expectedProcessDataWkc(self: *const MainDevice) u16 {
 pub fn assignStationAddress(port: *Port, station_address: u16, ring_position: u16, recv_timeout_us: u32) Port.SendDatagramWkcError!void {
     const autoinc_address = Subdevice.autoincAddressFromRingPos(ring_position);
     try port.apwrPackWkc(
-        esc.ConfiguredStationAddressRegister{
+        esc.ConfiguredStationAddress{
             .configured_station_address = station_address,
         },
         telegram.PositionAddress{
