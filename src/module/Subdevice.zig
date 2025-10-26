@@ -278,8 +278,8 @@ pub fn transitionIP(
                 sii_sms.get(0).syncM_type == .mailbox_out and
                 sii_sms.get(1).syncM_type == .mailbox_in)
             {
-                sms.SM0 = sii.escSMFromSIISM(sii_sms.get(0));
-                sms.SM1 = sii.escSMFromSIISM(sii_sms.get(1));
+                sms.sm0 = sii.escSMFromSIISM(sii_sms.get(0));
+                sms.sm1 = sii.escSMFromSIISM(sii_sms.get(1));
                 did_mailbox_sm = true;
             } else if (info.std_recv_mbx_offset > 0 and
                 info.std_recv_mbx_size > 0 and
@@ -287,11 +287,11 @@ pub fn transitionIP(
                 info.std_send_mbx_size > 0 and
                 info.mbx_protocol.supportsMailboxCommunication())
             {
-                sms.SM0 = esc.SyncManagerAttributes.mbxOutDefaults(
+                sms.sm0 = esc.SyncManagerAttributes.mbxOutDefaults(
                     info.std_recv_mbx_offset,
                     info.std_recv_mbx_size,
                 );
-                sms.SM1 = esc.SyncManagerAttributes.mbxInDefaults(
+                sms.sm1 = esc.SyncManagerAttributes.mbxInDefaults(
                     info.std_send_mbx_offset,
                     info.std_send_mbx_size,
                 );
@@ -302,10 +302,10 @@ pub fn transitionIP(
             if (did_mailbox_sm and info.mbx_protocol.CoE) {
                 self.runtime_info.coe = RuntimeInfo.CoE{
                     .config = try mailbox.Configuration.init(
-                        sms.SM1.physical_start_address,
-                        sms.SM1.length,
-                        sms.SM0.physical_start_address,
-                        sms.SM0.length,
+                        sms.sm1.physical_start_address,
+                        sms.sm1.length,
+                        sms.sm0.physical_start_address,
+                        sms.sm0.length,
                     ),
                     .supports_complete_access = blk: {
                         if (general_catagory) |general| {

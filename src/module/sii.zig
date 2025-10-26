@@ -303,10 +303,10 @@ pub fn escSMFromSIISM(sii_sm: SyncM) esc.SyncManagerAttributes {
         .activate = .{
             .channel_enable = sii_sm.enable_sync_manager.enable,
             .repeat = false,
-            .DC_event_0_bus_access = false,
-            .DC_event_0_local_access = false,
+            .dc_event_0_bus_access = false,
+            .dc_event_0_local_access = false,
         },
-        .channel_enable_PDI = false,
+        .channel_enable_pdi = false,
         .repeat_ack = false,
     };
 }
@@ -315,38 +315,38 @@ pub fn escSMFromSIISM(sii_sm: SyncM) esc.SyncManagerAttributes {
 pub fn escSMsFromSIISMs(sii_sms: []const SyncM) esc.SMRegister {
     var res = std.mem.zeroes(esc.SMRegister);
 
-    if (sii_sms.len > 0) res.SM0 = escSMFromSIISM(sii_sms[0]);
-    if (sii_sms.len > 1) res.SM1 = escSMFromSIISM(sii_sms[1]);
-    if (sii_sms.len > 2) res.SM2 = escSMFromSIISM(sii_sms[2]);
-    if (sii_sms.len > 3) res.SM3 = escSMFromSIISM(sii_sms[3]);
-    if (sii_sms.len > 4) res.SM4 = escSMFromSIISM(sii_sms[4]);
-    if (sii_sms.len > 5) res.SM5 = escSMFromSIISM(sii_sms[5]);
-    if (sii_sms.len > 6) res.SM6 = escSMFromSIISM(sii_sms[6]);
-    if (sii_sms.len > 7) res.SM7 = escSMFromSIISM(sii_sms[7]);
-    if (sii_sms.len > 8) res.SM8 = escSMFromSIISM(sii_sms[8]);
-    if (sii_sms.len > 9) res.SM9 = escSMFromSIISM(sii_sms[9]);
-    if (sii_sms.len > 10) res.SM10 = escSMFromSIISM(sii_sms[10]);
-    if (sii_sms.len > 11) res.SM11 = escSMFromSIISM(sii_sms[11]);
-    if (sii_sms.len > 12) res.SM12 = escSMFromSIISM(sii_sms[12]);
-    if (sii_sms.len > 13) res.SM13 = escSMFromSIISM(sii_sms[13]);
-    if (sii_sms.len > 14) res.SM14 = escSMFromSIISM(sii_sms[14]);
-    if (sii_sms.len > 15) res.SM15 = escSMFromSIISM(sii_sms[15]);
-    if (sii_sms.len > 16) res.SM16 = escSMFromSIISM(sii_sms[16]);
-    if (sii_sms.len > 17) res.SM17 = escSMFromSIISM(sii_sms[17]);
-    if (sii_sms.len > 18) res.SM18 = escSMFromSIISM(sii_sms[18]);
-    if (sii_sms.len > 19) res.SM19 = escSMFromSIISM(sii_sms[19]);
-    if (sii_sms.len > 20) res.SM20 = escSMFromSIISM(sii_sms[20]);
-    if (sii_sms.len > 21) res.SM21 = escSMFromSIISM(sii_sms[21]);
-    if (sii_sms.len > 22) res.SM22 = escSMFromSIISM(sii_sms[22]);
-    if (sii_sms.len > 23) res.SM23 = escSMFromSIISM(sii_sms[23]);
-    if (sii_sms.len > 24) res.SM24 = escSMFromSIISM(sii_sms[24]);
-    if (sii_sms.len > 25) res.SM25 = escSMFromSIISM(sii_sms[25]);
-    if (sii_sms.len > 26) res.SM26 = escSMFromSIISM(sii_sms[26]);
-    if (sii_sms.len > 27) res.SM27 = escSMFromSIISM(sii_sms[27]);
-    if (sii_sms.len > 28) res.SM28 = escSMFromSIISM(sii_sms[28]);
-    if (sii_sms.len > 29) res.SM29 = escSMFromSIISM(sii_sms[29]);
-    if (sii_sms.len > 30) res.SM30 = escSMFromSIISM(sii_sms[30]);
-    if (sii_sms.len > 31) res.SM31 = escSMFromSIISM(sii_sms[31]);
+    if (sii_sms.len > 0) res.sm0 = escSMFromSIISM(sii_sms[0]);
+    if (sii_sms.len > 1) res.sm1 = escSMFromSIISM(sii_sms[1]);
+    if (sii_sms.len > 2) res.sm2 = escSMFromSIISM(sii_sms[2]);
+    if (sii_sms.len > 3) res.sm3 = escSMFromSIISM(sii_sms[3]);
+    if (sii_sms.len > 4) res.sm4 = escSMFromSIISM(sii_sms[4]);
+    if (sii_sms.len > 5) res.sm5 = escSMFromSIISM(sii_sms[5]);
+    if (sii_sms.len > 6) res.sm6 = escSMFromSIISM(sii_sms[6]);
+    if (sii_sms.len > 7) res.sm7 = escSMFromSIISM(sii_sms[7]);
+    if (sii_sms.len > 8) res.sm8 = escSMFromSIISM(sii_sms[8]);
+    if (sii_sms.len > 9) res.sm9 = escSMFromSIISM(sii_sms[9]);
+    if (sii_sms.len > 10) res.sm10 = escSMFromSIISM(sii_sms[10]);
+    if (sii_sms.len > 11) res.sm11 = escSMFromSIISM(sii_sms[11]);
+    if (sii_sms.len > 12) res.sm12 = escSMFromSIISM(sii_sms[12]);
+    if (sii_sms.len > 13) res.sm13 = escSMFromSIISM(sii_sms[13]);
+    if (sii_sms.len > 14) res.sm14 = escSMFromSIISM(sii_sms[14]);
+    if (sii_sms.len > 15) res.sm15 = escSMFromSIISM(sii_sms[15]);
+    if (sii_sms.len > 16) res.sm16 = escSMFromSIISM(sii_sms[16]);
+    if (sii_sms.len > 17) res.sm17 = escSMFromSIISM(sii_sms[17]);
+    if (sii_sms.len > 18) res.sm18 = escSMFromSIISM(sii_sms[18]);
+    if (sii_sms.len > 19) res.sm19 = escSMFromSIISM(sii_sms[19]);
+    if (sii_sms.len > 20) res.sm20 = escSMFromSIISM(sii_sms[20]);
+    if (sii_sms.len > 21) res.sm21 = escSMFromSIISM(sii_sms[21]);
+    if (sii_sms.len > 22) res.sm22 = escSMFromSIISM(sii_sms[22]);
+    if (sii_sms.len > 23) res.sm23 = escSMFromSIISM(sii_sms[23]);
+    if (sii_sms.len > 24) res.sm24 = escSMFromSIISM(sii_sms[24]);
+    if (sii_sms.len > 25) res.sm25 = escSMFromSIISM(sii_sms[25]);
+    if (sii_sms.len > 26) res.sm26 = escSMFromSIISM(sii_sms[26]);
+    if (sii_sms.len > 27) res.sm27 = escSMFromSIISM(sii_sms[27]);
+    if (sii_sms.len > 28) res.sm28 = escSMFromSIISM(sii_sms[28]);
+    if (sii_sms.len > 29) res.sm29 = escSMFromSIISM(sii_sms[29]);
+    if (sii_sms.len > 30) res.sm30 = escSMFromSIISM(sii_sms[30]);
+    if (sii_sms.len > 31) res.sm31 = escSMFromSIISM(sii_sms[31]);
     return res;
 }
 
@@ -904,7 +904,7 @@ pub fn readSII4ByteFP(
     // set eeprom access to main device
     port.fpwrPackWkc(
         esc.SIIAccessRegisterCompact{
-            .owner = .ethercat_DL,
+            .owner = .ethercat_dl,
             .lock = false,
         },
         .{
@@ -937,7 +937,7 @@ pub fn readSII4ByteFP(
     port.fpwrPackWkc(
         esc.SIIControlStatusAddressRegister{
             .write_access = false,
-            .EEPROM_emulation = false,
+            .eeprom_emulation = false,
             .read_size = .four_bytes,
             .address_algorithm = .one_byte_address,
             .read_operation = true, // <-- cmd
@@ -1138,10 +1138,10 @@ pub const SMPDOAssigns = struct {
                         .activate = .{
                             .channel_enable = sm_assign.sii_sm.enable_sync_manager.enable,
                             .repeat = false,
-                            .DC_event_0_bus_access = false,
-                            .DC_event_0_local_access = false,
+                            .dc_event_0_bus_access = false,
+                            .dc_event_0_local_access = false,
                         },
-                        .channel_enable_PDI = false,
+                        .channel_enable_pdi = false,
                         .repeat_ack = false,
                     },
                 },

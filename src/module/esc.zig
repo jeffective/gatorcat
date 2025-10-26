@@ -76,33 +76,46 @@ pub const PortDescriptor = enum(u2) {
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.1
 pub const DLInformationRegister = packed struct {
+    pub const _address: u16 = 0x0000;
+
     type: u8,
     revision: u8,
     build: u16,
     /// number of supported FMMU entities
     /// 0x01-0x10
-    nFMMU: u8,
+    n_fmmu: u8,
     /// number of supported sync manager channels
     /// 0x01-0x10
-    nSM: u8,
-    /// ram size in kB, kB= 1024B (1-60)
-    ram_size_kB: u8,
+    n_sm: u8,
+    /// ram size in KiB, KiB= 1024B (1-60)
+    ram_size_KiB: u8,
     port0: PortDescriptor,
     port1: PortDescriptor,
     port2: PortDescriptor,
     port3: PortDescriptor,
-    FMMUBitOpNotSupported: bool,
-    NoSupportReservedRegister: bool,
-    DCSupported: bool,
-    DCRange64Bit: bool, // true when 64 bit, else 32 bit
-    LowJitterEBUS: bool,
-    EnhancedLinkDetectionEBUS: bool,
-    EnhancedLinkDetectionMII: bool,
-    FCSErrorHandlingSeparate: bool,
-    EnhancedDCSyncActivation: bool,
-    LRWNotSupported: bool,
-    BRW_APRW_FPRW_NotSupported: bool,
-    SpecialFMMU_SM_Configuration: bool,
+    /// this feature does not effect mappability of
+    /// sm.write_event flag (mailbox_in)
+    fmmu_bit_op_not_supported: bool,
+    no_support_reserved_register: bool,
+    dc_supported: bool,
+    dc_range_64bit: bool, // true when 64 bit, else 32 bit
+    low_jitter_ebus: bool,
+    enhanced_link_detection_ebus: bool,
+    enhanced_link_detection_mii: bool,
+    fcs_errors_counted_separately: bool,
+    /// refers to registers 0x0981[7:3], 0x0984
+    enhanced_dc_sync_activation: bool,
+    lrw_not_supported: bool,
+    brw_aprw_fprw_not_supported: bool,
+    /// when true:
+    /// fmmu0: rxpdo, no bit mapping
+    /// fmmu1: txpdo, no bit mapping
+    /// fmmu2: mbx write event bit of sm1
+    /// sm0: write mbx
+    /// sm1: read mbx
+    /// sm2: buffer for incoming data
+    /// sm3: buffer for outgoing data
+    special_fmmu_sm_configuration: bool,
     reserved: u4 = 0,
 };
 
@@ -113,25 +126,32 @@ pub const DLInformationRegister = packed struct {
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.2
 pub const StationAddressRegister = packed struct {
-    /// Configured station address to be initialized by the maindevice at start up.
+    pub const _address: u16 = 0x0010;
+
+    /// Configured station address to be initialized
+    /// by the maindevice at start up.
     configured_station_address: u16,
-    configured_station_alias: u16, // initialized with SII word 4
+    /// initialized with SII word 4
+    configured_station_alias: u16,
 };
 
 pub const ConfiguredStationAddressRegister = packed struct(u16) {
+    pub const _address: u16 = 0x0010;
+
     configured_station_address: u16,
 };
 
 /// Loop Control Settings
 ///
-/// Loop control settings for the ports of a subdevice as part of the DL Control register.
+/// Loop control settings for the ports of a
+/// subdevice as part of the DL Control register.
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.3
 pub const LoopControlSettings = enum(u2) {
     /// closed at link down, open at link up
     auto = 0,
     /// loop closed at link down, open when writing 101 after link up,
-    /// or after receiving a valud ethernet frame at closed port
+    /// or after receiving a valid ethernet frame at closed port
     auto_close,
     always_open,
     always_closed,
@@ -144,9 +164,18 @@ pub const LoopControlSettings = enum(u2) {
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.3
 pub const DLControlRegister = packed struct {
-    /// false: Non-ethercat frames are forwarded unmodified. true: non-ethercat frames are destroyed.
+    pub const _address: u16 = 0x0100;
+    /// false:
+    /// - ethercat farmes are processed.
+    /// - non-ethercat frames are forwarded unmodified.
+    ///
+    /// true:
+    /// - non-ethercat frames are destroyed.
     forwarding_rule: bool,
-    /// false: loop control settings are permanent, true: loop contorl settings are temporary (approx. 1 second)
+    /// false:
+    /// - loop control settings are permanent
+    /// true:
+    /// - loop contorl settings are temporary (approx. 1 second)
     temporary_loop_control: bool,
     reserved: u6 = 0,
     loop_control_port0: LoopControlSettings,
@@ -154,28 +183,69 @@ pub const DLControlRegister = packed struct {
     loop_control_port2: LoopControlSettings,
     loop_control_port3: LoopControlSettings,
     transmit_buffer_size: u3,
-    low_jitter_EBUS_active: bool,
-    reserved2: u4 = 0,
+    low_jitter_ebus_active: bool,
+    _reserved2: u4 = 0,
     enable_alias_address: bool,
-    reserved3: u7 = 0,
+    _reserved3: u7 = 0,
 };
 
-/// Smaller version of the DLControlRegister with fewer settings.
+/// See DLControlRegister.
+///
+/// Smaller version of the DL Control Register with fewer settings.
+///
+/// Ref: IEC 61158-4-12:2019 6.1.3
 pub const DLControlRegisterCompact = packed struct {
-    /// false: Non-ethercat frames are forwarded unmodified. true: non-ethercat frames are destroyed.
+    pub const _address: u16 = 0x0100;
+
     forwarding_rule: bool,
-    /// false: loop control settings are permanent, true: loop contorl settings are temporary (approx. 1 second)
     temporary_loop_control: bool,
-    reserved: u6 = 0,
+    _reserved: u6 = 0,
     loop_control_port0: LoopControlSettings,
     loop_control_port1: LoopControlSettings,
     loop_control_port2: LoopControlSettings,
     loop_control_port3: LoopControlSettings,
 };
 
+/// Just the enable alias address bit of the DL Control Register.
+///
+/// Ref: IEC 61158-4-12:2019 6.1.3
 pub const DLControlEnableAliasAddressRegister = packed struct(u8) {
+    pub const _address: u16 = 0x0103;
+
     enable_alias_address: bool,
-    reserved: u7 = 0,
+    _reserved: u7 = 0,
+};
+
+/// DL Status Register
+///
+/// The DL Status register is used to indicate the state of the DL ports and state
+/// of the interface between the DL-user and the DL.
+///
+/// Ref: IEC 61158-4-12:2019 6.1.4
+pub const DLStatusRegister = packed struct {
+    pub const _address: u16 = 0x0110;
+
+    dls_user_operational: bool,
+    dls_user_watchdog_ok: bool,
+    extended_link_detection: bool,
+    _reserved: u1 = 0,
+
+    port0_physical_link: bool,
+    port1_physical_link: bool,
+    port2_physical_link: bool,
+    port3_physical_link: bool,
+
+    port0_loop_active: bool,
+    port0_rx_signal_detected: bool,
+
+    port1_loop_active: bool,
+    port1_rx_signal_detected: bool,
+
+    port2_loop_active: bool,
+    port2_rx_signal_detected: bool,
+
+    port3_loop_active: bool,
+    port3_rx_signal_detected: bool,
 };
 
 pub const ALStateControl = enum(u4) {
@@ -188,12 +258,17 @@ pub const ALStateControl = enum(u4) {
 
 /// AL Control Register
 ///
+/// Also called DLS-user R1, R2
+///
+/// Ref: IEC 61158-4-12:2019 6.1.5.4
 /// Ref: IEC 61158-6-12:2019 5.3.1
 pub const ALControlRegister = packed struct(u16) {
+    pub const _address: u16 = 0x0120;
+
     state: ALStateControl,
     ack: bool,
     request_id: bool,
-    reserved: u10 = 0,
+    _reserved: u10 = 0,
 };
 
 /// AL Status Codes
@@ -204,7 +279,7 @@ pub const ALStatusCode = enum(u16) {
     unspecified_error = 0x0001,
     no_memory = 0x0002,
     invalid_device_setup = 0x0003,
-    reserved = 0x0005,
+    _reserved = 0x0005,
     invalid_requested_state_change = 0x0011,
     unknown_requested_state = 0x0012,
     bootstrap_not_supported = 0x0013,
@@ -269,28 +344,49 @@ pub const ALStateStatus = enum(u4) {
 
 /// AL Status Register
 ///
+/// Also called DLS-user R3, R4, R5, R6
+///
+/// Ref: IEC 61158-4-12:2019 6.1.5.4
 /// Ref: IEC 61158-6-12:2019 5.3.2
 pub const ALStatusRegister = packed struct(u48) {
-    state: ALStateStatus,
+    pub const _address: u16 = 0x0130;
+
+    state: ALStateStatus, // R3
     err: bool,
     id_loaded: bool,
-    reserved: u26 = 0,
-    status_code: ALStatusCode,
+    _reserved: u2 = 0,
+    _reserved2: u8 = 0, // R4
+    _reserved3: u16 = 0, // R5,
+    status_code: ALStatusCode, // R6
 };
 
 /// PDI Control Register
 ///
+/// Also called DLS-user R7, Copy, R9
+///
+/// RefL IEC 61158-4-12:2019 6.1.5.4
 /// Ref: IEC 61158-6-12:2019 5.3.4
 pub const PDIControlRegister = packed struct(u16) {
+    pub const _address: u16 = 0x0140;
+
     PDI_type: u8,
     emulated: bool,
-    reserved: u7 = 0,
+    _reserved: u7 = 0,
 };
 
 /// Sync Configuration Register
 ///
+/// Also called DLS-user R8
+///
+/// NOTE: spec is ambiguous as to where in R8 this is.
+/// R8 has size u32 but only u8 is defined.
+/// Assuming u8 is at beginning of register.
+///
+/// Ref: IEC 61158-4-12:2019 6.1.5.4
 /// Ref: IEC 61158-6-12:2019 5.3.4
 pub const SyncConfigurationRegister = packed struct(u8) {
+    pub const _address = 0x0150; // NOTE: spec is ambiguous!
+
     signal_conditioning_sync0: u2,
     enable_sync0: bool,
     enable_interrupt_sync0: bool,
@@ -299,42 +395,6 @@ pub const SyncConfigurationRegister = packed struct(u8) {
     enable_interrupt_sync1: bool,
 };
 
-/// DL Status Register
-///
-/// The DL Status register is used to indicate the state of the DL ports and state
-/// of the interface between the DL-user and the DL.
-///
-/// Ref: IEC 61158-4-12:2019 6.1.4
-pub const DLStatusRegister = packed struct {
-    pdi_operational: bool,
-    watchdog_ok: bool,
-    exteded_link_detection: bool,
-    reserved: u1 = 0,
-    /// true when physical link on port0
-    port0_link_status: bool,
-    /// true when physical link on port1
-    port1_link_status: bool,
-    /// true when physical link on port2
-    port2_link_status: bool,
-    /// true when physical link on port3
-    port3_link_status: bool,
-    port0_loop_active: bool,
-    /// true when rx-signal detected on port0
-    port0_rx_signal_det: bool,
-    port1_loop_active: bool,
-    /// true when rx-signal detected on port1
-    port1_rx_signal_det: bool,
-    port2_loop_active: bool,
-    /// true when rx-signal detected on port2
-    port2_rx_signal_det: bool,
-    port3_loop_active: bool,
-    /// true when rx-signal detected on port3
-    port3_rx_signal_det: bool,
-};
-
-// TODO: DL User Specific Registers, Ref: IEC 61158-4-12:2019 6.1.5.4
-
-// TODO: fix these?
 /// DL-User Event Register
 ///
 /// The event registers are used to indicate and event to the DL-user.
@@ -342,25 +402,46 @@ pub const DLStatusRegister = packed struct {
 /// The events can be masked.
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.6
-// pub const DLUserEventRegister = packed struct {
-//     /// event active R1 was written
-//     DL_user_R1_change: bool,
-//     DC_event_0: bool,
-//     DC_event_1: bool,
-//     DC_event_2: bool,
-//     SM_change_event: bool,
-//     EEPROM_emulation_command_pending: bool,
-//     DLE_specific: u2,
-//     SM_ch_events: [16]bool,
-//     DLE_specific2: u8,
-// };
+pub const DLUserEventRegister = packed struct(u32) {
+    pub const _address: u16 = 0x0220;
+
+    /// event active R1 was written
+    /// true on write by maindevice
+    /// reset on read by subdevice
+    al_control_change: bool,
+    dc0: bool,
+    dc1: bool,
+    dc2: bool,
+    sm_channel_change: bool,
+    eeprom_emulation_command_pending: bool,
+    dle_specific: u2,
+    sm0: bool,
+    sm1: bool,
+    sm2: bool,
+    sm3: bool,
+    sm4: bool,
+    sm5: bool,
+    sm6: bool,
+    sm7: bool,
+    sm8: bool,
+    sm9: bool,
+    sm10: bool,
+    sm11: bool,
+    sm12: bool,
+    sm13: bool,
+    sm14: bool,
+    sm15: bool,
+    dle_specific2: u8,
+};
 
 /// DL User Event Mask
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.6
-// pub const DLUserEventMaskRegister = packed struct {
-//     event_mask: [32]bool,
-// };
+pub const DLUserEventMaskRegister = packed struct(u32) {
+    pub const _address: u16 = 0x0204;
+
+    event_mask: u32,
+};
 
 /// External Event Register
 ///
@@ -369,21 +450,35 @@ pub const DLStatusRegister = packed struct {
 /// the corresponding bit in the IRQ parameter of a PDU is set.
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.6
-// pub const ExternalEventRegister = packed struct {
-//     DC_event_0: bool,
-//     reserved: u1 = 0,
-//     DL_status_change: bool,
-//     R3_or_R4_change: bool,
-//     SM_ch_events: [8]bool,
-//     reserved2: u4 = 0,
-// };
+pub const ExternalEventRegister = packed struct {
+    pub const _address: u16 = 0x0210;
+
+    dc0: bool,
+    _reserved: u1 = 0,
+    dl_status_change: bool,
+    al_status_change: bool,
+    sm0: bool,
+    sm1: bool,
+    sm2: bool,
+    sm3: bool,
+    sm4: bool,
+    sm5: bool,
+    sm6: bool,
+    sm7: bool,
+    _reserved2: u4 = 0,
+};
 
 /// External Event Mask Register
 ///
+/// The event mask determines what events are placed in the IRQ
+/// portion of all datagrams that pass through the subdevice.
+///
 /// Ref: IEC 61158-4-12:2019 6.1.6
-// pub const ExternalEventMaskRegister = packed struct {
-//     event_mask: [16]bool,
-// };
+pub const ExternalEventMaskRegister = packed struct {
+    pub const _address: u16 = 0x0200;
+
+    event_mask: u16,
+};
 
 /// RX Error Counter Register
 ///
@@ -394,6 +489,8 @@ pub const DLStatusRegister = packed struct {
 ///
 /// Ref: IEC 61158-4-12:2019 6.2.1
 pub const RXErrorCounterRegister = packed struct {
+    pub const _address: u16 = 0x0300;
+
     port0_frame_errors: u8,
     port0_physical_errors: u8,
     port1_frame_errors: u8,
@@ -412,10 +509,12 @@ pub const RXErrorCounterRegister = packed struct {
 ///
 /// Ref: IEC 61158-4-12:2019 6.2.2
 pub const LostLinkCounterRegister = packed struct {
-    port0_lost_link_count: u8,
-    port1_lost_link_count: u8,
-    port2_lost_link_count: u8,
-    port3_lost_link_count: u8,
+    pub const _address: u16 = 0x0310;
+
+    port0: u8,
+    port1: u8,
+    port2: u8,
+    port3: u8,
 };
 
 /// Additional Counter Register
@@ -431,6 +530,8 @@ pub const LostLinkCounterRegister = packed struct {
 /// The optional local counter counts occurances of local problems (problems within the subdevice). The counter is cleared when written.
 /// The counter stops when the maximum value of 255 is reached.
 pub const AdditionalCounterRegister = packed struct {
+    pub const _address: u16 = 0x0308;
+
     port0_prev_errors: u8,
     port1_prev_errors: u8,
     port2_prev_errors: u8,
@@ -443,11 +544,13 @@ pub const AdditionalCounterRegister = packed struct {
 ///
 /// The system clock of the subdevice is divided by the watchdog divider.
 ///
-/// The parameter shall contianer the number of 40 ns intervals (minus 2)
+/// The parameter shall contain the number of 40 ns intervals (minus 2)
 /// that represents the basic watchdog increment (default value is 100 us = 2498).
 ///
 /// Ref: IEC 61158-4-12:2019 6.3.1
 pub const WatchdogDividerRegister = packed struct {
+    pub const _address: u16 = 0x0400;
+
     watchdog_divider: u16,
 };
 
@@ -462,7 +565,9 @@ pub const WatchdogDividerRegister = packed struct {
 ///
 /// Ref: IEC 61158-4-12:2019 6.3.2
 pub const DLSUserWatchdogRegister = packed struct {
-    DLS_user_watchdog: u16,
+    pub const _address: u16 = 0x0410;
+
+    dls_user_watchdog: u16,
 };
 
 /// Sync Manager Watchdog Register
@@ -473,7 +578,9 @@ pub const DLSUserWatchdogRegister = packed struct {
 ///
 /// Ref: IEC 61158-4-12:2019 6.3.3
 pub const SyncMangagerWatchdogRegister = packed struct {
-    SyncManagerWatchdog: u16,
+    pub const _address: u16 = 0x0420;
+
+    sync_manager_watchdog: u16,
 };
 
 /// Sync Manager Watchdog Status Register
@@ -482,8 +589,10 @@ pub const SyncMangagerWatchdogRegister = packed struct {
 ///
 /// Ref: IEC 61158-4-12:2019 6.3.3
 pub const SyncManagerWatchDogStatus = packed struct {
+    pub const _address: u16 = 0x0440;
+
     watchdog_ok: bool,
-    reserved: u15 = 0,
+    _reserved: u15 = 0,
 };
 
 /// Watchdog Counter Register
@@ -494,13 +603,15 @@ pub const SyncManagerWatchDogStatus = packed struct {
 ///
 /// Ref: IEC 61158-4-12:2019 6.3.5
 pub const WatchdogCounterRegister = packed struct {
-    SM_watchdog_counter: u8,
-    DL_user_watchdog_counter: u8,
+    pub const _address: u16 = 0x0442;
+
+    sm_watchdog_counter: u8,
+    dl_user_watchdog_counter: u8,
 };
 
 pub const SIIAccessOwner = enum(u1) {
-    ethercat_DL = 0,
-    PDI = 1,
+    ethercat_dl = 0,
+    pdi = 1,
 };
 
 /// Subdevice Information Interface (SII) Access Register
@@ -509,15 +620,15 @@ pub const SIIAccessOwner = enum(u1) {
 pub const SIIAccessRegister = packed struct {
     owner: SIIAccessOwner,
     lock: bool,
-    reserved: u6 = 0,
-    access_PDI: bool,
-    reserved2: u7 = 0,
+    _reserved: u6 = 0,
+    access_pdi: bool,
+    _reserved2: u7 = 0,
 };
 
 pub const SIIAccessRegisterCompact = packed struct(u8) {
     owner: SIIAccessOwner,
     lock: bool,
-    reserved: u6 = 0,
+    _reserved: u6 = 0,
 };
 
 pub const SIIReadSize = enum(u1) {
@@ -537,8 +648,8 @@ pub const SIIAddressAlgorithm = enum(u1) {
 /// Ref: IEC 61158-4-12:2019 6.4.3
 pub const SIIControlStatusRegister = packed struct {
     write_access: bool,
-    reserved: u4 = 0,
-    EEPROM_emulation: bool,
+    _reserved: u4 = 0,
+    eeprom_emulation: bool,
     read_size: SIIReadSize,
     address_algorithm: SIIAddressAlgorithm,
     read_operation: bool,
@@ -553,8 +664,8 @@ pub const SIIControlStatusRegister = packed struct {
 
 pub const SIIControlStatusAddressRegister = packed struct {
     write_access: bool,
-    reserved: u4 = 0,
-    EEPROM_emulation: bool,
+    _reserved: u4 = 0,
+    eeprom_emulation: bool,
     read_size: SIIReadSize,
     address_algorithm: SIIAddressAlgorithm,
     read_operation: bool,
@@ -608,12 +719,12 @@ pub const SIIDataRegister8Byte = packed struct {
 /// Ref: IEC 61158-4-12 6.5.1
 pub const MIIControlStatusRegister = packed struct {
     write_access: bool,
-    access_PDI: bool,
-    MII_link_det: bool,
-    PHY_offset: u5 = 0x00,
+    access_pdi: bool,
+    mii_link_det: bool,
+    phy_offset: u5 = 0x00,
     read_operation: bool,
     write_operation: bool,
-    reserved: u3 = 0x00,
+    _reserved: u3 = 0x00,
     read_error: bool,
     write_error: bool,
     busy: bool,
@@ -624,9 +735,9 @@ pub const MIIControlStatusRegister = packed struct {
 /// Ref: IEC 61158-4-12:2019 6.5.2
 pub const MIIAddressRegister = packed struct {
     /// address of the PHY (0-63)
-    PHY_address: u8,
+    phy_address: u8,
     /// PHY register address
-    PHY_register_address: u8,
+    phy_register_address: u8,
 };
 
 /// MII Data Register
@@ -641,8 +752,8 @@ pub const MIIDataRegister = packed struct {
 };
 
 pub const MIIAccessState = enum(u1) {
-    ECAT_access_active = 0,
-    PDI_access_active = 1,
+    ecat_access_active = 0,
+    pdi_access_active = 1,
 };
 
 /// MII Access Register
@@ -651,11 +762,11 @@ pub const MIIAccessState = enum(u1) {
 ///
 /// Ref: IEC 61158-4-12:2019 6.5.4
 pub const MIIAccessRegister = packed struct {
-    MII_access: bool,
-    reserved: u7 = 0,
+    mii_access: bool,
+    _reserved: u7 = 0,
     access_state: MIIAccessState,
     access_reset: bool,
-    reserved2: u6 = 0,
+    _reserved2: u6 = 0,
 };
 
 /// FMMU Attributes
@@ -888,41 +999,41 @@ pub const FMMUArray = stdx.BoundedArray(FMMUAttributes, max_fmmu);
 ///
 /// Ref: IEC 61158-4-12:2019 6.6.2
 pub const FMMURegister = packed struct {
-    FMMU0: FMMUAttributes,
-    FMMU1: FMMUAttributes,
-    FMMU2: FMMUAttributes,
-    FMMU3: FMMUAttributes,
-    FMMU4: FMMUAttributes,
-    FMMU5: FMMUAttributes,
-    FMMU6: FMMUAttributes,
-    FMMU7: FMMUAttributes,
-    FMMU8: FMMUAttributes,
-    FMMU9: FMMUAttributes,
-    FMMU10: FMMUAttributes,
-    FMMU11: FMMUAttributes,
-    FMMU12: FMMUAttributes,
-    FMMU13: FMMUAttributes,
-    FMMU14: FMMUAttributes,
-    FMMU15: FMMUAttributes,
+    fmmu0: FMMUAttributes,
+    fmmu1: FMMUAttributes,
+    fmmu2: FMMUAttributes,
+    fmmu3: FMMUAttributes,
+    fmmu4: FMMUAttributes,
+    fmmu5: FMMUAttributes,
+    fmmu6: FMMUAttributes,
+    fmmu7: FMMUAttributes,
+    fmmu8: FMMUAttributes,
+    fmmu9: FMMUAttributes,
+    fmmu10: FMMUAttributes,
+    fmmu11: FMMUAttributes,
+    fmmu12: FMMUAttributes,
+    fmmu13: FMMUAttributes,
+    fmmu14: FMMUAttributes,
+    fmmu15: FMMUAttributes,
 
     pub fn writeFMMUConfig(self: *FMMURegister, config: FMMUAttributes, fmmu_idx: u4) void {
         switch (fmmu_idx) {
-            0 => self.FMMU0 = config,
-            1 => self.FMMU1 = config,
-            2 => self.FMMU2 = config,
-            3 => self.FMMU3 = config,
-            4 => self.FMMU4 = config,
-            5 => self.FMMU5 = config,
-            6 => self.FMMU6 = config,
-            7 => self.FMMU7 = config,
-            8 => self.FMMU8 = config,
-            9 => self.FMMU9 = config,
-            10 => self.FMMU10 = config,
-            11 => self.FMMU11 = config,
-            12 => self.FMMU12 = config,
-            13 => self.FMMU13 = config,
-            14 => self.FMMU14 = config,
-            15 => self.FMMU15 = config,
+            0 => self.fmmu0 = config,
+            1 => self.fmmu1 = config,
+            2 => self.fmmu2 = config,
+            3 => self.fmmu3 = config,
+            4 => self.fmmu4 = config,
+            5 => self.fmmu5 = config,
+            6 => self.fmmu6 = config,
+            7 => self.fmmu7 = config,
+            8 => self.fmmu8 = config,
+            9 => self.fmmu9 = config,
+            10 => self.fmmu10 = config,
+            11 => self.fmmu11 = config,
+            12 => self.fmmu12 = config,
+            13 => self.fmmu13 = config,
+            14 => self.fmmu14 = config,
+            15 => self.fmmu15 = config,
         }
     }
 };
@@ -950,8 +1061,8 @@ pub const SyncMangagerBufferedState = enum(u2) {
 pub const SyncManagerControlRegister = packed struct(u8) {
     buffer_type: SyncManagerBufferType,
     direction: SyncManagerDirection,
-    ECAT_event_enable: bool,
-    DLS_user_event_enable: bool,
+    ecat_event_enable: bool,
+    dls_user_event_enable: bool,
     watchdog_enable: bool,
     reserved: u1 = 0,
 };
@@ -969,8 +1080,8 @@ pub const SyncManagerActivateRegister = packed struct(u8) {
     channel_enable: bool,
     repeat: bool,
     reserved3: u4 = 0,
-    DC_event_0_bus_access: bool,
-    DC_event_0_local_access: bool,
+    dc_event_0_bus_access: bool,
+    dc_event_0_local_access: bool,
 };
 
 /// Sync Manager Attributes (Channels)
@@ -984,7 +1095,7 @@ pub const SyncManagerAttributes = packed struct(u64) {
     control: SyncManagerControlRegister,
     status: SyncManagerStatusRegister,
     activate: SyncManagerActivateRegister,
-    channel_enable_PDI: bool,
+    channel_enable_pdi: bool,
     repeat_ack: bool,
     reserved: u6 = 0,
 
@@ -1004,8 +1115,8 @@ pub const SyncManagerAttributes = packed struct(u64) {
             .control = .{
                 .buffer_type = .mailbox,
                 .direction = .output,
-                .ECAT_event_enable = false,
-                .DLS_user_event_enable = true,
+                .ecat_event_enable = false,
+                .dls_user_event_enable = true,
                 .watchdog_enable = false,
             },
             // SOEM uses 0x00 for the status byte
@@ -1014,11 +1125,11 @@ pub const SyncManagerAttributes = packed struct(u64) {
             .activate = .{
                 .channel_enable = true,
                 .repeat = false,
-                .DC_event_0_bus_access = false,
-                .DC_event_0_local_access = false,
+                .dc_event_0_bus_access = false,
+                .dc_event_0_local_access = false,
             },
             // SOEM uses 0x00 for the remaining
-            .channel_enable_PDI = false,
+            .channel_enable_pdi = false,
             .repeat_ack = false,
         };
     }
@@ -1036,18 +1147,18 @@ pub const SyncManagerAttributes = packed struct(u64) {
             .control = .{
                 .buffer_type = .mailbox,
                 .direction = .input,
-                .ECAT_event_enable = false,
-                .DLS_user_event_enable = true,
+                .ecat_event_enable = false,
+                .dls_user_event_enable = true,
                 .watchdog_enable = false,
             },
             .status = @bitCast(@as(u8, 0)),
             .activate = .{
                 .channel_enable = true,
                 .repeat = false,
-                .DC_event_0_bus_access = false,
-                .DC_event_0_local_access = false,
+                .dc_event_0_bus_access = false,
+                .dc_event_0_local_access = false,
             },
-            .channel_enable_PDI = false,
+            .channel_enable_pdi = false,
             .repeat_ack = false,
         };
     }
@@ -1072,110 +1183,110 @@ pub const SyncManagerAttributes = packed struct(u64) {
 /// But the CoE specification shows up to 32.
 /// TODO: how many sync managers are there???
 pub const SMRegister = packed struct(u2048) {
-    SM0: SyncManagerAttributes,
-    SM1: SyncManagerAttributes,
-    SM2: SyncManagerAttributes,
-    SM3: SyncManagerAttributes,
-    SM4: SyncManagerAttributes,
-    SM5: SyncManagerAttributes,
-    SM6: SyncManagerAttributes,
-    SM7: SyncManagerAttributes,
-    SM8: SyncManagerAttributes,
-    SM9: SyncManagerAttributes,
-    SM10: SyncManagerAttributes,
-    SM11: SyncManagerAttributes,
-    SM12: SyncManagerAttributes,
-    SM13: SyncManagerAttributes,
-    SM14: SyncManagerAttributes,
-    SM15: SyncManagerAttributes,
-    SM16: SyncManagerAttributes,
-    SM17: SyncManagerAttributes,
-    SM18: SyncManagerAttributes,
-    SM19: SyncManagerAttributes,
-    SM20: SyncManagerAttributes,
-    SM21: SyncManagerAttributes,
-    SM22: SyncManagerAttributes,
-    SM23: SyncManagerAttributes,
-    SM24: SyncManagerAttributes,
-    SM25: SyncManagerAttributes,
-    SM26: SyncManagerAttributes,
-    SM27: SyncManagerAttributes,
-    SM28: SyncManagerAttributes,
-    SM29: SyncManagerAttributes,
-    SM30: SyncManagerAttributes,
-    SM31: SyncManagerAttributes,
+    sm0: SyncManagerAttributes,
+    sm1: SyncManagerAttributes,
+    sm2: SyncManagerAttributes,
+    sm3: SyncManagerAttributes,
+    sm4: SyncManagerAttributes,
+    sm5: SyncManagerAttributes,
+    sm6: SyncManagerAttributes,
+    sm7: SyncManagerAttributes,
+    sm8: SyncManagerAttributes,
+    sm9: SyncManagerAttributes,
+    sm10: SyncManagerAttributes,
+    sm11: SyncManagerAttributes,
+    sm12: SyncManagerAttributes,
+    sm13: SyncManagerAttributes,
+    sm14: SyncManagerAttributes,
+    sm15: SyncManagerAttributes,
+    sm16: SyncManagerAttributes,
+    sm17: SyncManagerAttributes,
+    sm18: SyncManagerAttributes,
+    sm19: SyncManagerAttributes,
+    sm20: SyncManagerAttributes,
+    sm21: SyncManagerAttributes,
+    sm22: SyncManagerAttributes,
+    sm23: SyncManagerAttributes,
+    sm24: SyncManagerAttributes,
+    sm25: SyncManagerAttributes,
+    sm26: SyncManagerAttributes,
+    sm27: SyncManagerAttributes,
+    sm28: SyncManagerAttributes,
+    sm29: SyncManagerAttributes,
+    sm30: SyncManagerAttributes,
+    sm31: SyncManagerAttributes,
 
     pub fn asArray(self: SMRegister) [32]SyncManagerAttributes {
         var res: [32]SyncManagerAttributes = undefined;
-        res[0] = self.SM0;
-        res[1] = self.SM1;
-        res[2] = self.SM2;
-        res[3] = self.SM3;
-        res[4] = self.SM4;
-        res[5] = self.SM5;
-        res[6] = self.SM6;
-        res[7] = self.SM7;
-        res[8] = self.SM8;
-        res[9] = self.SM9;
-        res[10] = self.SM10;
-        res[11] = self.SM11;
-        res[12] = self.SM12;
-        res[13] = self.SM13;
-        res[14] = self.SM14;
-        res[15] = self.SM15;
-        res[16] = self.SM16;
-        res[17] = self.SM17;
-        res[18] = self.SM18;
-        res[19] = self.SM19;
-        res[20] = self.SM20;
-        res[21] = self.SM21;
-        res[22] = self.SM22;
-        res[23] = self.SM23;
-        res[24] = self.SM24;
-        res[25] = self.SM25;
-        res[26] = self.SM26;
-        res[27] = self.SM27;
-        res[28] = self.SM28;
-        res[29] = self.SM29;
-        res[30] = self.SM30;
-        res[31] = self.SM31;
+        res[0] = self.sm0;
+        res[1] = self.sm1;
+        res[2] = self.sm2;
+        res[3] = self.sm3;
+        res[4] = self.sm4;
+        res[5] = self.sm5;
+        res[6] = self.sm6;
+        res[7] = self.sm7;
+        res[8] = self.sm8;
+        res[9] = self.sm9;
+        res[10] = self.sm10;
+        res[11] = self.sm11;
+        res[12] = self.sm12;
+        res[13] = self.sm13;
+        res[14] = self.sm14;
+        res[15] = self.sm15;
+        res[16] = self.sm16;
+        res[17] = self.sm17;
+        res[18] = self.sm18;
+        res[19] = self.sm19;
+        res[20] = self.sm20;
+        res[21] = self.sm21;
+        res[22] = self.sm22;
+        res[23] = self.sm23;
+        res[24] = self.sm24;
+        res[25] = self.sm25;
+        res[26] = self.sm26;
+        res[27] = self.sm27;
+        res[28] = self.sm28;
+        res[29] = self.sm29;
+        res[30] = self.sm30;
+        res[31] = self.sm31;
         return res;
     }
 
     pub fn set(self: SMRegister, i: usize, sm: SyncManagerAttributes) void {
         assert(i < 32);
-        if (i == 0) self.SM0 = sm;
-        if (i == 1) self.SM1 = sm;
-        if (i == 2) self.SM2 = sm;
-        if (i == 3) self.SM3 = sm;
-        if (i == 4) self.SM4 = sm;
-        if (i == 5) self.SM5 = sm;
-        if (i == 6) self.SM6 = sm;
-        if (i == 7) self.SM7 = sm;
-        if (i == 8) self.SM8 = sm;
-        if (i == 9) self.SM9 = sm;
-        if (i == 10) self.SM10 = sm;
-        if (i == 11) self.SM11 = sm;
-        if (i == 12) self.SM12 = sm;
-        if (i == 13) self.SM13 = sm;
-        if (i == 14) self.SM14 = sm;
-        if (i == 15) self.SM15 = sm;
-        if (i == 16) self.SM16 = sm;
-        if (i == 17) self.SM17 = sm;
-        if (i == 18) self.SM18 = sm;
-        if (i == 19) self.SM19 = sm;
-        if (i == 20) self.SM20 = sm;
-        if (i == 21) self.SM21 = sm;
-        if (i == 22) self.SM22 = sm;
-        if (i == 23) self.SM23 = sm;
-        if (i == 24) self.SM24 = sm;
-        if (i == 25) self.SM25 = sm;
-        if (i == 26) self.SM26 = sm;
-        if (i == 27) self.SM27 = sm;
-        if (i == 28) self.SM28 = sm;
-        if (i == 29) self.SM29 = sm;
-        if (i == 30) self.SM30 = sm;
-        if (i == 31) self.SM31 = sm;
+        if (i == 0) self.sm0 = sm;
+        if (i == 1) self.sm1 = sm;
+        if (i == 2) self.sm2 = sm;
+        if (i == 3) self.sm3 = sm;
+        if (i == 4) self.sm4 = sm;
+        if (i == 5) self.sm5 = sm;
+        if (i == 6) self.sm6 = sm;
+        if (i == 7) self.sm7 = sm;
+        if (i == 8) self.sm8 = sm;
+        if (i == 9) self.sm9 = sm;
+        if (i == 10) self.sm10 = sm;
+        if (i == 11) self.sm11 = sm;
+        if (i == 12) self.sm12 = sm;
+        if (i == 13) self.sm13 = sm;
+        if (i == 14) self.sm14 = sm;
+        if (i == 15) self.sm15 = sm;
+        if (i == 16) self.sm16 = sm;
+        if (i == 17) self.sm17 = sm;
+        if (i == 18) self.sm18 = sm;
+        if (i == 19) self.sm19 = sm;
+        if (i == 20) self.sm20 = sm;
+        if (i == 21) self.sm21 = sm;
+        if (i == 22) self.sm22 = sm;
+        if (i == 23) self.sm23 = sm;
+        if (i == 24) self.sm24 = sm;
+        if (i == 25) self.sm25 = sm;
+        if (i == 26) self.sm26 = sm;
+        if (i == 27) self.sm27 = sm;
+        if (i == 28) self.sm28 = sm;
+        if (i == 29) self.sm29 = sm;
+        if (i == 30) self.sm30 = sm;
+        if (i == 31) self.sm31 = sm;
     }
 };
 
@@ -1194,37 +1305,37 @@ pub const DCRegister = packed struct {
     sys_time_offset_ns: u64,
     sys_time_transmission_delay_ns: u32,
     sys_time_diff_ns: i32,
-    ctrl_loop_P1: u16,
-    ctrl_loop_P2: u16,
-    ctrl_loop_P3: u16,
+    ctrl_loop_p1: u16,
+    ctrl_loop_p2: u16,
+    ctrl_loop_p3: u16,
 };
 
 /// DC User Settings Register
 ///
 /// Ref: IEC 61158-4-12:2019 6.8.5
 pub const DCUserRegister = packed struct {
-    reserved: u8 = 0,
-    DC_user_P1: u8,
-    DC_user_P2: u16,
-    DC_user_P13: u8,
-    DC_user_P14: u8,
-    reserved2: u64 = 0,
-    DC_user_P3: u16,
-    DC_user_P4: u32,
-    reserved3: u96 = 0,
-    DC_user_P5: u32,
-    DC_user_P6: u32,
-    DC_user_P7: u16,
-    reserved4: u32 = 0,
-    DC_user_P8: u16,
-    DC_user_P9: u16,
-    reserved5: u32 = 0,
-    DC_user_P10: u32,
-    reserved6: u32 = 0,
-    DC_user_P11: u32,
-    reserved7: u32 = 0,
-    DC_user_P12: u32,
-    reserved8: u32 = 0,
+    _reserved: u8 = 0,
+    DC_user_p1: u8,
+    DC_user_p2: u16,
+    DC_user_p13: u8,
+    DC_user_p14: u8,
+    _reserved2: u64 = 0,
+    DC_user_p3: u16,
+    DC_user_p4: u32,
+    _reserved3: u96 = 0,
+    DC_user_p5: u32,
+    DC_user_p6: u32,
+    DC_user_p7: u16,
+    _reserved4: u32 = 0,
+    DC_user_p8: u16,
+    DC_user_p9: u16,
+    _reserved5: u32 = 0,
+    DC_user_p10: u32,
+    _reserved6: u32 = 0,
+    DC_user_p11: u32,
+    _reserved7: u32 = 0,
+    DC_user_p12: u32,
+    _reserved8: u32 = 0,
 };
 
 /// DC Sync Activation Register

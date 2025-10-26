@@ -247,7 +247,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
     // Force take away EEPROM from PDI
     wkc = try self.port.bwrPack(
         esc.SIIAccessRegisterCompact{
-            .owner = .ethercat_DL,
+            .owner = .ethercat_dl,
             .lock = true,
         },
         .{
@@ -261,7 +261,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
     // Maindevice controls EEPROM
     wkc = try self.port.bwrPack(
         esc.SIIAccessRegisterCompact{
-            .owner = .ethercat_DL,
+            .owner = .ethercat_dl,
             .lock = false,
         },
         .{

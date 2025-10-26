@@ -82,7 +82,7 @@ pub fn writeMailboxOut(
         act_mbx_out.physical_start_address != mbx_out.start_addr or
         act_mbx_out.control.buffer_type != .mailbox or
         act_mbx_out.control.direction != .output or
-        act_mbx_out.control.DLS_user_event_enable != true or
+        act_mbx_out.control.dls_user_event_enable != true or
         act_mbx_out.activate.channel_enable != true)
     {
         // This may occur if:
@@ -185,7 +185,7 @@ pub fn readMailboxIn(
         act_mbx_in.physical_start_address != mbx_in.start_addr or
         act_mbx_in.control.buffer_type != .mailbox or
         act_mbx_in.control.direction != .input or
-        act_mbx_in.control.DLS_user_event_enable != true or
+        act_mbx_in.control.dls_user_event_enable != true or
         act_mbx_in.activate.channel_enable != true)
     {
         // This may occur if:

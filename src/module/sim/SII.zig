@@ -13,7 +13,7 @@ const SII = @This();
 
 status: esc.SIIControlStatusAddressRegister = .{
     .write_access = false,
-    .EEPROM_emulation = false,
+    .eeprom_emulation = false,
     .read_size = .four_bytes,
     .address_algorithm = .two_byte_address,
     .read_operation = false,
