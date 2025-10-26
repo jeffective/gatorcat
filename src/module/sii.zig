@@ -909,7 +909,7 @@ pub fn readSII4ByteFP(
         },
         .{
             .station_address = station_address,
-            .offset = @intFromEnum(esc.RegisterMap.SII_access),
+            .offset = @intFromEnum(esc.Register.sii_access),
         },
         recv_timeout_us,
         1,
@@ -924,7 +924,7 @@ pub fn readSII4ByteFP(
         @as(u16, @bitCast(wire.zerosFromPack(esc.SIIControlStatusRegister))),
         .{
             .station_address = station_address,
-            .offset = @intFromEnum(esc.RegisterMap.SII_control_status),
+            .offset = @intFromEnum(esc.Register.sii_control_status),
         },
         recv_timeout_us,
         1,
@@ -952,7 +952,7 @@ pub fn readSII4ByteFP(
         },
         .{
             .station_address = station_address,
-            .offset = @intFromEnum(esc.RegisterMap.SII_control_status),
+            .offset = @intFromEnum(esc.Register.sii_control_status),
         },
         recv_timeout_us,
         1,
@@ -972,7 +972,7 @@ pub fn readSII4ByteFP(
             .{
                 .station_address = station_address,
                 .offset = @intFromEnum(
-                    esc.RegisterMap.SII_control_status,
+                    esc.Register.sii_control_status,
                 ),
             },
             recv_timeout_us,
@@ -1002,7 +1002,7 @@ pub fn readSII4ByteFP(
         .{
             .station_address = station_address,
             .offset = @intFromEnum(
-                esc.RegisterMap.SII_data,
+                esc.Register.sii_data,
             ),
         },
         &data,

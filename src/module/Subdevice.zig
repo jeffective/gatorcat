@@ -66,7 +66,7 @@ pub fn getALStatus(
     const station_address: u16 = stationAddressFromRingPos(self.runtime_info.ring_position);
     return try port.fprdPackWkc(
         esc.ALStatusRegister,
-        .{ .station_address = station_address, .offset = @intFromEnum(esc.RegisterMap.AL_status) },
+        .{ .station_address = station_address, .offset = @intFromEnum(esc.Register.al_status) },
         recv_timeout_us,
         1,
     );
@@ -94,7 +94,7 @@ pub fn setALState(
         },
         .{
             .station_address = station_address,
-            .offset = @intFromEnum(esc.RegisterMap.AL_control),
+            .offset = @intFromEnum(esc.Register.al_control),
         },
         recv_timeout_us,
         1,
@@ -106,7 +106,7 @@ pub fn setALState(
             esc.ALStatusRegister,
             .{
                 .station_address = station_address,
-                .offset = @intFromEnum(esc.RegisterMap.AL_status),
+                .offset = @intFromEnum(esc.Register.al_status),
             },
             recv_timeout_us,
             1,
@@ -226,7 +226,7 @@ pub fn transitionIP(
         .{
             .station_address = station_address,
             .offset = @intFromEnum(
-                esc.RegisterMap.FMMU0,
+                esc.Register.fmmu0,
             ),
         },
         recv_timeout_us,
@@ -239,7 +239,7 @@ pub fn transitionIP(
         .{
             .station_address = station_address,
             .offset = @intFromEnum(
-                esc.RegisterMap.SM0,
+                esc.Register.sm0,
             ),
         },
         recv_timeout_us,
@@ -324,7 +324,7 @@ pub fn transitionIP(
         sms,
         .{
             .station_address = station_address,
-            .offset = @intFromEnum(esc.RegisterMap.SM0),
+            .offset = @intFromEnum(esc.Register.sm0),
         },
         recv_timeout_us,
         1,
@@ -477,7 +477,7 @@ pub fn transitionPS(
             // write fmmu configuration
             try port.fpwrPackWkc(
                 fmmu_config.dumpFMMURegister(),
-                .{ .station_address = station_address, .offset = @intFromEnum(esc.RegisterMap.FMMU0) },
+                .{ .station_address = station_address, .offset = @intFromEnum(esc.Register.fmmu0) },
                 recv_timeout_us,
                 1,
             );

@@ -37,12 +37,12 @@ sm_event_received: bool = false,
 id: u16 = 0, // TODO: this actually comes from EEPROM?
 
 pub fn initTick(self: *ESM, phys_mem: *sim.Subdevice.PhysMem) void {
-    Subdevice.writeRegister(self.status, .AL_status, phys_mem);
+    Subdevice.writeRegister(self.status, .al_status, phys_mem);
     Subdevice.writeRegister(LocalALControlRegister{
         .ack = false,
         .request_id = false,
         .state = .INIT,
-    }, .AL_control, phys_mem);
+    }, .al_control, phys_mem);
 }
 
 const LocalALControlRegister = packed struct(u16) {
@@ -63,9 +63,9 @@ const LocalALControlRegister = packed struct(u16) {
 };
 
 pub fn tick(self: *ESM, phys_mem: *sim.Subdevice.PhysMem) void {
-    const control = Subdevice.readRegister(LocalALControlRegister, .AL_control, phys_mem);
-    self.status = Subdevice.readRegister(esc.ALStatusRegister, .AL_status, phys_mem);
-    defer Subdevice.writeRegister(self.status, .AL_status, phys_mem);
+    const control = Subdevice.readRegister(LocalALControlRegister, .al_control, phys_mem);
+    self.status = Subdevice.readRegister(esc.ALStatusRegister, .al_status, phys_mem);
+    defer Subdevice.writeRegister(self.status, .al_status, phys_mem);
 
     // TODO: implement ethercat state machine
     done: switch (self.status.state) {

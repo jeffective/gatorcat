@@ -77,8 +77,8 @@ pub fn processFrame(self: *Subdevice, frame: *Simulator.Frame) void {
     skip_datagram: for (datagrams) |*datagram| {
         // TODO: operate if address zero
         // increment address field
-        const station_address = readRegister(esc.StationAddressRegister, .station_address, &self.physical_memory);
-        const alias_enabled = readRegister(esc.DLControlRegister, .DL_control, &self.physical_memory).enable_alias_address;
+        const station_address = readRegister(esc.StationAddressRegister, .configured_station_address, &self.physical_memory);
+        const alias_enabled = readRegister(esc.DLControlRegister, .dl_control, &self.physical_memory).enable_alias_address;
         switch (datagram.header.command) {
             .NOP => continue :skip_datagram,
             .BRD, .BWR => |command| {
@@ -171,13 +171,13 @@ pub fn tick(self: *Subdevice) void {
     self.sii.tick(&self.physical_memory, self.eeprom);
 }
 
-pub fn readRegister(comptime T: type, offset: esc.RegisterMap, phys_mem: *const Subdevice.PhysMem) T {
+pub fn readRegister(comptime T: type, offset: esc.Register, phys_mem: *const Subdevice.PhysMem) T {
     const byte_size = wire.packedSize(T);
     const start: usize = @intFromEnum(offset);
     const end: usize = start + byte_size;
     return wire.packFromECatSlice(T, phys_mem[start..end]);
 }
-pub fn writeRegister(pack: anytype, offset: esc.RegisterMap, phys_mem: *Subdevice.PhysMem) void {
+pub fn writeRegister(pack: anytype, offset: esc.Register, phys_mem: *Subdevice.PhysMem) void {
     const byte_size = wire.packedSize(@TypeOf(pack));
     const start: usize = @intFromEnum(offset);
     const end: usize = start + byte_size;

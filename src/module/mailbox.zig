@@ -71,7 +71,7 @@ pub fn writeMailboxOut(
 
     const act_mbx_out = try port.fprdPackWkc(
         esc.SyncManagerAttributes,
-        .{ .station_address = station_address, .offset = @intFromEnum(esc.RegisterMap.SM0) },
+        .{ .station_address = station_address, .offset = @intFromEnum(esc.Register.sm0) },
         recv_timeout_us,
         1,
     );
@@ -173,7 +173,7 @@ pub fn readMailboxIn(
         esc.SyncManagerAttributes,
         .{
             .station_address = station_address,
-            .offset = @intFromEnum(esc.RegisterMap.SM1),
+            .offset = @intFromEnum(esc.Register.sm1),
         },
         recv_timeout_us,
         1,

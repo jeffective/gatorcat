@@ -237,7 +237,7 @@ fn printSubdeviceDetails(
         gcat.esc.DLStatusRegister,
         .{
             .station_address = station_address,
-            .offset = @intFromEnum(gcat.esc.RegisterMap.DL_status),
+            .offset = @intFromEnum(gcat.esc.Register.dl_status),
         },
         recv_timeout_us,
         1,

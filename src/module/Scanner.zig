@@ -35,7 +35,7 @@ pub fn countSubdevices(self: *const Scanner) !u16 {
         esc.ALStatusRegister,
         .{
             .autoinc_address = 0,
-            .offset = @intFromEnum(esc.RegisterMap.AL_status),
+            .offset = @intFromEnum(esc.Register.al_status),
         },
         self.settings.recv_timeout_us,
     );
@@ -56,7 +56,7 @@ pub fn busInit(self: *const Scanner, state_change_timeout_us: u32, subdevice_cou
         },
         .{
             .autoinc_address = 0,
-            .offset = @intFromEnum(esc.RegisterMap.DL_control),
+            .offset = @intFromEnum(esc.Register.dl_control),
         },
         self.settings.recv_timeout_us,
         subdevice_count,
@@ -81,7 +81,7 @@ pub fn busInit(self: *const Scanner, state_change_timeout_us: u32, subdevice_cou
         .{
             .autoinc_address = 0,
             .offset = @intFromEnum(
-                esc.RegisterMap.rx_error_counter,
+                esc.Register.rx_error_counter,
             ),
         },
         self.settings.recv_timeout_us,
@@ -91,7 +91,7 @@ pub fn busInit(self: *const Scanner, state_change_timeout_us: u32, subdevice_cou
     // reset FMMUs
     try self.port.bwrPackWkc(
         std.mem.zeroes(esc.FMMURegister),
-        .{ .autoinc_address = 0, .offset = @intFromEnum(esc.RegisterMap.FMMU0) },
+        .{ .autoinc_address = 0, .offset = @intFromEnum(esc.Register.fmmu0) },
         self.settings.recv_timeout_us,
         subdevice_count,
     );
@@ -99,7 +99,7 @@ pub fn busInit(self: *const Scanner, state_change_timeout_us: u32, subdevice_cou
     // reset SMs
     try self.port.bwrPackWkc(
         std.mem.zeroes(esc.SMRegister),
-        .{ .autoinc_address = 0, .offset = @intFromEnum(esc.RegisterMap.SM0) },
+        .{ .autoinc_address = 0, .offset = @intFromEnum(esc.Register.sm0) },
         self.settings.recv_timeout_us,
         subdevice_count,
     );
@@ -114,7 +114,7 @@ pub fn busInit(self: *const Scanner, state_change_timeout_us: u32, subdevice_cou
         esc.DLControlEnableAliasAddressRegister{
             .enable_alias_address = false,
         },
-        .{ .autoinc_address = 0, .offset = @intFromEnum(esc.RegisterMap.DL_control_enable_alias_address) },
+        .{ .autoinc_address = 0, .offset = @intFromEnum(esc.Register.dl_control_enable_alias_address) },
         self.settings.recv_timeout_us,
         subdevice_count,
     );
@@ -135,7 +135,7 @@ pub fn busInit(self: *const Scanner, state_change_timeout_us: u32, subdevice_cou
         },
         .{
             .autoinc_address = 0,
-            .offset = @intFromEnum(esc.RegisterMap.AL_control),
+            .offset = @intFromEnum(esc.Register.al_control),
         },
         self.settings.recv_timeout_us,
         subdevice_count,
@@ -149,7 +149,7 @@ pub fn busInit(self: *const Scanner, state_change_timeout_us: u32, subdevice_cou
         },
         .{
             .autoinc_address = 0,
-            .offset = @intFromEnum(esc.RegisterMap.SII_access),
+            .offset = @intFromEnum(esc.Register.sii_access),
         },
         self.settings.recv_timeout_us,
         subdevice_count,
@@ -163,7 +163,7 @@ pub fn busInit(self: *const Scanner, state_change_timeout_us: u32, subdevice_cou
         },
         .{
             .autoinc_address = 0,
-            .offset = @intFromEnum(esc.RegisterMap.SII_access),
+            .offset = @intFromEnum(esc.Register.sii_access),
         },
         self.settings.recv_timeout_us,
         subdevice_count,
@@ -180,7 +180,7 @@ pub fn busInit(self: *const Scanner, state_change_timeout_us: u32, subdevice_cou
             },
             .{
                 .autoinc_address = 0,
-                .offset = @intFromEnum(esc.RegisterMap.AL_control),
+                .offset = @intFromEnum(esc.Register.al_control),
             },
             self.settings.recv_timeout_us,
             subdevice_count,
@@ -656,7 +656,7 @@ pub fn broadcastALStatusCheck(
             esc.ALStatusRegister,
             .{
                 .autoinc_address = 0,
-                .offset = @intFromEnum(esc.RegisterMap.AL_status),
+                .offset = @intFromEnum(esc.Register.al_status),
             },
             self.settings.recv_timeout_us,
         );

@@ -65,7 +65,7 @@ pub fn init(
                 .BRD,
                 @bitCast(telegram.PositionAddress{
                     .autoinc_address = 0,
-                    .offset = @intFromEnum(esc.RegisterMap.AL_status),
+                    .offset = @intFromEnum(esc.Register.al_status),
                 }),
                 false,
                 state_check_result.*[0..],
@@ -145,7 +145,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
         },
         .{
             .autoinc_address = 0,
-            .offset = @intFromEnum(esc.RegisterMap.DL_control),
+            .offset = @intFromEnum(esc.Register.dl_control),
         },
         self.settings.recv_timeout_us,
     );
@@ -171,7 +171,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
         .{
             .autoinc_address = 0,
             .offset = @intFromEnum(
-                esc.RegisterMap.rx_error_counter,
+                esc.Register.rx_error_counter,
             ),
         },
         self.settings.recv_timeout_us,
@@ -184,7 +184,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
         .{
             .autoinc_address = 0,
             .offset = @intFromEnum(
-                esc.RegisterMap.FMMU0,
+                esc.Register.fmmu0,
             ),
         },
         self.settings.recv_timeout_us,
@@ -197,7 +197,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
         .{
             .autoinc_address = 0,
             .offset = @intFromEnum(
-                esc.RegisterMap.SM0,
+                esc.Register.sm0,
             ),
         },
         self.settings.recv_timeout_us,
@@ -216,7 +216,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
         },
         .{
             .autoinc_address = 0,
-            .offset = @intFromEnum(esc.RegisterMap.DL_control_enable_alias_address),
+            .offset = @intFromEnum(esc.Register.dl_control_enable_alias_address),
         },
         self.settings.recv_timeout_us,
     );
@@ -238,7 +238,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
         },
         .{
             .autoinc_address = 0,
-            .offset = @intFromEnum(esc.RegisterMap.AL_control),
+            .offset = @intFromEnum(esc.Register.al_control),
         },
         self.settings.recv_timeout_us,
     );
@@ -252,7 +252,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
         },
         .{
             .autoinc_address = 0,
-            .offset = @intFromEnum(esc.RegisterMap.SII_access),
+            .offset = @intFromEnum(esc.Register.sii_access),
         },
         self.settings.recv_timeout_us,
     );
@@ -266,7 +266,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
         },
         .{
             .autoinc_address = 0,
-            .offset = @intFromEnum(esc.RegisterMap.SII_access),
+            .offset = @intFromEnum(esc.Register.sii_access),
         },
         self.settings.recv_timeout_us,
     );
@@ -277,7 +277,7 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
         esc.ALStatusRegister,
         .{
             .autoinc_address = 0,
-            .offset = @intFromEnum(esc.RegisterMap.AL_status),
+            .offset = @intFromEnum(esc.Register.al_status),
         },
         self.settings.recv_timeout_us,
     );
@@ -332,7 +332,7 @@ pub fn busSafeop(self: *MainDevice, change_timeout_us: u32) !void {
         },
         .{
             .autoinc_address = 0,
-            .offset = @intFromEnum(esc.RegisterMap.AL_control),
+            .offset = @intFromEnum(esc.Register.al_control),
         },
         self.settings.recv_timeout_us,
     );
@@ -372,7 +372,7 @@ pub fn busOp(self: *MainDevice, change_timeout_us: u32) !void {
         },
         .{
             .autoinc_address = 0,
-            .offset = @intFromEnum(esc.RegisterMap.AL_control),
+            .offset = @intFromEnum(esc.Register.al_control),
         },
         self.settings.recv_timeout_us,
     );
@@ -504,7 +504,7 @@ pub fn broadcastStateChange(self: *MainDevice, state: esc.ALStateControl, change
         },
         .{
             .autoinc_address = 0,
-            .offset = @intFromEnum(esc.RegisterMap.AL_control),
+            .offset = @intFromEnum(esc.Register.al_control),
         },
         self.settings.recv_timeout_us,
     );
@@ -516,7 +516,7 @@ pub fn broadcastStateChange(self: *MainDevice, state: esc.ALStateControl, change
             esc.ALStatusRegister,
             .{
                 .autoinc_address = 0,
-                .offset = @intFromEnum(esc.RegisterMap.AL_status),
+                .offset = @intFromEnum(esc.Register.al_status),
             },
             self.settings.recv_timeout_us,
         );
@@ -569,7 +569,7 @@ pub fn assignStationAddress(port: *Port, station_address: u16, ring_position: u1
         },
         telegram.PositionAddress{
             .autoinc_address = autoinc_address,
-            .offset = @intFromEnum(esc.RegisterMap.station_address),
+            .offset = @intFromEnum(esc.Register.configured_station_address),
         },
         recv_timeout_us,
         1,

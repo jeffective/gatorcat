@@ -29,16 +29,16 @@ status: esc.SIIControlStatusAddressRegister = .{
 data: esc.SIIDataRegister4Byte = .{ .data = 0 },
 
 pub fn initTick(self: *SII, phys_mem: *sim.Subdevice.PhysMem) void {
-    Subdevice.writeRegister(self.status, esc.RegisterMap.SII_control_status, phys_mem);
-    Subdevice.writeRegister(self.data, esc.RegisterMap.SII_data, phys_mem);
+    Subdevice.writeRegister(self.status, esc.Register.sii_control_status, phys_mem);
+    Subdevice.writeRegister(self.data, esc.Register.sii_data, phys_mem);
 }
 
 // TODO: writable eeprom
 pub fn tick(self: *SII, phys_mem: *sim.Subdevice.PhysMem, eeprom: []const u8) void {
-    defer Subdevice.writeRegister(self.status, esc.RegisterMap.SII_control_status, phys_mem);
-    defer Subdevice.writeRegister(self.data, esc.RegisterMap.SII_data, phys_mem);
+    defer Subdevice.writeRegister(self.status, esc.Register.sii_control_status, phys_mem);
+    defer Subdevice.writeRegister(self.data, esc.Register.sii_data, phys_mem);
 
-    const cmd = Subdevice.readRegister(esc.SIIControlStatusAddressRegister, esc.RegisterMap.SII_control_status, phys_mem);
+    const cmd = Subdevice.readRegister(esc.SIIControlStatusAddressRegister, esc.Register.sii_control_status, phys_mem);
 
     const n_ops: u2 = @intFromBool(cmd.read_operation) + @intFromBool(cmd.write_operation) + @intFromBool(cmd.reload_operation);
     const too_many_ops: bool = n_ops > 1;
