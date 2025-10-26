@@ -9,8 +9,6 @@ services:
     ports:
       - "8080:8080"
     restart: always
-    environment:
-     - PYTHONUNBUFFERED=1
   gatorcat:
     image: ghcr.io/jeffective/gatorcat:0.4.7
     command: run --ifname enx00e04c68191a --plugin-zenoh-config-default --auto-scan-plugin-zenoh-enable --config-file /eni.zon
@@ -27,7 +25,6 @@ services:
       - 7447:7447
       - 8000:8000
     volumes:
-      - ./zenoh_docker:/root/.zenoh
       - /dev/shm/:/dev/shm/
       - /tmp
     environment:

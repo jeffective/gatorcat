@@ -1,3 +1,0 @@
-eclipse-zenoh==1.2.1
-nicegui==2.13.0
-cbor2==5.6.5

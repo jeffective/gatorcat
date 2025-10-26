@@ -2,9 +2,8 @@ const std = @import("std");
 const assert = std.debug.assert;
 const builtin = @import("builtin");
 
+const eni: gcat.ENI = @import("eni.zon");
 const gcat = @import("gatorcat");
-
-const eni = @import("network_config.zig").eni;
 
 pub const std_options: std.Options = .{
     .log_level = .info,
@@ -34,8 +33,7 @@ pub fn main() !void {
     try md.busSafeop(10_000_000);
     try md.busOp(10_000_000);
 
-    std.debug.print("EL2008 PROCESS IMAGE: {}\n", .{md.subdevices[3].runtime_info.pi});
-    std.debug.print("EL7041 PROCESS IMAGE: {}\n", .{md.subdevices[4].runtime_info.pi});
+    std.debug.print("EL2008 PROCESS IMAGE: {}\n", .{md.subdevices[1].runtime_info.pi});
 
     var print_timer = try std.time.Timer.start();
     var blink_timer = try std.time.Timer.start();
@@ -44,20 +42,9 @@ pub fn main() !void {
     var cycle_count: u32 = 0;
 
     const ek1100 = &md.subdevices[0];
-    const el3314 = &md.subdevices[1];
-    const el2008 = &md.subdevices[3];
-    const el7041 = &md.subdevices[4];
-
-    var temps = el3314.packFromInputProcessData(EL3314ProcessData);
-    var motor_control = EL7041Outputs.zero;
-    var motor_status = std.mem.zeroes(EL7041Inputs);
+    const el2008 = &md.subdevices[1];
 
     while (true) {
-
-        // input and output mapping
-        temps = el3314.packFromInputProcessData(EL3314ProcessData);
-        motor_status = el7041.packFromInputProcessData(EL7041Inputs);
-        el7041.packToOutputProcessData(motor_control);
 
         // exchange process data
         const diag = md.sendRecvCyclicFramesDiag() catch |err| switch (err) {
@@ -77,24 +64,18 @@ pub fn main() !void {
             wkc_error_timer.reset();
             std.log.err("process data wkc wrong: {}, expected: {}", .{ diag.process_data_wkc, md.expectedProcessDataWkc() });
         }
-        if (diag.process_data_wkc == md.expectedProcessDataWkc()) std.debug.print("SUCCESS!!!!!!!!!!!!!!\n", .{});
         cycle_count += 1;
 
         // do application
         if (print_timer.read() > std.time.ns_per_s * 1) {
             print_timer.reset();
             std.log.warn("frames/s: {}", .{cycle_count});
-            std.log.warn("temps: {}", .{temps});
-            std.log.warn("motor_status: {}", .{motor_status});
-            std.debug.print("EL2008 PROCESS IMAGE: {}\n", .{md.subdevices[3].runtime_info.pi});
-            std.debug.print("EL7041 PROCESS IMAGE: {}\n", .{md.subdevices[4].runtime_info.pi});
+            @setEvalBranchQuota(30000);
+            var std_out = std.fs.File.stdout().writer(&.{});
+            const writer = &std_out.interface;
+            try std.zon.stringify.serialize(md.getProcessImage(eni), .{}, writer);
+            // std.debug.print("process image: {any}\n", .{md.getProcessImage(eni)});
             cycle_count = 0;
-            if (motor_status.status.ready_to_enable) {
-                motor_control.control_enable = true;
-            } else {
-                motor_control.control_reset = !motor_control.control_reset;
-                motor_control.control_enable = false;
-            }
         }
         if (blink_timer.read() > std.time.ns_per_s * 0.1) {
             blink_timer.reset();
@@ -110,71 +91,3 @@ pub fn main() !void {
         }
     }
 }
-
-const EL3314Channel = packed struct(u32) {
-    underrange: bool,
-    overrange: bool,
-    limit1: u2,
-    limit2: u2,
-    err: bool,
-    _reserved: u7,
-    txpdo_state: bool,
-    txpdo_toggle: bool,
-    value: i16,
-};
-
-const EL3314ProcessData = packed struct {
-    ch1: EL3314Channel,
-    ch2: EL3314Channel,
-    ch3: EL3314Channel,
-    ch4: EL3314Channel,
-};
-
-const EL7041Outputs = packed struct(u64) {
-    control_enable_latch_c: bool,
-    control_enable_latch_extern_pos_edge: bool,
-    control_set_counter: bool,
-    control_enable_latch_extern_neg_edge: bool,
-    reserved: u12 = 0,
-    set_counter_value: u16,
-    control_enable: bool,
-    control_reset: bool,
-    control_reduce_torque: bool,
-    reserved2: u13 = 0,
-    velocity: i16,
-
-    const zero = EL7041Outputs{
-        .control_enable = false,
-        .control_enable_latch_c = false,
-        .control_enable_latch_extern_neg_edge = false,
-        .control_enable_latch_extern_pos_edge = false,
-        .control_reduce_torque = false,
-        .control_reset = false,
-        .control_set_counter = false,
-        .set_counter_value = 0,
-        .velocity = 0,
-    };
-};
-
-const EL7041Inputs = packed struct(u64) {
-    encoder_flags: u16,
-    encoder_value: u16,
-    encoder_latch_value: u16,
-    status: STMStatus,
-
-    const STMStatus = packed struct(u16) {
-        ready_to_enable: bool,
-        ready: bool,
-        warning: bool,
-        @"error": bool,
-        move_pos: bool,
-        move_neg: bool,
-        torque_reduced: bool,
-        reserved: u4 = 0,
-        dig_in_1: bool,
-        dig_in_2: bool,
-        sync_error: bool,
-        reserved2: u1 = 0,
-        tx_pdo_toggle: bool,
-    };
-};

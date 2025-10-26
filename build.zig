@@ -129,54 +129,6 @@ pub fn buildExamples(
     const example_install = b.addInstallArtifact(simple_example, .{});
     step.dependOn(&example_install.step);
     if (target.result.os.tag == .windows) simple_example.linkLibC();
-
-    // example: simple2
-    const simple2_example_mod = b.createModule(.{
-        .root_source_file = b.path("doc/examples/simple2/main.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    const simple2_example = b.addExecutable(.{
-        .name = "simple2",
-        .root_module = simple2_example_mod,
-    });
-    simple2_example.root_module.addImport("gatorcat", gatorcat_module);
-    // using addInstallArtifact here so it only installs for the example step
-    const simple2_install = b.addInstallArtifact(simple2_example, .{});
-    step.dependOn(&simple2_install.step);
-    if (target.result.os.tag == .windows) simple2_example.linkLibC();
-
-    // example: simple3
-    const simple3_example_mod = b.createModule(.{
-        .root_source_file = b.path("doc/examples/simple3/main.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    const simple3_example = b.addExecutable(.{
-        .name = "simple3",
-        .root_module = simple3_example_mod,
-    });
-    simple3_example.root_module.addImport("gatorcat", gatorcat_module);
-    // using addInstallArtifact here so it only installs for the example step
-    const simple3_install = b.addInstallArtifact(simple3_example, .{});
-    step.dependOn(&simple3_install.step);
-    if (target.result.os.tag == .windows) simple3_example.linkLibC();
-
-    // example: simple4
-    const simple4_example_mod = b.createModule(.{
-        .root_source_file = b.path("doc/examples/simple4/main.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    const simple4_example = b.addExecutable(.{
-        .name = "simple4",
-        .root_module = simple4_example_mod,
-    });
-    simple4_example.root_module.addImport("gatorcat", gatorcat_module);
-    // using addInstallArtifact here so it only installs for the example step
-    const simple4_install = b.addInstallArtifact(simple4_example, .{});
-    step.dependOn(&simple4_install.step);
-    if (target.result.os.tag == .windows) simple4_example.linkLibC();
 }
 
 pub fn buildTest(
