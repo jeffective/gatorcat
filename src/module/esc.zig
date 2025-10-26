@@ -101,8 +101,6 @@ pub const PortDescriptor = enum(u2) {
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.1
 pub const DLInformation = packed struct {
-    pub const _address: u16 = 0x0000;
-
     type: u8,
     revision: u8,
     build: u16,
@@ -151,8 +149,6 @@ pub const DLInformation = packed struct {
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.2
 pub const StationAddress = packed struct {
-    pub const _address: u16 = 0x0010;
-
     /// Configured station address to be initialized
     /// by the maindevice at start up.
     configured_station_address: u16,
@@ -161,8 +157,6 @@ pub const StationAddress = packed struct {
 };
 
 pub const ConfiguredStationAddress = packed struct(u16) {
-    pub const _address: u16 = 0x0010;
-
     configured_station_address: u16,
 };
 
@@ -189,7 +183,6 @@ pub const LoopControlSettings = enum(u2) {
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.3
 pub const DLControl = packed struct {
-    pub const _address: u16 = 0x0100;
     /// false:
     /// - ethercat farmes are processed.
     /// - non-ethercat frames are forwarded unmodified.
@@ -220,8 +213,6 @@ pub const DLControl = packed struct {
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.3
 pub const DLControlCompact = packed struct {
-    pub const _address: u16 = 0x0100;
-
     forwarding_rule: bool,
     temporary_loop_control: bool,
     _reserved: u6 = 0,
@@ -235,8 +226,6 @@ pub const DLControlCompact = packed struct {
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.3
 pub const DLControlEnableAliasAddress = packed struct(u8) {
-    pub const _address: u16 = 0x0103;
-
     enable_alias_address: bool,
     _reserved: u7 = 0,
 };
@@ -248,8 +237,6 @@ pub const DLControlEnableAliasAddress = packed struct(u8) {
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.4
 pub const DLStatus = packed struct {
-    pub const _address: u16 = 0x0110;
-
     dls_user_operational: bool,
     dls_user_watchdog_ok: bool,
     extended_link_detection: bool,
@@ -288,8 +275,6 @@ pub const ALStateControl = enum(u4) {
 /// Ref: IEC 61158-4-12:2019 6.1.5.4
 /// Ref: IEC 61158-6-12:2019 5.3.1
 pub const ALControl = packed struct(u16) {
-    pub const _address: u16 = 0x0120;
-
     state: ALStateControl,
     ack: bool,
     request_id: bool,
@@ -374,8 +359,6 @@ pub const ALStateStatus = enum(u4) {
 /// Ref: IEC 61158-4-12:2019 6.1.5.4
 /// Ref: IEC 61158-6-12:2019 5.3.2
 pub const ALStatus = packed struct(u48) {
-    pub const _address: u16 = 0x0130;
-
     state: ALStateStatus, // R3
     err: bool,
     id_loaded: bool,
@@ -392,8 +375,6 @@ pub const ALStatus = packed struct(u48) {
 /// RefL IEC 61158-4-12:2019 6.1.5.4
 /// Ref: IEC 61158-6-12:2019 5.3.4
 pub const PDIControl = packed struct(u16) {
-    pub const _address: u16 = 0x0140;
-
     PDI_type: u8,
     emulated: bool,
     _reserved: u7 = 0,
@@ -410,8 +391,6 @@ pub const PDIControl = packed struct(u16) {
 /// Ref: IEC 61158-4-12:2019 6.1.5.4
 /// Ref: IEC 61158-6-12:2019 5.3.4
 pub const SyncConfiguration = packed struct(u8) {
-    pub const _address = 0x0150; // NOTE: spec is ambiguous!
-
     signal_conditioning_sync0: u2,
     enable_sync0: bool,
     enable_interrupt_sync0: bool,
@@ -428,8 +407,6 @@ pub const SyncConfiguration = packed struct(u8) {
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.6
 pub const DLUserEvent = packed struct(u32) {
-    pub const _address: u16 = 0x0220;
-
     /// event active R1 was written
     /// true on write by maindevice
     /// reset on read by subdevice
@@ -463,8 +440,6 @@ pub const DLUserEvent = packed struct(u32) {
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.6
 pub const DLUserEventMask = packed struct(u32) {
-    pub const _address: u16 = 0x0204;
-
     event_mask: u32,
 };
 
@@ -476,8 +451,6 @@ pub const DLUserEventMask = packed struct(u32) {
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.6
 pub const ExternalEvent = packed struct {
-    pub const _address: u16 = 0x0210;
-
     dc0: bool,
     _reserved: u1 = 0,
     dl_status_change: bool,
@@ -500,8 +473,6 @@ pub const ExternalEvent = packed struct {
 ///
 /// Ref: IEC 61158-4-12:2019 6.1.6
 pub const ExternalEventMask = packed struct {
-    pub const _address: u16 = 0x0200;
-
     event_mask: u16,
 };
 
@@ -514,8 +485,6 @@ pub const ExternalEventMask = packed struct {
 ///
 /// Ref: IEC 61158-4-12:2019 6.2.1
 pub const RXErrorCounter = packed struct {
-    pub const _address: u16 = 0x0300;
-
     port0_frame_errors: u8,
     port0_physical_errors: u8,
     port1_frame_errors: u8,
@@ -534,8 +503,6 @@ pub const RXErrorCounter = packed struct {
 ///
 /// Ref: IEC 61158-4-12:2019 6.2.2
 pub const LostLinkCounter = packed struct {
-    pub const _address: u16 = 0x0310;
-
     port0: u8,
     port1: u8,
     port2: u8,
@@ -555,8 +522,6 @@ pub const LostLinkCounter = packed struct {
 /// The optional local counter counts occurances of local problems (problems within the subdevice). The counter is cleared when written.
 /// The counter stops when the maximum value of 255 is reached.
 pub const AdditionalCounter = packed struct {
-    pub const _address: u16 = 0x0308;
-
     port0_prev_errors: u8,
     port1_prev_errors: u8,
     port2_prev_errors: u8,
@@ -574,8 +539,6 @@ pub const AdditionalCounter = packed struct {
 ///
 /// Ref: IEC 61158-4-12:2019 6.3.1
 pub const WatchdogDivider = packed struct {
-    pub const _address: u16 = 0x0400;
-
     watchdog_divider: u16,
 };
 
@@ -590,8 +553,6 @@ pub const WatchdogDivider = packed struct {
 ///
 /// Ref: IEC 61158-4-12:2019 6.3.2
 pub const DLSUserWatchdog = packed struct {
-    pub const _address: u16 = 0x0410;
-
     dls_user_watchdog: u16,
 };
 
@@ -603,8 +564,6 @@ pub const DLSUserWatchdog = packed struct {
 ///
 /// Ref: IEC 61158-4-12:2019 6.3.3
 pub const SyncMangagerWatchdog = packed struct {
-    pub const _address: u16 = 0x0420;
-
     sync_manager_watchdog: u16,
 };
 
@@ -614,8 +573,6 @@ pub const SyncMangagerWatchdog = packed struct {
 ///
 /// Ref: IEC 61158-4-12:2019 6.3.3
 pub const SyncManagerWatchDogStatus = packed struct {
-    pub const _address: u16 = 0x0440;
-
     watchdog_ok: bool,
     _reserved: u15 = 0,
 };
@@ -628,8 +585,6 @@ pub const SyncManagerWatchDogStatus = packed struct {
 ///
 /// Ref: IEC 61158-4-12:2019 6.3.5
 pub const WatchdogCounter = packed struct {
-    pub const _address: u16 = 0x0442;
-
     sm_watchdog_counter: u8,
     dl_user_watchdog_counter: u8,
 };
