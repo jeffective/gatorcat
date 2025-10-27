@@ -82,6 +82,13 @@ pub const Register = enum(u16) {
     dc_system_time_difference = 0x092c,
     dc_dls_user_parameter = 0x0980,
     dc_sync_activation = 0x0981,
+    dc_sync_pulse = 0x0982,
+    dc_interrupt_status = 0x098e,
+    dc_cyclic_operation_start_time = 0x0990,
+    dc_cycle_time = 0x09a0,
+    dc_latch_trigger = 0x09a8,
+    dc_latch_event = 0x09ae,
+    dc_latch_value = 0x09b0,
 };
 
 pub fn getSMAddr(sm: u4) u16 {
@@ -1272,10 +1279,21 @@ pub const AllSMAttributes = packed struct(u2048) {
 
 // TODO: verify representation of sys time difference
 
-/// DC Settings Register
+/// DC Local Time Parameters
+///
+/// Delay measurement required single-frame time-stamping.
+/// The subdevice provides a means of timestamping the arrival time
+/// at its various ports for a single frame.
+///
+/// The maindevice is expected to assemble this time-stamping
+/// information and the known topology of the network
+/// to measure propagation delays.
+///
+/// A write access to the port0_recv_time_ns field triggers
+/// the subdevice timestamping.
 ///
 /// Ref: IEC 61158-4-12:2019 6.8.5
-pub const DC = packed struct {
+pub const DCLocalTime = packed struct {
     port0_recv_time_ns: u32,
     port1_recv_time_ns: u32,
     port2_recv_time_ns: u32,
@@ -1290,44 +1308,115 @@ pub const DC = packed struct {
     ctrl_loop_p3: u16,
 };
 
-/// DC User Settings Register
-///
-/// Ref: IEC 61158-4-12:2019 6.8.5
-pub const DCUser = packed struct {
-    _reserved: u8 = 0,
-    DC_user_p1: u8,
-    DC_user_p2: u16,
-    DC_user_p13: u8,
-    DC_user_p14: u8,
-    _reserved2: u64 = 0,
-    DC_user_p3: u16,
-    DC_user_p4: u32,
-    _reserved3: u96 = 0,
-    DC_user_p5: u32,
-    DC_user_p6: u32,
-    DC_user_p7: u16,
-    _reserved4: u32 = 0,
-    DC_user_p8: u16,
-    DC_user_p9: u16,
-    _reserved5: u32 = 0,
-    DC_user_p10: u32,
-    _reserved6: u32 = 0,
-    DC_user_p11: u32,
-    _reserved7: u32 = 0,
-    DC_user_p12: u32,
-    _reserved8: u32 = 0,
-};
-
 /// DC Sync Activation Register
 ///
-/// Mapped to DC User P1
+/// Also called DC User P1.
 ///
+/// Ref: IEC 61158-4-12:2019 6.8.5
 /// Ref: IEC 61158-6-12:2019 5.5
-const DCSyncActivation = packed struct(u8) {
+pub const DCSyncActivation = packed struct(u8) {
     enable_cylic_operation: bool,
     generate_sync0: bool,
     generate_sync1: bool,
     reserved: u5 = 0,
+};
+
+/// DC Sync Pulse Register
+///
+/// Taken from SII.
+///
+/// Also called DC User P2.
+///
+/// Ref: IEC 61158-4-12:2019 6.8.5
+/// Ref: IEC 61158-6-12:2019 5.5
+pub const DCSyncPulse = packed struct(u16) {
+    sync_pulse: u16,
+};
+
+/// DC Interrupt Status Register
+///
+/// Also called DC User P3.
+///
+/// Ref: IEC 61158-4-12:2019 6.8.5
+/// Ref: IEC 61158-6-12:2019 5.5
+pub const DCInterrupt = packed struct(u16) {
+    interrupt0_active: bool,
+    _reserved: u7 = 0,
+    interrupt1_active: bool,
+    _reserved2: u7 = 0,
+};
+
+/// DC Cyclic Operation Start Time Register
+///
+/// Also called DC user P4.
+///
+/// Ref: IEC 61158-4-12:2019 6.8.5
+/// Ref: IEC 61158-6-12:2019 5.5
+pub const DCCyclicOperationStartTime = packed struct(u32) {
+    cyclic_operation_start_time_ns: u32,
+};
+
+/// DC Cycle Time Register
+///
+/// Also called DC user P5, P6.
+///
+/// Ref: IEC 61158-4-12:2019 6.8.5
+/// Ref: IEC 61158-6-12:2019 5.5
+pub const DCCycleTime = packed struct(u64) {
+    sync0: u32, // P5
+    sync1: u32, // P6
+};
+
+pub const TriggerMode = enum(u1) {
+    continuous = 0,
+    single = 1,
+};
+
+/// DC Latch Trigger Register
+///
+/// Also called DC User P7.
+///
+/// Ref: IEC 61158-4-12:2019 6.8.5
+/// Ref: IEC 61158-6-12:2019 5.5
+pub const DCLatchTrigger = packed struct(u16) {
+    latch0_positive_edge: TriggerMode, // P7
+    latch0_negative_edge: TriggerMode,
+    _reserved: u6 = 0,
+    latch1_positive_edge: TriggerMode,
+    latch1_negative_edge: TriggerMode,
+    _reserved2: u6 = 0,
+};
+
+/// DC Latch Event Register
+///
+/// Also called DC User P8.
+///
+/// Ref: IEC 61158-4-12:2019 6.8.5
+/// Ref: IEC 61158-6-12:2019 5.5
+pub const DCLatchEvent = packed struct(u16) {
+    latch0_positive_event_stored: bool,
+    latch0_negative_event_stored: bool,
+    _reserved: u6 = 0,
+    latch1_positive_event_stored: bool,
+    latch1_negative_event_stored: bool,
+    _reserved2: u6 = 0,
+};
+
+/// DC Latch Value Register
+///
+/// Also called DC User P9, P10, P11, P12.
+///
+/// Ref: IEC 61158-4-12:2019 6.8.5
+/// Ref: IEC 61158-6-12:2019 5.5
+pub const DCLatchValue = packed struct(u256) {
+    latch0_positive_edge: u32, // P9
+    _reserved: u32 = 0,
+    latch0_negative_edge: u32, // P10
+    _reserved2: u32 = 0,
+    latch1_positive_edge: u32, // P11
+    _reserved3: u32 = 0,
+    latch1_negative_edge: u32, // P12
+    _reserved4: u32 = 0,
 };
 
 test {
