@@ -1316,8 +1316,8 @@ pub const DCLocalTime = packed struct {
 /// Ref: IEC 61158-6-12:2019 5.5
 pub const DCSyncActivation = packed struct(u8) {
     enable_cylic_operation: bool,
-    generate_sync0: bool,
-    generate_sync1: bool,
+    sync0_generate: bool,
+    sync1_generate: bool,
     reserved: u5 = 0,
 };
 
