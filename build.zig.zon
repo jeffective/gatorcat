@@ -5,8 +5,8 @@
     .minimum_zig_version = "0.15.2",
     .dependencies = .{
         .flags = .{
-            .url = "git+https://github.com/jeffective/flags?ref=update-zig-0.15.1#34faaa5b4c58e14d3241c567b4fcdc2e8b36ea24",
-            .hash = "flags-0.10.0-a_9h3pxvAADK9fDQw0ONVfZJNBUViUWBYq8uha0IP9zn",
+            .url = "git+https://github.com/joegm/flags.git#2d62be30ff33661a2a3c6743ac922a78302d78a0",
+            .hash = "flags-0.10.0-a_9h3pxvAAA6wPndlO7ktfrpZUmhQu1y8aDm0lTi5ATR",
         },
         .zenoh = .{
             .url = "git+https://github.com/jeffective/zenoh-zig?ref=main#3ab83ef843ff5d90650919d7572a382a8aea2780",

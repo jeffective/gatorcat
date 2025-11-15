@@ -267,7 +267,7 @@ pub const Normal = struct {
     }
 
     pub fn deserialize(buf: []const u8) !Normal {
-        var reader = std.io.Reader.fixed(buf);
+        var reader = std.Io.Reader.fixed(buf);
         const mbx_header = try wire.packFromECatReader(mailbox.Header, &reader);
         const coe_header = try wire.packFromECatReader(coe.Header, &reader);
         const sdo_header = try wire.packFromECatReader(SDOHeader, &reader);
@@ -1017,7 +1017,7 @@ pub const SDOInfoError = packed struct(u128) {
     }
 
     pub fn deserialize(buf: []const u8) !SDOInfoError {
-        var reader = std.io.Reader.fixed(buf);
+        var reader = std.Io.Reader.fixed(buf);
         return try wire.packFromECatReader(SDOInfoError, &reader);
     }
 

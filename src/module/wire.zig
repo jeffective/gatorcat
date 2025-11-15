@@ -242,7 +242,7 @@ test "packFromECat" {
     );
 }
 
-/// A bit reader with an API loosely similar to std.io.bitReader, but with some customizations
+/// A bit reader with an API loosely similar to std.Io.bitReader, but with some customizations
 /// to our use case:
 ///
 /// - only supports little endian

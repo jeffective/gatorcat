@@ -86,7 +86,7 @@ pub const Expedited = packed struct(u128) {
         };
 
         var data_buf = std.mem.zeroes([4]u8);
-        var writer = std.io.Writer.fixed(&data_buf);
+        var writer = std.Io.Writer.fixed(&data_buf);
         writer.writeAll(data) catch unreachable;
 
         return Expedited{

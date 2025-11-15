@@ -243,7 +243,7 @@ pub const InContent = union(enum) {
 
     /// identifiy the content of the mailbox in buffer
     pub fn identify(buf: []const u8) !std.meta.Tag(InContent) {
-        var reader = std.io.Reader.fixed(buf);
+        var reader = std.Io.Reader.fixed(buf);
         const mbx_header = wire.packFromECatReader(Header, &reader) catch return error.InvalidMbxContent;
 
         return switch (mbx_header.type) {
