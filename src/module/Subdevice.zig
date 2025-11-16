@@ -275,11 +275,11 @@ pub fn transitionIP(
 
             var did_mailbox_sm: bool = false;
             if (sii_sms.len > 1 and
-                sii_sms.data[0].syncM_type == .mailbox_out and
-                sii_sms.data[1].syncM_type == .mailbox_in)
+                sii_sms.get(0).syncM_type == .mailbox_out and
+                sii_sms.get(1).syncM_type == .mailbox_in)
             {
-                sms.sm0 = sii.escSMFromSIISM(sii_sms.data[0]);
-                sms.sm1 = sii.escSMFromSIISM(sii_sms.data[1]);
+                sms.sm0 = sii.escSMFromSIISM(sii_sms.get(0));
+                sms.sm1 = sii.escSMFromSIISM(sii_sms.get(1));
                 did_mailbox_sm = true;
             } else if (info.std_recv_mbx_offset > 0 and
                 info.std_recv_mbx_size > 0 and

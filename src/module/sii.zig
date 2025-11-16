@@ -350,13 +350,7 @@ pub fn escSMsFromSIISMs(sii_sms: []const SyncM) esc.AllSMAttributes {
     return res;
 }
 
-pub const SIIString = struct {
-    data: [255]u8 = undefined,
-    len: u8 = 0,
-    pub fn slice(self: *const SIIString) []const u8 {
-        return self.data[0..self.len];
-    }
-};
+pub const SIIString = stdx.ConstBoundedArray(u8, 255);
 
 pub fn readSIIString(
     port: *Port,
@@ -413,7 +407,7 @@ pub fn readSIIString(
         }
     }
     var arr = SIIString{};
-    @memcpy(arr.data[0..str_len], string_buf[0..str_len]);
+    @memcpy(arr.buffer[0..str_len], string_buf[0..str_len]);
     arr.len = str_len;
     logger.debug("station addr: 0x{x}, read SII string index {}: {s}", .{ station_address, index, arr.slice() });
     return arr;
@@ -424,18 +418,7 @@ pub fn readSIIString(
 /// Ref: IEC 61158-4-12:2019 6.6.1
 pub const max_fmmu = 16;
 
-pub const FMMUCatagory = struct {
-    data: [max_fmmu]FMMUFunction = undefined,
-    len: u5 = 0,
-
-    comptime {
-        assert(std.math.maxInt(u5) >= max_fmmu);
-    }
-
-    pub fn slice(self: *const FMMUCatagory) []const FMMUFunction {
-        return self.data[0..self.len];
-    }
-};
+pub const FMMUCatagory = stdx.ConstBoundedArray(FMMUFunction, max_fmmu);
 
 pub fn readFMMUCatagory(
     port: *Port,
@@ -462,7 +445,7 @@ pub fn readFMMUCatagory(
         assert(res.len == 0);
         return res;
     }
-    if (n_fmmu > max_fmmu) {
+    if (n_fmmu > res.capacity()) {
         return error.InvalidSII;
     }
 
@@ -477,12 +460,12 @@ pub fn readFMMUCatagory(
     );
     const reader = &stream.reader;
 
-    assert(n_fmmu <= max_fmmu);
+    assert(n_fmmu <= res.capacity());
     for (0..n_fmmu) |i| {
         const fmmu_function = try wire.packFromECatReader(FMMUFunction, reader);
-        res.data[i] = fmmu_function;
+        res.buffer[i] = fmmu_function;
     }
-    res.len = @intCast(n_fmmu);
+    res.len = n_fmmu;
     return res;
 }
 
@@ -491,18 +474,7 @@ pub fn readFMMUCatagory(
 /// Ref: IEC 61158-6-12:2019 6.7.2
 pub const max_sm = 32;
 
-pub const SMCatagory = struct {
-    data: [max_sm]SyncM = undefined,
-    len: u6 = 0,
-
-    comptime {
-        assert(std.math.maxInt(u6) >= max_sm);
-    }
-
-    pub fn slice(self: *const SMCatagory) []const SyncM {
-        return self.data[0..self.len];
-    }
-};
+pub const SMCatagory = stdx.ConstBoundedArray(SyncM, max_sm);
 
 pub fn readSMCatagory(
     port: *Port,
@@ -518,11 +490,12 @@ pub fn readSMCatagory(
         eeprom_timeout_us,
     )) orelse return SMCatagory{};
     const n_sm: u17 = std.math.divExact(u17, catagory.byte_length, @divExact(@bitSizeOf(SyncM), 8)) catch return error.InvalidSII;
+    var res = SMCatagory{};
     if (n_sm == 0) {
-        return SMCatagory{};
+        return res;
     }
     assert(n_sm > 0);
-    if (n_sm > max_sm) {
+    if (n_sm > res.capacity()) {
         return error.InvalidSII;
     }
     var buffer: [1024]u8 = undefined;
@@ -534,13 +507,12 @@ pub fn readSMCatagory(
         eeprom_timeout_us,
         &buffer,
     );
-    var res = SMCatagory{};
 
-    assert(n_sm <= max_sm);
+    assert(n_sm <= res.capacity());
     for (0..n_sm) |i| {
-        res.data[i] = wire.packFromECatReader(SyncM, &stream.reader) catch return error.InvalidSII;
+        res.buffer[i] = wire.packFromECatReader(SyncM, &stream.reader) catch return error.InvalidSII;
     }
-    res.len = @intCast(n_sm);
+    res.len = n_sm;
     return res;
 }
 
@@ -736,9 +708,8 @@ pub fn readPDOs(
             },
             .entries => {
                 const entry = try wire.packFromECatReader(PDO.Entry, reader);
-                entries.append(entry) catch |err| switch (err) {
-                    error.Overflow => unreachable, // see length check in .pdo_header
-                };
+                entries.appendAssumeCapacity(entry); // see length check in .pdo_header
+
                 entries_remaining -= 1;
                 if (entries_remaining == 0) {
                     try pdos.append(allocator, .{ .header = pdo_header, .entries = entries });

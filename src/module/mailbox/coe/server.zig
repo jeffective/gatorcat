@@ -713,7 +713,7 @@ pub const GetODListResponse = struct {
     list_type: coe.ODListType,
     index_list: IndexList,
 
-    pub const IndexList = stdx.BoundedArray(u16, index_list_max_length);
+    pub const IndexList = stdx.ConstBoundedArray(u16, index_list_max_length);
     pub const index_list_max_length = 1024; // TODO: this length is arbitrary
 
     fn eq(self: GetODListResponse, operand: GetODListResponse) bool {
@@ -742,9 +742,12 @@ pub const GetODListResponse = struct {
         const bytes_remaining = reader.end - reader.seek;
         if (bytes_remaining % 2 != 0) return error.InvalidServiceData;
         if (bytes_remaining / 2 > index_list_max_length) return error.StreamTooLong;
-        for (0..bytes_remaining / 2) |_| {
-            index_list.append(wire.packFromECatReader(u16, &reader) catch unreachable) catch unreachable;
+        assert(bytes_remaining / 2 <= index_list.capacity());
+        for (0..bytes_remaining / 2) |i| {
+            // reading from slice is infailable
+            index_list.buffer[i] = wire.packFromECatReader(u16, &reader) catch unreachable;
         }
+        index_list.len = bytes_remaining / 2;
         return GetODListResponse{
             .list_type = list_type,
             .index_list = index_list,

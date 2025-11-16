@@ -697,18 +697,8 @@ pub const SMComm = enum(u8) {
     _,
 };
 
-pub const SMComms = struct {
-    data: [max_sm]SMComm = undefined,
-    len: u6 = 0,
-
-    comptime {
-        assert(std.math.maxInt(u6) >= max_sm);
-    }
-
-    pub fn slice(self: *const SMComms) []const SMComm {
-        return self.data[0..self.len];
-    }
-};
+/// Ref: IEC 61158-6-12:2019 5.6.7.4.9
+pub const SMComms = stdx.ConstBoundedArray(SMComm, max_sm);
 
 pub fn readSMComms(
     port: *Port,
@@ -739,7 +729,7 @@ pub fn readSMComms(
     assert(n_sm <= max_sm);
     var sm_comms = SMComms{};
     for (0..n_sm) |sm_idx| {
-        sm_comms.data[sm_idx] = try sdoReadPack(
+        sm_comms.buffer[sm_idx] = try sdoReadPack(
             port,
             station_address,
             @intFromEnum(CommunicationAreaMap.sync_manager_communication_type),
@@ -769,20 +759,7 @@ pub fn isValidPDOIndex(index: u16) bool {
 /// Note: the spec uses both the terms "channel" and "PDO assignment"
 /// to refer to this structure. Its purpose is to assign PDOs to this
 /// sync manager.
-pub const SMChannel = struct {
-    data: [max_pdo_mapping]u16 = undefined,
-    len: u8 = 0,
-
-    const max_pdo_mapping = 254;
-
-    comptime {
-        assert(std.math.maxInt(u8) >= max_pdo_mapping);
-    }
-
-    pub fn slice(self: *const SMChannel) []const u16 {
-        return self.data[0..self.len];
-    }
-};
+pub const SMChannel = stdx.ConstBoundedArray(u16, 254);
 
 pub fn readSMChannel(
     port: *Port,
@@ -807,14 +784,12 @@ pub fn readSMChannel(
         cnt.nextCnt(),
         config,
     );
-
-    if (n_pdo > SMChannel.max_pdo_mapping) {
+    var channel = SMChannel{};
+    if (n_pdo > channel.capacity()) {
         logger.err("station_addr: {} returned invalid n pdos: {} for sm_idx: {}", .{ station_address, n_pdo, sm_idx });
         return error.InvalidCoE;
     }
-
-    assert(n_pdo <= SMChannel.max_pdo_mapping);
-    var channel = SMChannel{};
+    assert(n_pdo <= channel.capacity());
     for (0..n_pdo) |i| {
         const pdo_index = try sdoReadPack(
             port,
@@ -832,7 +807,7 @@ pub fn readSMChannel(
             logger.err("station_addr: {} returned invalid pdo_index: {} for n_pdo: {}, sm_idx: {}", .{ station_address, pdo_index, i, sm_idx });
             return error.InvalidCoE;
         }
-        channel.data[i] = pdo_index;
+        channel.buffer[i] = pdo_index;
     }
     channel.len = @intCast(n_pdo);
     return channel;
@@ -957,18 +932,9 @@ pub const max_sm = 32;
 ///
 /// Ref: IEC 61158-6-12:2019 5.6.7.4.7
 pub const PDOMapping = struct {
-    data: [max_entries]Entry = undefined,
-    len: u8 = 0,
+    entries: stdx.ConstBoundedArray(Entry, max_entries) = .{},
 
     const max_entries = 254;
-
-    comptime {
-        assert(std.math.maxInt(u8) >= max_entries);
-    }
-
-    pub fn slice(self: *const PDOMapping) []const Entry {
-        return self.data[0..self.len];
-    }
 
     /// PDO Mapping Entry
     ///
@@ -992,7 +958,7 @@ pub const PDOMapping = struct {
 
     pub fn bitLength(self: PDOMapping) u32 {
         var bit_length: u32 = 0;
-        for (self.slice()) |entry| {
+        for (self.entries.slice()) |entry| {
             bit_length += entry.bit_length;
         }
         return bit_length;
@@ -1031,7 +997,7 @@ pub fn readPDOMapping(
 
     assert(n_entries <= PDOMapping.max_entries);
     for (0..n_entries) |i| {
-        entries.data[i] = try sdoReadPack(
+        entries.entries.buffer[i] = try sdoReadPack(
             port,
             station_address,
             index,
@@ -1045,7 +1011,7 @@ pub fn readPDOMapping(
             config,
         );
     }
-    entries.len = @intCast(n_entries);
+    entries.entries.len = n_entries;
     return entries;
 }
 
@@ -1084,7 +1050,7 @@ pub fn readSMPDOAssigns(
 
                 for (sm_pdo_assignment.slice()) |pdo_index| {
                     const pdo_mapping = try mailbox.coe.readPDOMapping(port, station_address, recv_timeout_us, mbx_timeout_us, cnt, config, pdo_index);
-                    for (pdo_mapping.slice()) |entry| {
+                    for (pdo_mapping.entries.slice()) |entry| {
                         res.addPDOBitsToSM(
                             entry.bit_length,
                             @intCast(sm_idx),
