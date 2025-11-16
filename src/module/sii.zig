@@ -433,7 +433,7 @@ pub const FMMUCatagory = struct {
     }
 
     pub fn slice(self: *const FMMUCatagory) []FMMUFunction {
-        return self.fmmu_functions[0..self.len];
+        return self.data[0..self.len];
     }
 };
 
@@ -490,7 +490,19 @@ pub fn readFMMUCatagory(
 ///
 /// Ref: IEC 61158-6-12:2019 6.7.2
 pub const max_sm = 32;
-pub const SMCatagory = stdx.BoundedArray(SyncM, max_sm);
+
+pub const SMCatagory = struct {
+    data: [max_sm]SyncM = undefined,
+    len: u6 = 0,
+
+    comptime {
+        assert(std.math.maxInt(u6) >= max_sm);
+    }
+
+    pub fn slice(self: *const SMCatagory) []const SyncM {
+        return self.data[0..self.len];
+    }
+};
 
 pub fn readSMCatagory(
     port: *Port,
@@ -510,6 +522,9 @@ pub fn readSMCatagory(
         return SMCatagory{};
     }
     assert(n_sm > 0);
+    if (n_sm > max_sm) {
+        return error.InvalidSII;
+    }
     var buffer: [1024]u8 = undefined;
     var stream = SIIStream.init(
         port,
@@ -520,15 +535,12 @@ pub fn readSMCatagory(
         &buffer,
     );
     var res = SMCatagory{};
-    if (n_sm > max_sm) {
-        return error.InvalidSII;
-    }
+
     assert(n_sm <= max_sm);
-    for (0..n_sm) |_| {
-        res.append(wire.packFromECatReader(SyncM, &stream.reader) catch return error.InvalidSII) catch |err| switch (err) {
-            error.Overflow => unreachable,
-        };
+    for (0..n_sm) |i| {
+        res.data[i] = wire.packFromECatReader(SyncM, &stream.reader) catch return error.InvalidSII;
     }
+    res.len = @intCast(n_sm);
     return res;
 }
 
