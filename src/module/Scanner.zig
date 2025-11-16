@@ -429,7 +429,7 @@ pub fn readSubdeviceConfigurationLeaky(
                 var entries = std.ArrayList(ENI.SubdeviceConfiguration.PDO.Entry).empty;
                 defer entries.deinit(allocator);
 
-                for (pdo_mapping.entries.slice()) |entry| {
+                for (pdo_mapping.slice()) |entry| {
                     if (entry.isGap()) {
                         try entries.append(allocator, ENI.SubdeviceConfiguration.PDO.Entry{
                             .description = null,

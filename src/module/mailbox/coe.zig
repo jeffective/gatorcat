@@ -697,7 +697,18 @@ pub const SMComm = enum(u8) {
     _,
 };
 
-pub const SMComms = stdx.BoundedArray(SMComm, max_sm);
+pub const SMComms = struct {
+    data: [max_sm]SMComm = undefined,
+    len: u6 = 0,
+
+    comptime {
+        assert(std.math.maxInt(u6) >= max_sm);
+    }
+
+    pub fn slice(self: *const SMComms) []const SMComm {
+        return self.data[0..self.len];
+    }
+};
 
 pub fn readSMComms(
     port: *Port,
@@ -720,15 +731,15 @@ pub fn readSMComms(
         config,
     );
 
-    if (n_sm > 32) {
+    if (n_sm > max_sm) {
         logger.err("station_addr: {} has invalid number of sync managers: {}", .{ station_address, n_sm });
         return error.InvalidCoE;
     }
 
-    assert(n_sm <= 32);
+    assert(n_sm <= max_sm);
     var sm_comms = SMComms{};
     for (0..n_sm) |sm_idx| {
-        sm_comms.append(try sdoReadPack(
+        sm_comms.data[sm_idx] = try sdoReadPack(
             port,
             station_address,
             @intFromEnum(CommunicationAreaMap.sync_manager_communication_type),
@@ -739,8 +750,9 @@ pub fn readSMComms(
             mbx_timeout_us,
             cnt.nextCnt(),
             config,
-        )) catch unreachable; // length already checked
+        );
     }
+    sm_comms.len = @intCast(n_sm);
     return sm_comms;
 }
 
@@ -757,7 +769,20 @@ pub fn isValidPDOIndex(index: u16) bool {
 /// Note: the spec uses both the terms "channel" and "PDO assignment"
 /// to refer to this structure. Its purpose is to assign PDOs to this
 /// sync manager.
-pub const SMChannel = stdx.BoundedArray(u16, 254);
+pub const SMChannel = struct {
+    data: [max_pdo_mapping]u16 = undefined,
+    len: u8 = 0,
+
+    const max_pdo_mapping = 254;
+
+    comptime {
+        assert(std.math.maxInt(u8) >= max_pdo_mapping);
+    }
+
+    pub fn slice(self: *const SMChannel) []const u16 {
+        return self.data[0..self.len];
+    }
+};
 
 pub fn readSMChannel(
     port: *Port,
@@ -783,12 +808,12 @@ pub fn readSMChannel(
         config,
     );
 
-    if (n_pdo > 254) {
+    if (n_pdo > SMChannel.max_pdo_mapping) {
         logger.err("station_addr: {} returned invalid n pdos: {} for sm_idx: {}", .{ station_address, n_pdo, sm_idx });
         return error.InvalidCoE;
     }
 
-    assert(n_pdo <= 254);
+    assert(n_pdo <= SMChannel.max_pdo_mapping);
     var channel = SMChannel{};
     for (0..n_pdo) |i| {
         const pdo_index = try sdoReadPack(
@@ -807,8 +832,9 @@ pub fn readSMChannel(
             logger.err("station_addr: {} returned invalid pdo_index: {} for n_pdo: {}, sm_idx: {}", .{ station_address, pdo_index, i, sm_idx });
             return error.InvalidCoE;
         }
-        channel.append(pdo_index) catch unreachable; // length already checked
+        channel.data[i] = pdo_index;
     }
+    channel.len = @intCast(n_pdo);
     return channel;
 }
 
@@ -931,9 +957,18 @@ pub const max_sm = 32;
 ///
 /// Ref: IEC 61158-6-12:2019 5.6.7.4.7
 pub const PDOMapping = struct {
-    entries: Entries,
+    data: [max_entries]Entry = undefined,
+    len: u8 = 0,
 
-    pub const Entries = stdx.BoundedArray(Entry, 254);
+    const max_entries = 254;
+
+    comptime {
+        assert(std.math.maxInt(u8) >= max_entries);
+    }
+
+    pub fn slice(self: *const PDOMapping) []const Entry {
+        return self.data[0..self.len];
+    }
 
     /// PDO Mapping Entry
     ///
@@ -957,7 +992,7 @@ pub const PDOMapping = struct {
 
     pub fn bitLength(self: PDOMapping) u32 {
         var bit_length: u32 = 0;
-        for (self.entries.slice()) |entry| {
+        for (self.slice()) |entry| {
             bit_length += entry.bit_length;
         }
         return bit_length;
@@ -988,15 +1023,15 @@ pub fn readPDOMapping(
         config,
     );
 
-    var entries = PDOMapping.Entries{};
-    if (n_entries > entries.capacity()) {
+    var entries = PDOMapping{};
+    if (n_entries > PDOMapping.max_entries) {
         logger.err("station_addr: {} reported invalid number of COE entries: {} for index: {}", .{ station_address, n_entries, index });
         return error.InvalidCoE;
     }
 
-    assert(n_entries <= entries.capacity());
+    assert(n_entries <= PDOMapping.max_entries);
     for (0..n_entries) |i| {
-        entries.append(try sdoReadPack(
+        entries.data[i] = try sdoReadPack(
             port,
             station_address,
             index,
@@ -1008,10 +1043,10 @@ pub fn readPDOMapping(
             mbx_timeout_us,
             cnt.nextCnt(),
             config,
-        )) catch unreachable;
+        );
     }
-
-    return PDOMapping{ .entries = entries };
+    entries.len = @intCast(n_entries);
+    return entries;
 }
 
 pub fn readSMPDOAssigns(
@@ -1049,7 +1084,7 @@ pub fn readSMPDOAssigns(
 
                 for (sm_pdo_assignment.slice()) |pdo_index| {
                     const pdo_mapping = try mailbox.coe.readPDOMapping(port, station_address, recv_timeout_us, mbx_timeout_us, cnt, config, pdo_index);
-                    for (pdo_mapping.entries.slice()) |entry| {
+                    for (pdo_mapping.slice()) |entry| {
                         res.addPDOBitsToSM(
                             entry.bit_length,
                             @intCast(sm_idx),

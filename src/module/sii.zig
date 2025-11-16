@@ -432,7 +432,7 @@ pub const FMMUCatagory = struct {
         assert(std.math.maxInt(u5) >= max_fmmu);
     }
 
-    pub fn slice(self: *const FMMUCatagory) []FMMUFunction {
+    pub fn slice(self: *const FMMUCatagory) []const FMMUFunction {
         return self.data[0..self.len];
     }
 };
