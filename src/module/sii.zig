@@ -423,7 +423,19 @@ pub fn readSIIString(
 ///
 /// Ref: IEC 61158-4-12:2019 6.6.1
 pub const max_fmmu = 16;
-pub const FMMUCatagory = stdx.BoundedArray(FMMUFunction, max_fmmu);
+
+pub const FMMUCatagory = struct {
+    data: [max_fmmu]FMMUFunction = undefined,
+    len: u5 = 0,
+
+    comptime {
+        assert(std.math.maxInt(u5) >= max_fmmu);
+    }
+
+    pub fn slice(self: *const FMMUCatagory) []FMMUFunction {
+        return self.fmmu_functions[0..self.len];
+    }
+};
 
 pub fn readFMMUCatagory(
     port: *Port,
@@ -450,6 +462,10 @@ pub fn readFMMUCatagory(
         assert(res.len == 0);
         return res;
     }
+    if (n_fmmu > max_fmmu) {
+        return error.InvalidSII;
+    }
+
     var buffer: [1024]u8 = undefined;
     var stream = SIIStream.init(
         port,
@@ -461,16 +477,12 @@ pub fn readFMMUCatagory(
     );
     const reader = &stream.reader;
 
-    if (n_fmmu > max_fmmu) {
-        return error.InvalidSII;
-    }
     assert(n_fmmu <= max_fmmu);
-    for (0..n_fmmu) |_| {
+    for (0..n_fmmu) |i| {
         const fmmu_function = try wire.packFromECatReader(FMMUFunction, reader);
-        res.append(fmmu_function) catch |err| switch (err) {
-            error.Overflow => unreachable,
-        };
+        res.data[i] = fmmu_function;
     }
+    res.len = @intCast(n_fmmu);
     return res;
 }
 
