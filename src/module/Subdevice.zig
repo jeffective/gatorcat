@@ -465,14 +465,14 @@ pub fn transitionPS(
             logger.info("station addr: 0x{x}, inputs_bit_length: {}", .{ station_address, totals.inputs_bit_length });
             logger.info("station addr: 0x{x}, outputs_bit_length: {}", .{ station_address, totals.outputs_bit_length });
 
-            const fmmu_config = try sii.FMMUConfiguration.initFromSMPDOAssigns(
+            const fmmu_config = try FMMUConfiguration.initFromSMPDOAssigns(
                 sm_assigns,
                 .{ .start_addr = fmmu_inputs_start_addr, .bit_length = totals.inputs_bit_length },
                 .{ .start_addr = fmmu_outputs_start_addr, .bit_length = totals.outputs_bit_length },
             );
-            logger.info("station addr: 0x{x}, n_FMMU: {}, FMMU config: {any}", .{ station_address, fmmu_config.data.slice().len, fmmu_config.data.slice() });
+            logger.info("station addr: 0x{x}, nFMMUs: {}, FMMU config: {any}", .{ station_address, fmmu_config.nUsed(), fmmu_config.fmmus });
             // TODO: Sort FMMUs according to order defined in SII
-            if (fmmu_config.data.slice().len > fmmus.len) return error.BusConfigurationMismatch;
+            if (fmmu_config.nUsed() > fmmus.len) return error.BusConfigurationMismatch;
 
             // write fmmu configuration
             try port.fpwrPackWkc(
@@ -638,6 +638,130 @@ pub fn packFromInputProcessData(self: *const Subdevice, comptime T: type) T {
 pub fn packToOutputProcessData(self: *const Subdevice, pack: anytype) void {
     @memcpy(self.getOutputProcessData(), &wire.eCatFromPack(pack));
 }
+
+pub const FMMUConfiguration = struct {
+    fmmus: esc.FMMUArray,
+    inputs_area: pdi.LogicalMemoryArea,
+    outputs_area: pdi.LogicalMemoryArea,
+
+    pub fn initFromSMPDOAssigns(
+        sm_assigns: sii.SMPDOAssigns,
+        inputs_area: pdi.LogicalMemoryArea,
+        outputs_area: pdi.LogicalMemoryArea,
+    ) !FMMUConfiguration {
+        const totals = sm_assigns.totalBitLengths();
+        if (totals.inputs_bit_length != inputs_area.bit_length) return error.BusConfigurationMismatch;
+        if (totals.outputs_bit_length != outputs_area.bit_length) return error.BusConfigurationMismatch;
+
+        var res = FMMUConfiguration{
+            .fmmus = @splat(.unused),
+            .inputs_area = inputs_area,
+            .outputs_area = outputs_area,
+        };
+
+        for (sm_assigns.data.slice()) |sm_assign| {
+            if (sm_assign.pdo_bit_length > 0) res.addSM(sm_assign) catch |err| switch (err) {
+                error.Overflow => return error.BusConfigurationMismatch, // not enough FMMUs
+            };
+        }
+        return res;
+    }
+
+    pub fn addSM(self: *FMMUConfiguration, sm_assign: sii.SMPDOAssign) !void {
+        // Find if an existing FMMU can be used, else make one.
+        // Existing FMMU can be used if sync manager lines up with end of FMMU
+        // (FMMU can be extented to cover both SMs).
+        search_for_usable_fmmu: for (&self.fmmus) |*fmmu| {
+            if (fmmu.* == esc.FMMUAttributes.unused) continue;
+            assert(fmmu.* != esc.FMMUAttributes.unused);
+            // all FMMUs are byte-aligned (for simplicity)
+            assert(fmmu.physical_start_bit == 0);
+            assert(fmmu.logical_start_bit == 0);
+            // fmmu must be read or write, not both
+            assert(!(fmmu.write_enable and fmmu.read_enable));
+            // fmmu must be enabled
+            assert(fmmu.enable);
+            // since sync managers are byte aligned, I guess fmmu better be too if we want
+            // to add on to the end of it.
+            if (fmmu.physical_start_address + fmmu.length == sm_assign.start_addr and
+                fmmu.bitLength() % 8 == 0 and
+                fmmu.enable and
+                ((fmmu.read_enable and sm_assign.direction == .input) or
+                    (fmmu.write_enable and sm_assign.direction == .output)))
+            {
+                fmmu.addBits(sm_assign.pdo_bit_length);
+                break :search_for_usable_fmmu;
+            }
+        } else {
+            // need fresh fmmu, bit pack the new one next to the last one in the logical memory
+            // or make a new one
+            const maybe_last_fmmu: ?esc.FMMUAttributes = blk: {
+                for (self.fmmus) |fmmu| {
+                    if (fmmu == esc.FMMUAttributes.unused) continue;
+                    if ((fmmu.read_enable and sm_assign.direction == .input) or
+                        (fmmu.write_enable and sm_assign.direction == .output))
+                    {
+                        break :blk fmmu;
+                    }
+                } else break :blk null;
+            };
+            if (maybe_last_fmmu) |last_fmmu| {
+                const new_fmmu = esc.FMMUAttributes.initNeighbor(
+                    last_fmmu,
+                    sm_assign.direction,
+                    sm_assign.start_addr,
+                    0,
+                    sm_assign.pdo_bit_length,
+                );
+                // append new fmmu
+                for (&self.fmmus) |*fmmu| {
+                    if (fmmu.* == esc.FMMUAttributes.unused) {
+                        fmmu.* = new_fmmu;
+                        break;
+                    }
+                } else return error.Overflow;
+            } else {
+                const new_fmmu = esc.FMMUAttributes.init(
+                    sm_assign.direction,
+                    switch (sm_assign.direction) {
+                        .input => self.inputs_area.start_addr,
+                        .output => self.outputs_area.start_addr,
+                    },
+                    0,
+                    sm_assign.pdo_bit_length,
+                    sm_assign.start_addr,
+                    0,
+                );
+                // append new fmmu
+                for (&self.fmmus) |*fmmu| {
+                    if (fmmu.* == esc.FMMUAttributes.unused) {
+                        fmmu.* = new_fmmu;
+                        break;
+                    }
+                } else return error.Overflow;
+            }
+        }
+    }
+
+    pub fn dumpFMMURegister(self: *const FMMUConfiguration) esc.AllFMMUAttributes {
+        var res = std.mem.zeroes(esc.AllFMMUAttributes);
+        for (self.fmmus, 0..) |fmmu, i| {
+            if (fmmu == esc.FMMUAttributes.unused) continue;
+            res.writeFMMUConfig(fmmu, @intCast(i));
+        }
+        return res;
+    }
+
+    pub fn nUsed(self: FMMUConfiguration) u5 {
+        var res: u5 = 0;
+        for (self.fmmus) |fmmu| {
+            if (fmmu != esc.FMMUAttributes.unused) {
+                res += 1;
+            }
+        }
+        return res;
+    }
+};
 
 test {
     std.testing.refAllDecls(@This());

@@ -778,6 +778,8 @@ pub const FMMUAttributes = packed struct(u128) {
     _reserved5: u7 = 0,
     _reserved6: u24 = 0,
 
+    pub const unused = std.mem.zeroes(FMMUAttributes);
+
     pub fn init(
         direction: esc.SyncManagerDirection,
         logical_start_address: u32,
@@ -811,7 +813,7 @@ pub const FMMUAttributes = packed struct(u128) {
 
     /// given an FMMU, init an FMMU next to it.
     pub fn initNeighbor(
-        self: *const FMMUAttributes,
+        self: FMMUAttributes,
         direction: esc.SyncManagerDirection,
         physical_start_address: u16,
         physical_start_bit: u3,
@@ -978,7 +980,7 @@ test "FMMUAttributes addBits" {
 /// Ref: IEC 61158-4-12:2019 6.6.2
 pub const max_fmmu = 16;
 
-pub const FMMUArray = stdx.BoundedArray(FMMUAttributes, max_fmmu);
+pub const FMMUArray = [16]FMMUAttributes;
 
 /// FMMU Register
 ///
@@ -1002,6 +1004,8 @@ pub const AllFMMUAttributes = packed struct {
     fmmu13: FMMUAttributes,
     fmmu14: FMMUAttributes,
     fmmu15: FMMUAttributes,
+
+    pub const zeros = std.mem.zeroes(AllFMMUAttributes);
 
     pub fn writeFMMUConfig(self: *AllFMMUAttributes, config: FMMUAttributes, fmmu_idx: u4) void {
         switch (fmmu_idx) {
