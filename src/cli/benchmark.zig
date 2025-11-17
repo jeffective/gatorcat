@@ -22,6 +22,9 @@ pub const Args = struct {
 };
 
 pub fn benchmark(args: Args) !void {
+    var io_impl = std.Io.Threaded.init_single_threaded;
+    const io = io_impl.io();
+
     var raw_socket = try gcat.nic.RawSocket.init(args.ifname);
     defer raw_socket.deinit();
 
@@ -70,7 +73,7 @@ pub fn benchmark(args: Args) !void {
         try port.ping(args.recv_timeout_us);
         n_cycles += 1;
 
-        gcat.sleepUntilNextCycle(first_cycle_time, args.cycle_time_us);
+        try gcat.sleepUntilNextCycle(io, first_cycle_time, args.cycle_time_us);
         const cycle_time_ns = cycle_timer.read();
         cycle_timer.reset();
         if (cycle_time_ns > max_cycle_time_ns) {
