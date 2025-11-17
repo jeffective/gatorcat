@@ -37,8 +37,11 @@ See [doc](doc/README.md).
 
 ## TODO
 
-- [ ] delete everything in stdx
 - [ ] change deserialization of embedded protocols to do zero backtracking
+- [ ] tech debt
+    - [ ] external dependency for CLI parsing
+    - [ ] external dependency for CBOR
+    - [ ] arbitrary maximum mailbox size
 
 ## Sponsors
 
