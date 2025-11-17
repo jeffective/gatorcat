@@ -34,14 +34,15 @@ See [doc](doc/README.md).
 - [ ] Segmented SDO transfer
 - [ ] EEPROM write access
 - [ ] Network diagnosis in the CLI (CRC counters etc.)
+- [ ] resilient mailbox state machine
 
 ## TODO
 
 - [ ] change deserialization of embedded protocols to do zero backtracking
 - [ ] tech debt
-    - [ ] external dependency for CLI parsing
-    - [ ] external dependency for CBOR
+    - [ ] remove external dependency for CLI parsing
     - [ ] arbitrary maximum mailbox size
+    - [ ] simulator should use simulated time (std.Io eventually)
 
 ## Sponsors
 
