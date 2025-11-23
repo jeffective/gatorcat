@@ -141,7 +141,7 @@ pub fn sdoWrite(
             switch (in_content.coe) {
                 .abort => {
                     logger.err("station_addr: {} aborted COE write at index: {}, subindex: {}", .{ station_address, index, subindex });
-                    return error.Aborted;
+                    return error.CoEAbort;
                 },
                 .segment => {
                     logger.err("station_addr: {} returned unexpected segment during COE write at index: {}, subindex: {}", .{ station_address, index, subindex });
@@ -153,7 +153,7 @@ pub fn sdoWrite(
                 },
                 .emergency => {
                     logger.err("station_addr: {} returned emergency during COE write at index: {}, subindex: {}", .{ station_address, index, subindex });
-                    return error.Emergency;
+                    return error.CoEEmergency;
                 },
                 .expedited => return,
                 else => return error.MisbehavingSubdevice,
@@ -161,6 +161,14 @@ pub fn sdoWrite(
         },
     }
 }
+
+pub const SDOReadPackError = error{
+    MbxTimeout,
+    CoEAbort,
+    CoEEmergency,
+    NotImplemented,
+    MisbehavingSubdevice,
+} || Port.SendDatagramWkcError;
 
 /// Read a packed type from an SDO.
 pub fn sdoReadPack(
@@ -174,12 +182,12 @@ pub fn sdoReadPack(
     mbx_timeout_us: u32,
     cnt: u3,
     config: mailbox.Configuration,
-) !packed_type {
+) SDOReadPackError!packed_type {
     assert(config.isValid());
 
     var bytes = wire.zerosFromPack(packed_type);
     var writer = std.Io.Writer.fixed(&bytes);
-    try sdoRead(
+    sdoRead(
         port,
         station_address,
         index,
@@ -190,14 +198,35 @@ pub fn sdoReadPack(
         mbx_timeout_us,
         cnt,
         config,
-    );
+    ) catch |err| switch (err) {
+        error.WriteFailed => return error.MisbehavingSubdevice,
+        error.LinkError,
+        error.RecvTimeout,
+        error.Wkc,
+        error.MisbehavingSubdevice,
+        error.MbxTimeout,
+        error.CoEAbort,
+        error.CoEEmergency,
+        error.NotImplemented,
+        => |e| return e,
+    };
     const n_bytes_read = writer.buffered().len;
     if (n_bytes_read != bytes.len) {
         logger.err("expected pack size: {}, got {}", .{ bytes.len, n_bytes_read });
-        return error.InvalidMbxContent;
+        return error.MisbehavingSubdevice;
     }
     return wire.packFromECat(packed_type, bytes);
 }
+
+pub const SDOReadError = error{
+    MisbehavingSubdevice,
+    MbxTimeout,
+    CoEAbort,
+    CoEEmergency,
+    WriteFailed,
+    NotImplemented,
+} || Port.SendDatagramWkcError;
+
 // TODO: support segmented reads
 /// Read the SDO from the subdevice into a buffer.
 ///
@@ -216,7 +245,7 @@ pub fn sdoRead(
     mbx_timeout_us: u32,
     cnt: u3,
     config: mailbox.Configuration,
-) !void {
+) SDOReadError!void {
     assert(cnt != 0);
     if (complete_access) {
         assert(subindex == 1 or subindex == 0);
@@ -275,27 +304,26 @@ pub fn sdoRead(
                 return error.MisbehavingSubdevice;
             }
             switch (in_content.coe) {
-                .abort => {
-                    logger.err("station addr: 0x{x}, aborted sdo read at index 0x{x}:{x}, code: {}", .{ station_address, index, subindex, in_content.coe.abort.abort_code });
-                    return error.Aborted;
-                },
                 .expedited => continue :state .expedited,
-                .segment => {
-                    return error.MisbehavingSubdevice;
-                },
                 .normal => continue :state .normal,
-                .emergency => {
-                    return error.Emergency;
+                .abort => {
+                    logger.err("station addr: 0x{x}, aborted sdo read at index 0x{x}:{x}, code: {}", .{
+                        station_address,
+                        index,
+                        subindex,
+                        in_content.coe.abort.abort_code,
+                    });
+                    return error.CoEAbort;
                 },
+                .segment => return error.MisbehavingSubdevice,
+                .emergency => return error.CoEEmergency,
                 else => return error.MisbehavingSubdevice,
             }
         },
         .expedited => {
             assert(in_content == .coe);
             assert(in_content.coe == .expedited);
-            writer.writeAll(in_content.coe.expedited.data) catch |err| switch (err) {
-                error.WriteFailed => return error.InvalidMbxContent,
-            };
+            try writer.writeAll(in_content.coe.expedited.data);
             return;
         },
         .normal => {
@@ -303,9 +331,7 @@ pub fn sdoRead(
             assert(in_content.coe == .normal);
 
             const data: []const u8 = in_content.coe.normal.data;
-            writer.writeAll(data) catch |err| switch (err) {
-                error.WriteFailed => return error.InvalidMbxContent,
-            };
+            try writer.writeAll(data);
             if (in_content.coe.normal.complete_size > data.len) {
                 continue :state .request_segment;
             }
@@ -723,7 +749,7 @@ pub fn readSMComms(
 
     if (n_sm > max_sm) {
         logger.err("station_addr: {} has invalid number of sync managers: {}", .{ station_address, n_sm });
-        return error.InvalidCoE;
+        return error.MisbehavingSubdevice;
     }
 
     assert(n_sm <= max_sm);
@@ -769,7 +795,7 @@ pub fn readSMChannel(
     cnt: *Cnt,
     config: mailbox.Configuration,
     sm_idx: u5,
-) !SMChannel {
+) (error{MisbehavingSubdevice} || SDOReadPackError)!SMChannel {
     const index = CommunicationAreaMap.smChannel(sm_idx);
 
     const n_pdo = try sdoReadPack(
@@ -787,7 +813,7 @@ pub fn readSMChannel(
     var channel = SMChannel{};
     if (n_pdo > channel.capacity()) {
         logger.err("station_addr: {} returned invalid n pdos: {} for sm_idx: {}", .{ station_address, n_pdo, sm_idx });
-        return error.InvalidCoE;
+        return error.MisbehavingSubdevice;
     }
     assert(n_pdo <= channel.capacity());
     for (0..n_pdo) |i| {
@@ -805,7 +831,7 @@ pub fn readSMChannel(
         );
         if (!isValidPDOIndex(pdo_index)) {
             logger.err("station_addr: {} returned invalid pdo_index: {} for n_pdo: {}, sm_idx: {}", .{ station_address, pdo_index, i, sm_idx });
-            return error.InvalidCoE;
+            return error.MisbehavingSubdevice;
         }
         channel.buffer[i] = pdo_index;
     }
@@ -992,7 +1018,7 @@ pub fn readPDOMapping(
     var entries = PDOMapping{};
     if (n_entries > PDOMapping.max_entries) {
         logger.err("station_addr: {} reported invalid number of COE entries: {} for index: {}", .{ station_address, n_entries, index });
-        return error.InvalidCoE;
+        return error.MisbehavingSubdevice;
     }
 
     assert(n_entries <= PDOMapping.max_entries);
@@ -1023,7 +1049,7 @@ pub fn readSMPDOAssigns(
     mbx_timeout_us: u32,
     cnt: *Cnt,
     config: mailbox.Configuration,
-) !sii.SMPDOAssigns {
+) (error{MisbehavingSubdevice} || SDOReadPackError || sii.ReadError)!sii.SMPDOAssigns {
     // We need the start addr of the SM from the SII, but we want to trust the CoE
     // on what PDOs are mapped. What a pain.
     var res = sii.SMPDOAssigns{};
@@ -1043,7 +1069,7 @@ pub fn readSMPDOAssigns(
             _ => return error.MisbehavingSubdevice,
             .process_data_inputs, .process_data_outputs => |direction| {
                 res.addSyncManager(sm_config, @intCast(sm_idx)) catch |err| switch (err) {
-                    error.Overflow => return error.InvalidCoE,
+                    error.Overflow => return error.MisbehavingSubdevice,
                 };
 
                 const sm_pdo_assignment = try mailbox.coe.readSMChannel(port, station_address, recv_timeout_us, mbx_timeout_us, cnt, config, @intCast(sm_idx));
@@ -1060,7 +1086,7 @@ pub fn readSMPDOAssigns(
                                 else => unreachable,
                             },
                         ) catch |err| switch (err) {
-                            error.SyncManagerNotFound, error.WrongDirection => return error.InvalidCoE,
+                            error.SyncManagerNotFound, error.WrongDirection => return error.MisbehavingSubdevice,
                         };
                     }
                 }
@@ -1068,7 +1094,7 @@ pub fn readSMPDOAssigns(
         }
     }
     res.sortAndVerifyNonOverlapping() catch |err| switch (err) {
-        error.OverlappingSM => return error.InvalidCoE,
+        error.OverlappingSM => return error.MisbehavingSubdevice,
     };
     return res;
 }
@@ -1172,9 +1198,9 @@ pub fn readSDOInfoFragments(
         if (in_content != .coe) return error.MisbehavingSubdevice;
         switch (in_content.coe) {
             .abort => {
-                return error.Aborted;
+                return error.CoEAbort;
             },
-            .emergency => return error.Emergency,
+            .emergency => return error.CoEEmergency,
             .sdo_info_response => |response| {
                 if (i == 0) expected_fragments_left = response.sdo_info_header.fragments_left;
                 if (response.sdo_info_header.opcode != opcode) return error.MisbehavingSubdevice;

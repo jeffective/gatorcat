@@ -66,7 +66,7 @@ pub fn writeMailboxOut(
     recv_timeout_us: u32,
     mbx_out: HalfConfiguration,
     content: OutContent,
-) !void {
+) (error{MisbehavingSubdevice} || Port.SendDatagramWkcError)!void {
     assert(mbx_out.isValid());
 
     const act_mbx_out = try port.fprdPackWkc(
@@ -129,13 +129,14 @@ pub fn writeMailboxOut(
     );
 }
 
+// TODO: this should accept a writer because mailbox can vary in size
 pub fn readMailboxInTimeout(
     port: *Port,
     station_address: u16,
     recv_timeout_us: u32,
     mbx_in: HalfConfiguration,
     mbx_timeout_us: u32,
-) !InContent {
+) (error{ MisbehavingSubdevice, MbxTimeout } || Port.SendDatagramWkcError)!InContent {
     assert(mbx_in.isValid());
 
     var timer = Timer.start() catch |err| switch (err) {
@@ -161,12 +162,13 @@ pub fn readMailboxInTimeout(
 /// Returns null if mailbox is empty.
 ///
 /// The mailbox configuration is checked against the provided parameters.
+// TODO: this should accept a writer because mailbox can vary in size
 pub fn readMailboxIn(
     port: *Port,
     station_address: u16,
     recv_timeout_us: u32,
     mbx_in: HalfConfiguration,
-) !?InContent {
+) (error{MisbehavingSubdevice} || Port.SendDatagramWkcError)!?InContent {
     assert(mbx_in.isValid());
 
     const act_mbx_in = try port.fprdPackWkc(
@@ -212,7 +214,9 @@ pub fn readMailboxIn(
         recv_timeout_us,
         1,
     );
-    const in_content = try InContent.deserialize(&buf);
+    const in_content = InContent.deserialize(&buf) catch |err| switch (err) {
+        error.InvalidMbxContent, error.NotImplemented => return error.MisbehavingSubdevice,
+    };
     return in_content;
 }
 

@@ -545,7 +545,7 @@ fn printSubdeviceCoePDOs(
             _ => continue,
         }
         const sm_pdo_assignment = gcat.mailbox.coe.readSMChannel(port, station_address, recv_timeout_us, mbx_timeout_us, cnt, mailbox_config, @intCast(sm_idx)) catch |err| switch (err) {
-            error.Aborted => continue,
+            error.CoEAbort => continue,
             else => |err2| return err2,
         };
 

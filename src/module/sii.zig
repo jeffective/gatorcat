@@ -425,7 +425,7 @@ pub fn readFMMUCatagory(
     station_address: u16,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) !FMMUCatagory {
+) (error{MisbehavingSubdevice} || ReadError)!FMMUCatagory {
     var res = FMMUCatagory{};
 
     const catagory = try findCatagoryFP(
@@ -462,7 +462,7 @@ pub fn readFMMUCatagory(
 
     assert(n_fmmu <= res.capacity());
     for (0..n_fmmu) |i| {
-        const fmmu_function = try wire.packFromECatReader(FMMUFunction, reader);
+        const fmmu_function = wire.packFromECatReader(FMMUFunction, reader) catch return stream.err.?;
         res.buffer[i] = fmmu_function;
     }
     res.len = n_fmmu;
@@ -516,7 +516,7 @@ pub fn readSMCatagory(
     return res;
 }
 
-pub const ReadGeneralCatagoryError = ReadSIIError || error{MisbehavingSubdevice};
+pub const ReadGeneralCatagoryError = ReadError || error{MisbehavingSubdevice};
 pub fn readGeneralCatagory(
     port: *Port,
     station_address: u16,
@@ -753,7 +753,7 @@ pub fn findCatagoryFP(
     catagory: CatagoryType,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) ReadSIIError!?FindCatagoryResult {
+) ReadError!?FindCatagoryResult {
 
     // there shouldn't be more than 1000 catagories..right??
     const word_address: u16 = @intFromEnum(ParameterMap.first_catagory_header);
@@ -799,7 +799,7 @@ pub fn readPackFP(
     eeprom_address: u16,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) ReadSIIError!T {
+) ReadError!T {
     var bytes: [@divExact(@bitSizeOf(T), 8)]u8 = undefined;
     var buffer: [1024]u8 = undefined;
     var stream = SIIStream.init(
@@ -824,9 +824,7 @@ pub const SIIStream = struct {
     eeprom_timeout_us: u32,
     position: u17, // byte address
     reader: std.Io.Reader,
-    err: ?ReadSIIError,
-
-    const ReadError = std.Io.Reader.Error;
+    err: ?ReadError,
 
     pub fn init(
         port: *Port,
@@ -891,7 +889,7 @@ pub const SIIStream = struct {
     }
 };
 
-pub const ReadSIIError = error{
+pub const ReadError = error{
     LinkError,
     RecvTimeout,
     Wkc,
@@ -905,7 +903,7 @@ pub fn readSII4ByteFP(
     eeprom_address: u16,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) ReadSIIError![4]u8 {
+) ReadError![4]u8 {
     // set eeprom access to main device
     port.fpwrPackWkc(
         esc.SIIAccessCompact{
@@ -1191,7 +1189,7 @@ pub fn readSMPDOAssigns(
     station_address: u16,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) !SMPDOAssigns {
+) (error{MisbehavingSubdevice} || ReadError)!SMPDOAssigns {
     var res = SMPDOAssigns{};
     const sm_catagory = try readSMCatagory(
         port,
@@ -1251,7 +1249,7 @@ pub fn readSMPDOAssigns(
             switch (state) {
                 .pdo_header => {
                     assert(entries_remaining == 0);
-                    pdo_header = try wire.packFromECatReader(PDO.Header, reader);
+                    pdo_header = wire.packFromECatReader(PDO.Header, reader) catch return stream.err.?;
                     if (pdo_header.n_entries > PDO.max_entries) return error.MisbehavingSubdevice;
                     current_sm_idx = pdo_header.syncM;
                     entries_remaining = pdo_header.n_entries;
@@ -1267,7 +1265,7 @@ pub fn readSMPDOAssigns(
                     assert(pdo_header.syncM < std.math.maxInt(u8));
                     assert(current_sm_idx < max_sm);
 
-                    const entry = wire.packFromECatReader(PDO.Entry, reader) catch return error.MisbehavingSubdevice;
+                    const entry = wire.packFromECatReader(PDO.Entry, reader) catch return stream.err.?;
                     entries_remaining -= 1;
                     res.addPDOBitsToSM(
                         entry.bit_length,

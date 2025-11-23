@@ -331,7 +331,31 @@ pub fn busPreop(self: *MainDevice, change_timeout_us: u32) BusPreopError!void {
     try self.broadcastStateChange(.PREOP, change_timeout_us);
 }
 
-pub fn busSafeop(self: *MainDevice, change_timeout_us: u32) !void {
+pub const BusSafeopError = error{
+    /// the link layer experienced an error
+    LinkError,
+    /// a subdevice responded in a non-spec-compliant manner
+    MisbehavingSubdevice,
+    /// one of the configured startup parameters in the ENI failed
+    StartupParametersFailed,
+    /// unexpected value for working counter on a datagram (subdevice failed to modify a datagram),
+    /// possibly a currupted frame or brown-out at a subdevice
+    Wkc,
+    /// an SII(eeprom) read did not complete before the configured timeout
+    SIITimeout,
+    /// a sent datagram did not return before the configured timeout
+    RecvTimeout,
+    /// not all subdevices completed the transition before the timeout
+    StateChangeTimeout,
+    /// the observed contents of the bus do not match the ENI
+    BusConfigurationMismatch,
+    MbxTimeout,
+    NotImplemented,
+    CoEAbort,
+    CoEEmergency,
+};
+// TODO: return state change refused when applicable
+pub fn busSafeop(self: *MainDevice, change_timeout_us: u32) BusSafeopError!void {
     // perform PS tasks for each subdevice
     for (self.subdevices) |*subdevice| {
 

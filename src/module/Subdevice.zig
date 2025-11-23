@@ -141,20 +141,20 @@ pub fn setALState(
 }
 
 pub const TransitionIPError = error{
-    /// the link layer experienced an error. typically not recoverable
+    /// the link layer experienced an error
     LinkError,
-    /// a subdevice responded in a non-spec compliant manner, typically not recoverable
+    /// a subdevice responded in a non-spec compliant manner
     MisbehavingSubdevice,
     /// one of the configured startup parameters in the ENI failed
     StartupParametersFailed,
+    /// unexpected working counter on a datagram
     Wkc,
-    /// a subdevice responded to a state change request with an error
-    StateChangeRefused,
+    /// the SII (EEPROM) did not execute the read within the configured timeout
     SIITimeout,
+    /// a sent datagram did not return within the configured timeout
     RecvTimeout,
     /// not all subdevices completed the transition before the timeout
     StateChangeTimeout,
-    /// InvalidMbxConfiguration,
     /// the observed contents of the bus do not match the ENI
     BusConfigurationMismatch,
 };
@@ -358,6 +358,30 @@ pub fn transitionIP(
     self.doStartupParameters(port, .IP, recv_timeout_us) catch return error.StartupParametersFailed;
 }
 
+pub const TransitionPSError = error{
+    /// the link layer experienced an error
+    LinkError,
+    /// a subdevice responded in a non-spec-compliant or unexpected manner
+    MisbehavingSubdevice,
+    /// one of the configured startup parameters in the ENI failed
+    StartupParametersFailed,
+    /// unexpected working counter on a datagram
+    Wkc,
+    /// the SII (EEPROM) did not execute the read within the configured timeout
+    SIITimeout,
+    /// a sent datagram did not return within the configured timeout
+    RecvTimeout,
+    /// not all subdevices completed the transition before the timeout
+    StateChangeTimeout,
+    /// the observed contents of the bus do not match the ENI
+    BusConfigurationMismatch,
+    /// mailbox communication timeout
+    MbxTimeout,
+    CoEAbort,
+    CoEEmergency,
+    NotImplemented,
+};
+
 /// The maindevice should perform these tasks before commanding the PS transision.
 ///
 /// [x] Set configuration objects via SDO.
@@ -389,7 +413,7 @@ pub fn transitionPS(
     mbx_timeout_us: u32,
     fmmu_inputs_start_addr: u32,
     fmmu_outputs_start_addr: u32,
-) !void {
+) TransitionPSError!void {
 
     // if CoE is supported, the subdevice PDOs can be mapped using information
     // from CoE. otherwise it can be obtained from the SII.
@@ -517,15 +541,14 @@ pub fn transitionSO(
 ) !void {
     self.doStartupParameters(port, .SO, recv_timeout_us) catch |err| switch (err) {
         error.MbxTimeout,
-        error.InvalidMbxContent,
         error.NotImplemented,
         error.CoENotSupported,
         error.CoECompleteAccessNotSupported,
-        error.Aborted,
+        error.CoEAbort,
         error.MisbehavingSubdevice,
         => return error.StartupParametersFailed,
         error.LinkError => return error.LinkError,
-        error.Emergency => return error.Emergency,
+        error.CoEEmergency => return error.CoEEmergency,
         error.Wkc => return error.Wkc,
         error.RecvTimeout => return error.RecvTimeout,
     };
