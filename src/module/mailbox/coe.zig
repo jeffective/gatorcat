@@ -163,7 +163,7 @@ pub fn sdoWrite(
 }
 
 pub const SDOReadPackError = error{
-    MbxTimeout,
+    MailboxTimeout,
     CoEAbort,
     CoEEmergency,
     NotImplemented,
@@ -204,7 +204,7 @@ pub fn sdoReadPack(
         error.RecvTimeout,
         error.Wkc,
         error.MisbehavingSubdevice,
-        error.MbxTimeout,
+        error.MailboxTimeout,
         error.CoEAbort,
         error.CoEEmergency,
         error.NotImplemented,
@@ -220,7 +220,7 @@ pub fn sdoReadPack(
 
 pub const SDOReadError = error{
     MisbehavingSubdevice,
-    MbxTimeout,
+    MailboxTimeout,
     CoEAbort,
     CoEEmergency,
     WriteFailed,

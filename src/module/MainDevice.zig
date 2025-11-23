@@ -349,7 +349,7 @@ pub const BusSafeopError = error{
     StateChangeTimeout,
     /// the observed contents of the bus do not match the ENI
     BusConfigurationMismatch,
-    MbxTimeout,
+    MailboxTimeout,
     NotImplemented,
     CoEAbort,
     CoEEmergency,

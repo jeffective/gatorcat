@@ -213,7 +213,7 @@ pub fn run(args: Args) RunError!void {
                 error.MisbehavingSubdevice,
                 error.NotImplemented,
                 error.InvalidMbxContent,
-                error.MbxTimeout,
+                error.MailboxTimeout,
                 error.CoEAbort,
                 error.CoEEmergency,
                 error.MissedFragment,
@@ -321,7 +321,7 @@ pub fn run(args: Args) RunError!void {
 
         // TODO: wtf jeff reduce the number of errors!
         md.busSafeop(args.safeop_timeout_us) catch |err| switch (err) {
-            error.MbxTimeout,
+            error.MailboxTimeout,
             error.CoEAbort,
             error.CoEEmergency,
             error.NotImplemented,

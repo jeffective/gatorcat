@@ -376,7 +376,7 @@ pub const TransitionPSError = error{
     /// the observed contents of the bus do not match the ENI
     BusConfigurationMismatch,
     /// mailbox communication timeout
-    MbxTimeout,
+    MailboxTimeout,
     CoEAbort,
     CoEEmergency,
     NotImplemented,
@@ -540,7 +540,7 @@ pub fn transitionSO(
     recv_timeout_us: u32,
 ) !void {
     self.doStartupParameters(port, .SO, recv_timeout_us) catch |err| switch (err) {
-        error.MbxTimeout,
+        error.MailboxTimeout,
         error.NotImplemented,
         error.CoENotSupported,
         error.CoECompleteAccessNotSupported,

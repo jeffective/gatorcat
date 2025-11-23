@@ -136,7 +136,7 @@ pub fn readMailboxInTimeout(
     recv_timeout_us: u32,
     mbx_in: HalfConfiguration,
     mbx_timeout_us: u32,
-) (error{ MisbehavingSubdevice, MbxTimeout } || Port.SendDatagramWkcError)!InContent {
+) (error{ MisbehavingSubdevice, MailboxTimeout } || Port.SendDatagramWkcError)!InContent {
     assert(mbx_in.isValid());
 
     var timer = Timer.start() catch |err| switch (err) {
@@ -153,7 +153,7 @@ pub fn readMailboxInTimeout(
             return in_content;
         }
     } else {
-        return error.MbxTimeout;
+        return error.MailboxTimeout;
     }
 }
 
