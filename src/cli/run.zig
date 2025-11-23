@@ -296,7 +296,6 @@ pub fn run(args: Args) RunError!void {
         }
 
         md.busPreop(args.preop_timeout_us) catch |err| switch (err) {
-            error.ReadFailed,
             error.LinkError,
             error.MisbehavingSubdevice,
             error.StartupParametersFailed,
