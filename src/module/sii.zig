@@ -358,7 +358,7 @@ pub fn readSIIString(
     index: u8,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) !?SIIString {
+) ReadError!?SIIString {
     if (index == 0) {
         return null;
     }
@@ -381,10 +381,7 @@ pub fn readSIIString(
         &buffer,
     );
 
-    const n_strings: u8 = stream.reader.takeByte() catch |err| switch (err) {
-        error.EndOfStream => unreachable,
-        error.ReadFailed => return error.ReadFailed,
-    };
+    const n_strings: u8 = stream.reader.takeByte() catch return stream.err.?;
 
     if (n_strings < index) {
         return null;
@@ -393,17 +390,12 @@ pub fn readSIIString(
     var string_buf: [255]u8 = undefined;
     var str_len: u8 = undefined;
     for (0..index) |i| {
-        str_len = stream.reader.takeByte() catch |err| switch (err) {
-            error.EndOfStream => unreachable,
-            error.ReadFailed => return error.ReadFailed,
-        };
+        str_len = stream.reader.takeByte() catch return stream.err.?;
         if (str_len % 2 == 0 and i != index - 1) {
-            try stream.reader.discardAll(str_len);
+            comptime assert(@TypeOf(stream).discard_is_infailable);
+            stream.reader.discardAll(str_len) catch unreachable;
         } else {
-            stream.reader.readSliceAll(string_buf[0..str_len]) catch |err| switch (err) {
-                error.ReadFailed => return error.ReadFailed,
-                error.EndOfStream => unreachable,
-            };
+            stream.reader.readSliceAll(string_buf[0..str_len]) catch return stream.err.?;
         }
     }
     var arr = SIIString{};
@@ -481,7 +473,7 @@ pub fn readSMCatagory(
     station_address: u16,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) !SMCatagory {
+) (error{MisbehavingSubdevice} || ReadError)!SMCatagory {
     const catagory = (try findCatagoryFP(
         port,
         station_address,
@@ -510,19 +502,18 @@ pub fn readSMCatagory(
 
     assert(n_sm <= res.capacity());
     for (0..n_sm) |i| {
-        res.buffer[i] = wire.packFromECatReader(SyncM, &stream.reader) catch return error.MisbehavingSubdevice;
+        res.buffer[i] = wire.packFromECatReader(SyncM, &stream.reader) catch return stream.err.?;
     }
     res.len = n_sm;
     return res;
 }
 
-pub const ReadGeneralCatagoryError = ReadError || error{MisbehavingSubdevice};
 pub fn readGeneralCatagory(
     port: *Port,
     station_address: u16,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) ReadGeneralCatagoryError!?CatagoryGeneral {
+) (error{MisbehavingSubdevice} || ReadError)!?CatagoryGeneral {
     logger.debug("station addr: 0x{x}, reading SII general catagory", .{station_address});
     const catagory = try findCatagoryFP(
         port,
@@ -663,7 +654,7 @@ pub fn readPDOs(
     direction: pdi.Direction,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) ![]PDO {
+) (error{ MisbehavingSubdevice, OutOfMemory } || ReadError)![]PDO {
     logger.debug("station addr: 0x{x}, reading SII PDOs: {}", .{ station_address, direction });
     var pdos = std.ArrayList(PDO).empty;
     errdefer pdos.deinit(allocator);
@@ -705,7 +696,7 @@ pub fn readPDOs(
             .pdo_header => {
                 assert(entries_remaining == 0);
                 entries.clear();
-                pdo_header = try wire.packFromECatReader(PDO.Header, reader);
+                pdo_header = wire.packFromECatReader(PDO.Header, reader) catch return stream.err.?;
                 if (pdo_header.n_entries > PDO.max_entries) return error.MisbehavingSubdevice;
                 entries_remaining = pdo_header.n_entries;
                 state = .entries;
@@ -713,7 +704,7 @@ pub fn readPDOs(
                 continue;
             },
             .entries => {
-                const entry = try wire.packFromECatReader(PDO.Entry, reader);
+                const entry = wire.packFromECatReader(PDO.Entry, reader) catch return stream.err.?;
                 entries.appendAssumeCapacity(entry); // see length check in .pdo_header
 
                 entries_remaining -= 1;
@@ -1318,7 +1309,7 @@ pub fn readPDOBitLengths(
     direction: pdi.Direction,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) !u32 {
+) (error{MisbehavingSubdevice} || ReadError)!u32 {
     const catagory = try findCatagoryFP(
         port,
         station_address,
@@ -1355,7 +1346,7 @@ pub fn readPDOBitLengths(
         switch (state) {
             .pdo_header => {
                 assert(entries_remaining == 0);
-                pdo_header = try wire.packFromECatReader(PDO.Header, reader);
+                pdo_header = wire.packFromECatReader(PDO.Header, reader) catch return stream.err.?;
                 if (pdo_header.n_entries > PDO.max_entries) return error.MisbehavingSubdevice;
                 entries_remaining = pdo_header.n_entries;
                 if (pdo_header.isUsed()) {
@@ -1366,7 +1357,7 @@ pub fn readPDOBitLengths(
                 continue;
             },
             .entries => {
-                const entry = wire.packFromECatReader(PDO.Entry, reader) catch return error.MisbehavingSubdevice;
+                const entry = wire.packFromECatReader(PDO.Entry, reader) catch return stream.err.?;
                 entries_remaining -= 1;
                 total_bit_length += entry.bit_length;
                 if (entries_remaining == 0) {
@@ -1378,7 +1369,8 @@ pub fn readPDOBitLengths(
                 }
             },
             .entries_skip => {
-                try reader.discardAll(comptime @divExact(@bitSizeOf(PDO.Entry), 8));
+                comptime assert(@TypeOf(stream).discard_is_infailable);
+                reader.discardAll(comptime @divExact(@bitSizeOf(PDO.Entry), 8)) catch unreachable;
                 entries_remaining -= 1;
                 if (entries_remaining == 0) {
                     state = .pdo_header;
@@ -1399,7 +1391,7 @@ pub fn readSubdeviceInfoCompact(
     station_address: u16,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) !SubdeviceInfoCompact {
+) ReadError!SubdeviceInfoCompact {
     return try readPackFP(
         port,
         SubdeviceInfoCompact,
@@ -1415,7 +1407,7 @@ pub fn readSubdeviceInfo(
     station_address: u16,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) !SubdeviceInfo {
+) ReadError!SubdeviceInfo {
     return try readPackFP(
         port,
         SubdeviceInfo,
