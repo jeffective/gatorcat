@@ -200,8 +200,6 @@ pub fn run(args: Args) RunError!void {
             errdefer arena.deinit();
 
             const eni = scanner.readEniLeaky(arena.allocator(), args.preop_timeout_us, false) catch |err| switch (err) {
-                error.EndOfStream,
-                error.ReadFailed,
                 error.LinkError,
                 error.OutOfMemory,
                 error.RecvTimeout,
@@ -212,14 +210,10 @@ pub fn run(args: Args) RunError!void {
                 error.BusConfigurationMismatch,
                 error.MisbehavingSubdevice,
                 error.NotImplemented,
-                error.InvalidMbxContent,
                 error.MailboxTimeout,
                 error.CoEAbort,
                 error.CoEEmergency,
                 error.MissedFragment,
-                error.ObjectDoesNotExist,
-                error.ObjectDescriptionTooBig,
-                error.EntryDescriptionTooBig,
                 error.StartupParametersFailed,
                 => continue :bus_scan,
             };

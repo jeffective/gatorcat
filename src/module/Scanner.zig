@@ -309,7 +309,14 @@ pub fn readSubdeviceConfigurationLeaky(
     ring_position: u16,
     state_change_timeout_us: u32,
     sim: bool,
-) !ENI.SubdeviceConfiguration {
+) (error{
+    OutOfMemory,
+    MisbehavingSubdevice,
+    StateChangeRefused,
+    CoEAbort,
+    CoEEmergency,
+    MissedFragment,
+} || coe.SDOReadPackError || Subdevice.TransitionIPError || sii.ReadError)!ENI.SubdeviceConfiguration {
     const station_address = Subdevice.stationAddressFromRingPos(ring_position);
     const info = try sii.readPackFP(
         self.port,
@@ -415,7 +422,7 @@ pub fn readSubdeviceConfigurationLeaky(
                     pdo_index,
                 );
                 var full_service_data_buffer: [4096]u8 = undefined; // TODO: this is arbitrary
-                const object_description = try coe.readObjectDescription(
+                const object_description = coe.readObjectDescription(
                     self.port,
                     station_address,
                     self.settings.recv_timeout_us,
@@ -424,7 +431,19 @@ pub fn readSubdeviceConfigurationLeaky(
                     subdevice.runtime_info.coe.?.config,
                     pdo_index,
                     &full_service_data_buffer,
-                );
+                ) catch |err| switch (err) {
+                    error.ObjectDoesNotExist => return error.MisbehavingSubdevice,
+                    error.ObjectDescriptionTooBig => return error.MisbehavingSubdevice, // TODO
+                    error.LinkError,
+                    error.RecvTimeout,
+                    error.Wkc,
+                    error.MisbehavingSubdevice,
+                    error.MailboxTimeout,
+                    error.CoEAbort,
+                    error.CoEEmergency,
+                    error.MissedFragment,
+                    => |e| return e,
+                };
 
                 var entries = std.ArrayList(ENI.SubdeviceConfiguration.PDO.Entry).empty;
                 defer entries.deinit(allocator);
@@ -440,7 +459,7 @@ pub fn readSubdeviceConfigurationLeaky(
                         });
                     } else {
                         var ed_full_service_data_buffer: [4096]u8 = undefined; // TODO: this is arbitrary
-                        const entry_description = try coe.readEntryDescription(
+                        const entry_description = coe.readEntryDescription(
                             self.port,
                             station_address,
                             self.settings.recv_timeout_us,
@@ -451,7 +470,19 @@ pub fn readSubdeviceConfigurationLeaky(
                             entry.subindex,
                             .description_only,
                             &ed_full_service_data_buffer,
-                        );
+                        ) catch |err| switch (err) {
+                            error.EntryDescriptionTooBig => return error.MisbehavingSubdevice, // TODO
+                            error.ObjectDoesNotExist => return error.MisbehavingSubdevice,
+                            error.LinkError,
+                            error.RecvTimeout,
+                            error.Wkc,
+                            error.MisbehavingSubdevice,
+                            error.MailboxTimeout,
+                            error.CoEAbort,
+                            error.CoEEmergency,
+                            error.MissedFragment,
+                            => |e| return e,
+                        };
 
                         try entries.append(allocator, ENI.SubdeviceConfiguration.PDO.Entry{
                             .description = try allocator.dupeZ(u8, entry_description.data),
@@ -593,10 +624,7 @@ pub fn readSubdeviceConfigurationLeaky(
         const reader = &sii_stream.reader;
 
         const eeprom_content = try allocator.alloc(u8, sii_byte_length);
-        reader.readSliceAll(eeprom_content) catch |err| switch (err) {
-            error.ReadFailed => return error.ReadFailed,
-            error.EndOfStream => unreachable,
-        };
+        reader.readSliceAll(eeprom_content) catch return sii_stream.err.?;
 
         const physical_memory = try allocator.create([4096]u8);
         physical_memory.* = @splat(0);

@@ -733,7 +733,7 @@ pub fn readSMComms(
     mbx_timeout_us: u32,
     cnt: *Cnt,
     config: mailbox.Configuration,
-) !SMComms {
+) (error{MisbehavingSubdevice} || SDOReadPackError)!SMComms {
     const n_sm = try sdoReadPack(
         port,
         station_address,
@@ -1191,7 +1191,15 @@ pub fn readSDOInfoFragments(
     config: mailbox.Configuration,
     opcode: SDOInfoOpCode,
     writer: *std.Io.Writer,
-) !void {
+) (error{
+    MisbehavingSubdevice,
+    WriteFailed,
+    ObjectDoesNotExist,
+    MailboxTimeout,
+    CoEAbort,
+    CoEEmergency,
+    MissedFragment,
+} || Port.SendDatagramWkcError)!void {
     var expected_fragments_left: u16 = 0;
     get_fragments: for (0..1024) |i| {
         const in_content = try mailbox.readMailboxInTimeout(port, station_address, recv_timeout_us, config.mbx_in, mbx_timeout_us);
@@ -1266,7 +1274,7 @@ pub fn readObjectDescription(
         else => |err2| return err2,
     };
     const full_service_data = writer.buffered();
-    const response = try server.GetObjectDescriptionResponse.deserialize(full_service_data);
+    const response = server.GetObjectDescriptionResponse.deserialize(full_service_data) catch return error.MisbehavingSubdevice;
     if (response.index != index) return error.MisbehavingSubdevice;
     return response;
 }
@@ -1282,7 +1290,15 @@ pub fn readEntryDescription(
     subindex: u8,
     value_info: ValueInfo,
     full_service_data_buffer: []u8,
-) !server.GetEntryDescriptionResponse {
+) (error{
+    MisbehavingSubdevice,
+    EntryDescriptionTooBig,
+    ObjectDoesNotExist,
+    MailboxTimeout,
+    CoEAbort,
+    CoEEmergency,
+    MissedFragment,
+} || Port.SendDatagramWkcError)!server.GetEntryDescriptionResponse {
     const request = mailbox.OutContent{
         .coe = .{ .get_entry_description_request = .init(cnt.nextCnt(), index, subindex, value_info) },
     };
@@ -1308,7 +1324,7 @@ pub fn readEntryDescription(
         else => |err2| return err2,
     };
     const full_service_data = writer.buffered();
-    const response = try server.GetEntryDescriptionResponse.deserialize(full_service_data);
+    const response = server.GetEntryDescriptionResponse.deserialize(full_service_data) catch return error.MisbehavingSubdevice;
     if (response.index != index or response.subindex != subindex or response.value_info != value_info) return error.MisbehavingSubdevice;
     return response;
 }
