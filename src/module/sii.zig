@@ -440,13 +440,13 @@ pub fn readFMMUCatagory(
         u17,
         catagory.byte_length,
         @divExact(@bitSizeOf(FMMUFunction), 8),
-    ) catch return error.InvalidSII;
+    ) catch return error.MisbehavingSubdevice;
     if (n_fmmu == 0) {
         assert(res.len == 0);
         return res;
     }
     if (n_fmmu > res.capacity()) {
-        return error.InvalidSII;
+        return error.MisbehavingSubdevice;
     }
 
     var buffer: [1024]u8 = undefined;
@@ -489,14 +489,14 @@ pub fn readSMCatagory(
         recv_timeout_us,
         eeprom_timeout_us,
     )) orelse return SMCatagory{};
-    const n_sm: u17 = std.math.divExact(u17, catagory.byte_length, @divExact(@bitSizeOf(SyncM), 8)) catch return error.InvalidSII;
+    const n_sm: u17 = std.math.divExact(u17, catagory.byte_length, @divExact(@bitSizeOf(SyncM), 8)) catch return error.MisbehavingSubdevice;
     var res = SMCatagory{};
     if (n_sm == 0) {
         return res;
     }
     assert(n_sm > 0);
     if (n_sm > res.capacity()) {
-        return error.InvalidSII;
+        return error.MisbehavingSubdevice;
     }
     var buffer: [1024]u8 = undefined;
     var stream = SIIStream.init(
@@ -510,7 +510,7 @@ pub fn readSMCatagory(
 
     assert(n_sm <= res.capacity());
     for (0..n_sm) |i| {
-        res.buffer[i] = wire.packFromECatReader(SyncM, &stream.reader) catch return error.InvalidSII;
+        res.buffer[i] = wire.packFromECatReader(SyncM, &stream.reader) catch return error.MisbehavingSubdevice;
     }
     res.len = n_sm;
     return res;
@@ -531,7 +531,7 @@ pub fn readGeneralCatagory(port: *Port, station_address: u16, recv_timeout_us: u
             "Subdevice station addr: 0x{x} has invalid eeprom sii general length: {}. Expected >= {}",
             .{ station_address, catagory.byte_length, @divExact(@bitSizeOf(CatagoryGeneral), 8) },
         );
-        return error.InvalidSII;
+        return error.MisbehavingSubdevice;
     }
 
     const general = try readSIIFP_ps(
@@ -674,7 +674,7 @@ pub fn readPDOs(
 
     // entries are 8 bytes, pdo header is 8 bytes, so
     // this should be a multiple of eight.
-    if (catagory.byte_length % 8 != 0) return error.InvalidSII;
+    if (catagory.byte_length % 8 != 0) return error.MisbehavingSubdevice;
     const n_headers_n_entries = @divExact(catagory.byte_length, 8);
     std.log.debug("station addr: 0x{x}, n_header_n_entries: {}", .{ station_address, n_headers_n_entries });
 
@@ -700,7 +700,7 @@ pub fn readPDOs(
                 assert(entries_remaining == 0);
                 entries.clear();
                 pdo_header = try wire.packFromECatReader(PDO.Header, reader);
-                if (pdo_header.n_entries > PDO.max_entries) return error.InvalidSII;
+                if (pdo_header.n_entries > PDO.max_entries) return error.MisbehavingSubdevice;
                 entries_remaining = pdo_header.n_entries;
                 state = .entries;
                 std.log.debug("station addr: 0x{x}, pdo header: {}", .{ station_address, pdo_header });
@@ -725,9 +725,9 @@ pub fn readPDOs(
     }
     if (entries_remaining != 0) {
         std.log.err("station addr: 0x{x}, invalid SII. remaining entries: {}", .{ station_address, entries_remaining });
-        return error.InvalidSII;
+        return error.MisbehavingSubdevice;
     }
-    if (pdos.items.len > max_txpdos) return error.InvalidSII;
+    if (pdos.items.len > max_txpdos) return error.MisbehavingSubdevice;
     return try pdos.toOwnedSlice(allocator);
 }
 
@@ -784,7 +784,7 @@ pub fn findCatagoryFP(
     }
 }
 
-pub const readSII_ps_error = error{InvalidSII} || SIIStream.ReadError;
+pub const readSII_ps_error = error{MisbehavingSubdevice} || SIIStream.ReadError;
 
 /// read a packed struct from SII, using station addressing
 pub fn readSIIFP_ps(
@@ -1195,10 +1195,10 @@ pub fn readSMPDOAssigns(
     for (sync_managers, 0..) |sm_config, sm_idx| {
         switch (sm_config.syncM_type) {
             .mailbox_in, .mailbox_out, .not_used_or_unknown => {},
-            _ => return error.InvalidSII,
+            _ => return error.MisbehavingSubdevice,
             .process_data_inputs, .process_data_outputs => {
                 res.addSyncManager(sm_config, @intCast(sm_idx)) catch |err| switch (err) {
-                    error.Overflow => return error.InvalidSII,
+                    error.Overflow => return error.MisbehavingSubdevice,
                 };
             },
         }
@@ -1218,7 +1218,7 @@ pub fn readSMPDOAssigns(
 
         // entries are 8 bytes, pdo header is 8 bytes, so
         // this should be a multiple of eight.
-        if (catagory.byte_length % 8 != 0) return error.InvalidSII;
+        if (catagory.byte_length % 8 != 0) return error.MisbehavingSubdevice;
         const n_headers_n_entries = @divExact(catagory.byte_length, 8);
 
         var buffer: [1024]u8 = undefined;
@@ -1242,7 +1242,7 @@ pub fn readSMPDOAssigns(
                 .pdo_header => {
                     assert(entries_remaining == 0);
                     pdo_header = try wire.packFromECatReader(PDO.Header, reader);
-                    if (pdo_header.n_entries > PDO.max_entries) return error.InvalidSII;
+                    if (pdo_header.n_entries > PDO.max_entries) return error.MisbehavingSubdevice;
                     current_sm_idx = pdo_header.syncM;
                     entries_remaining = pdo_header.n_entries;
                     if (pdo_header.isUsed()) {
@@ -1257,7 +1257,7 @@ pub fn readSMPDOAssigns(
                     assert(pdo_header.syncM < std.math.maxInt(u8));
                     assert(current_sm_idx < max_sm);
 
-                    const entry = wire.packFromECatReader(PDO.Entry, reader) catch return error.InvalidSII;
+                    const entry = wire.packFromECatReader(PDO.Entry, reader) catch return error.MisbehavingSubdevice;
                     entries_remaining -= 1;
                     res.addPDOBitsToSM(
                         entry.bit_length,
@@ -1268,7 +1268,7 @@ pub fn readSMPDOAssigns(
                             else => unreachable,
                         },
                     ) catch |err| switch (err) {
-                        error.SyncManagerNotFound, error.WrongDirection => return error.InvalidSII,
+                        error.SyncManagerNotFound, error.WrongDirection => return error.MisbehavingSubdevice,
                     };
                     if (entries_remaining == 0) {
                         state = .pdo_header;
@@ -1279,7 +1279,7 @@ pub fn readSMPDOAssigns(
                     }
                 },
                 .entries_skip => {
-                    _ = wire.packFromECatReader(PDO.Entry, reader) catch return error.InvalidSII;
+                    _ = wire.packFromECatReader(PDO.Entry, reader) catch return error.MisbehavingSubdevice;
                     entries_remaining -= 1;
                     if (entries_remaining == 0) {
                         state = .pdo_header;
@@ -1291,10 +1291,10 @@ pub fn readSMPDOAssigns(
                 },
             }
         }
-        if (entries_remaining != 0) return error.InvalidSII;
+        if (entries_remaining != 0) return error.MisbehavingSubdevice;
     }
     res.sortAndVerifyNonOverlapping() catch |err| switch (err) {
-        error.OverlappingSM => return error.InvalidSII,
+        error.OverlappingSM => return error.MisbehavingSubdevice,
     };
     return res;
 }
@@ -1324,7 +1324,7 @@ pub fn readPDOBitLengths(
 
     // entries are 8 bytes, pdo header is 8 bytes, so
     // this should be a multiple of eight.
-    if (catagory.byte_length % 8 != 0) return error.InvalidSII;
+    if (catagory.byte_length % 8 != 0) return error.MisbehavingSubdevice;
     const n_headers_n_entries = @divExact(catagory.byte_length, 8);
 
     var buffer: [1024]u8 = undefined;
@@ -1348,7 +1348,7 @@ pub fn readPDOBitLengths(
             .pdo_header => {
                 assert(entries_remaining == 0);
                 pdo_header = try wire.packFromECatReader(PDO.Header, reader);
-                if (pdo_header.n_entries > PDO.max_entries) return error.InvalidSII;
+                if (pdo_header.n_entries > PDO.max_entries) return error.MisbehavingSubdevice;
                 entries_remaining = pdo_header.n_entries;
                 if (pdo_header.isUsed()) {
                     state = .entries;
@@ -1358,7 +1358,7 @@ pub fn readPDOBitLengths(
                 continue;
             },
             .entries => {
-                const entry = wire.packFromECatReader(PDO.Entry, reader) catch return error.InvalidSII;
+                const entry = wire.packFromECatReader(PDO.Entry, reader) catch return error.MisbehavingSubdevice;
                 entries_remaining -= 1;
                 total_bit_length += entry.bit_length;
                 if (entries_remaining == 0) {
@@ -1382,7 +1382,7 @@ pub fn readPDOBitLengths(
             },
         }
     }
-    if (entries_remaining != 0) return error.InvalidSII;
+    if (entries_remaining != 0) return error.MisbehavingSubdevice;
     return total_bit_length;
 }
 
