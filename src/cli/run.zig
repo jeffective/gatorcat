@@ -205,12 +205,12 @@ pub fn run(args: Args) RunError!void {
                 error.LinkError,
                 error.OutOfMemory,
                 error.RecvTimeout,
+                error.SIITimeout,
                 error.Wkc,
                 error.StateChangeRefused,
                 error.StateChangeTimeout,
                 error.BusConfigurationMismatch,
                 error.MisbehavingSubdevice,
-                error.InvalidMbxConfiguration,
                 error.Emergency,
                 error.NotImplemented,
                 error.InvalidMbxContent,
@@ -296,17 +296,16 @@ pub fn run(args: Args) RunError!void {
         }
 
         md.busPreop(args.preop_timeout_us) catch |err| switch (err) {
-            error.LinkError,
             error.ReadFailed,
-            error.EndOfStream,
+            error.LinkError,
             error.MisbehavingSubdevice,
             error.StartupParametersFailed,
             => return error.NonRecoverable,
             error.Wkc,
             error.StateChangeRefused,
             error.RecvTimeout,
+            error.SIITimeout,
             error.StateChangeTimeout,
-            error.InvalidMbxConfiguration,
             error.BusConfigurationMismatch,
             => continue :bus_scan,
         };
@@ -325,6 +324,7 @@ pub fn run(args: Args) RunError!void {
         // TODO: wtf jeff reduce the number of errors!
         md.busSafeop(args.safeop_timeout_us) catch |err| switch (err) {
             error.EndOfStream,
+            error.SIITimeout,
             error.ReadFailed,
             error.LinkError,
             error.MisbehavingSubdevice,

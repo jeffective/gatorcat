@@ -140,6 +140,24 @@ pub fn setALState(
     unreachable;
 }
 
+pub const TransitionIPError = error{
+    /// the link layer experienced an error. typically not recoverable
+    LinkError,
+    /// a subdevice responded in a non-spec compliant manner, typically not recoverable
+    MisbehavingSubdevice,
+    /// one of the configured startup parameters in the ENI failed
+    StartupParametersFailed,
+    Wkc,
+    /// a subdevice responded to a state change request with an error
+    StateChangeRefused,
+    SIITimeout,
+    RecvTimeout,
+    /// not all subdevices completed the transition before the timeout
+    StateChangeTimeout,
+    /// InvalidMbxConfiguration,
+    /// the observed contents of the bus do not match the ENI
+    BusConfigurationMismatch,
+};
 /// The maindevice should perform these tasks before commanding the IP transition in the subdevice.
 ///
 /// [x] Set configured station address (also called "fixed physical address").
@@ -163,10 +181,10 @@ pub fn transitionIP(
     port: *Port,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) !void {
+) TransitionIPError!void {
     const station_address = stationAddressFromRingPos(self.runtime_info.ring_position);
     // check subdevice identity
-    const info = try sii.readSIIFP_ps(
+    const info = try sii.readPackFP(
         port,
         sii.SubdeviceInfoCompact,
         station_address,
@@ -301,12 +319,14 @@ pub fn transitionIP(
             // supports CoE? Complete Access?
             if (did_mailbox_sm and info.mbx_protocol.CoE) {
                 self.runtime_info.coe = RuntimeInfo.CoE{
-                    .config = try mailbox.Configuration.init(
+                    .config = mailbox.Configuration.init(
                         sms.sm1.physical_start_address,
                         sms.sm1.length,
                         sms.sm0.physical_start_address,
                         sms.sm0.length,
-                    ),
+                    ) catch |err| switch (err) {
+                        error.InvalidMbxConfiguration => return error.MisbehavingSubdevice,
+                    },
                     .supports_complete_access = blk: {
                         if (general_catagory) |general| {
                             break :blk general.coe_details.enable_SDO_complete_access;

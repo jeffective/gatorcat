@@ -289,7 +289,28 @@ pub fn busInit(self: *MainDevice, change_timeout_us: u32) !void {
     try self.broadcastStateChange(.INIT, change_timeout_us);
 }
 
-pub fn busPreop(self: *MainDevice, change_timeout_us: u32) !void {
+pub const BusPreopError = error{
+    /// the link layer experienced an error. typically not recoverable
+    LinkError,
+    ReadFailed,
+    // EndOfStream,
+    /// a subdevice responded in a non-spec compliant manner, typically not recoverable
+    MisbehavingSubdevice,
+    /// one of the configured startup parameters in the ENI failed
+    StartupParametersFailed,
+    Wkc,
+    /// a subdevice responded to a state change request with an error
+    StateChangeRefused,
+    SIITimeout,
+    RecvTimeout,
+    /// not all subdevices completed the transition before the timeout
+    StateChangeTimeout,
+    /// InvalidMbxConfiguration,
+    /// the observed contents of the bus do not match the ENI
+    BusConfigurationMismatch,
+};
+
+pub fn busPreop(self: *MainDevice, change_timeout_us: u32) BusPreopError!void {
 
     // perform IP tasks for each subdevice
     for (self.subdevices) |*subdevice| {

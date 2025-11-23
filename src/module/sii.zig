@@ -516,7 +516,13 @@ pub fn readSMCatagory(
     return res;
 }
 
-pub fn readGeneralCatagory(port: *Port, station_address: u16, recv_timeout_us: u32, eeprom_timeout_us: u32) !?CatagoryGeneral {
+pub const ReadGeneralCatagoryError = ReadSIIError || error{MisbehavingSubdevice};
+pub fn readGeneralCatagory(
+    port: *Port,
+    station_address: u16,
+    recv_timeout_us: u32,
+    eeprom_timeout_us: u32,
+) ReadGeneralCatagoryError!?CatagoryGeneral {
     logger.debug("station addr: 0x{x}, reading SII general catagory", .{station_address});
     const catagory = try findCatagoryFP(
         port,
@@ -534,7 +540,7 @@ pub fn readGeneralCatagory(port: *Port, station_address: u16, recv_timeout_us: u
         return error.MisbehavingSubdevice;
     }
 
-    const general = try readSIIFP_ps(
+    const general = try readPackFP(
         port,
         CatagoryGeneral,
         station_address,
@@ -747,7 +753,7 @@ pub fn findCatagoryFP(
     catagory: CatagoryType,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) !?FindCatagoryResult {
+) ReadSIIError!?FindCatagoryResult {
 
     // there shouldn't be more than 1000 catagories..right??
     const word_address: u16 = @intFromEnum(ParameterMap.first_catagory_header);
@@ -763,7 +769,7 @@ pub fn findCatagoryFP(
 
     for (0..1000) |_| {
         const catagory_header = wire.packFromECatReader(CatagoryHeader, &stream.reader) catch |err| switch (err) {
-            error.ReadFailed => return error.ReadFailed,
+            error.ReadFailed => return stream.err.?,
             error.EndOfStream => unreachable,
         };
 
@@ -774,8 +780,9 @@ pub fn findCatagoryFP(
         } else if (catagory_header.catagory_type == .end_of_file) {
             return null;
         } else {
-            //word_address += catagory_header.word_size + 2; // + 2 for catagory header
-            try stream.reader.discardAll(@as(u17, catagory_header.word_size) * 2);
+            // word_address += catagory_header.word_size + 2; // + 2 for catagory header
+            comptime assert(@TypeOf(stream).discard_is_infailable);
+            stream.reader.discardAll(@as(u17, catagory_header.word_size) * 2) catch unreachable;
             continue;
         }
         unreachable;
@@ -784,17 +791,15 @@ pub fn findCatagoryFP(
     }
 }
 
-pub const readSII_ps_error = error{MisbehavingSubdevice} || SIIStream.ReadError;
-
 /// read a packed struct from SII, using station addressing
-pub fn readSIIFP_ps(
+pub fn readPackFP(
     port: *Port,
     comptime T: type,
     station_address: u16,
     eeprom_address: u16,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) readSII_ps_error!T {
+) ReadSIIError!T {
     var bytes: [@divExact(@bitSizeOf(T), 8)]u8 = undefined;
     var buffer: [1024]u8 = undefined;
     var stream = SIIStream.init(
@@ -807,7 +812,7 @@ pub fn readSIIFP_ps(
     );
     stream.reader.readSliceAll(&bytes) catch |err| switch (err) {
         error.EndOfStream => unreachable,
-        error.ReadFailed => return error.ReadFailed,
+        error.ReadFailed => return stream.err.?,
     };
     return wire.packFromECat(T, bytes);
 }
@@ -819,6 +824,7 @@ pub const SIIStream = struct {
     eeprom_timeout_us: u32,
     position: u17, // byte address
     reader: std.Io.Reader,
+    err: ?ReadSIIError,
 
     const ReadError = std.Io.Reader.Error;
 
@@ -845,6 +851,7 @@ pub const SIIStream = struct {
                 .seek = 0,
                 .end = 0,
             },
+            .err = null,
         };
     }
 
@@ -856,11 +863,10 @@ pub const SIIStream = struct {
             @intCast(@divFloor(self.position, 2)), // eeprom address is WORD address
             self.recv_timeout_us,
             self.eeprom_timeout_us,
-        ) catch |err| switch (err) {
-            error.Timeout => return error.ReadFailed,
-            error.LinkError => return error.ReadFailed,
+        ) catch |err| {
+            self.err = err;
+            return error.ReadFailed;
         };
-
         if (self.position % 2 != 0) {
             const n_written = try w.write(limit.sliceConst(four_bytes[1..]));
             self.position += @intCast(n_written);
@@ -871,6 +877,8 @@ pub const SIIStream = struct {
         return n_written;
     }
 
+    // change to false if discard becomes failable, there are comptime asserts that inspect this elsewhere.
+    const discard_is_infailable = true;
     fn discard(r: *std.Io.Reader, limit: std.Io.Limit) std.Io.Reader.Error!usize {
         const self: *SIIStream = @alignCast(@fieldParentPtr("reader", r));
         assert(r.seek == r.end);
@@ -884,8 +892,10 @@ pub const SIIStream = struct {
 };
 
 pub const ReadSIIError = error{
-    Timeout,
     LinkError,
+    RecvTimeout,
+    Wkc,
+    SIITimeout,
 };
 
 /// read 4 bytes from SII, using station addressing
@@ -909,8 +919,8 @@ pub fn readSII4ByteFP(
         recv_timeout_us,
         1,
     ) catch |err| switch (err) {
-        error.RecvTimeout => return error.Timeout,
-        error.Wkc => return error.Timeout,
+        error.RecvTimeout => return error.RecvTimeout,
+        error.Wkc => return error.Wkc,
         error.LinkError => return error.LinkError,
     };
 
@@ -925,8 +935,8 @@ pub fn readSII4ByteFP(
         1,
     ) catch |err| switch (err) {
         error.LinkError => return error.LinkError,
-        error.RecvTimeout => return error.Timeout,
-        error.Wkc => return error.Timeout,
+        error.RecvTimeout => return error.RecvTimeout,
+        error.Wkc => return error.Wkc,
     };
     // send read command
     port.fpwrPackWkc(
@@ -953,8 +963,8 @@ pub fn readSII4ByteFP(
         1,
     ) catch |err| switch (err) {
         error.LinkError => return error.LinkError,
-        error.RecvTimeout => return error.Timeout,
-        error.Wkc => return error.Timeout,
+        error.RecvTimeout => return error.RecvTimeout,
+        error.Wkc => return error.Wkc,
     };
 
     var timer = Timer.start() catch |err| switch (err) {
@@ -974,8 +984,8 @@ pub fn readSII4ByteFP(
             1,
         ) catch |err| switch (err) {
             error.LinkError => return error.LinkError,
-            error.RecvTimeout => return error.Timeout,
-            error.Wkc => return error.Timeout,
+            error.RecvTimeout => return error.RecvTimeout,
+            error.Wkc => return error.Wkc,
         };
 
         if (sii_status.busy) {
@@ -989,7 +999,7 @@ pub fn readSII4ByteFP(
             break;
         }
     } else {
-        return error.Timeout;
+        return error.SIITimeout;
     }
 
     var data = [4]u8{ 0, 0, 0, 0 };
@@ -1005,8 +1015,8 @@ pub fn readSII4ByteFP(
         1,
     ) catch |err| switch (err) {
         error.LinkError => return error.LinkError,
-        error.RecvTimeout => return error.Timeout,
-        error.Wkc => return error.Timeout,
+        error.RecvTimeout => return error.RecvTimeout,
+        error.Wkc => return error.Wkc,
     };
     logger.debug("station_addr: 0x{x}, read eeprom word addr: 0x{x}, content(hex): {x}", .{ station_address, eeprom_address, data });
     return data;
@@ -1392,7 +1402,7 @@ pub fn readSubdeviceInfoCompact(
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
 ) !SubdeviceInfoCompact {
-    return try readSIIFP_ps(
+    return try readPackFP(
         port,
         SubdeviceInfoCompact,
         station_address,
@@ -1408,7 +1418,7 @@ pub fn readSubdeviceInfo(
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
 ) !SubdeviceInfo {
-    return try readSIIFP_ps(
+    return try readPackFP(
         port,
         SubdeviceInfo,
         station_address,

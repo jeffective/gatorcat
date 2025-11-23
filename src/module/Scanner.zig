@@ -195,7 +195,7 @@ pub fn busInit(self: *const Scanner, state_change_timeout_us: u32, subdevice_cou
 
 pub fn subdevicePREOP(self: *Scanner, change_timeout_us: u32, ring_position: u16) !Subdevice {
     const station_address = Subdevice.stationAddressFromRingPos(@intCast(ring_position));
-    const info = try sii.readSIIFP_ps(
+    const info = try sii.readPackFP(
         self.port,
         sii.SubdeviceInfoCompact,
         station_address,
@@ -311,7 +311,7 @@ pub fn readSubdeviceConfigurationLeaky(
     sim: bool,
 ) !ENI.SubdeviceConfiguration {
     const station_address = Subdevice.stationAddressFromRingPos(ring_position);
-    const info = try sii.readSIIFP_ps(
+    const info = try sii.readPackFP(
         self.port,
         sii.SubdeviceInfoCompact,
         station_address,
