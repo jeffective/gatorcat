@@ -23,7 +23,11 @@ pub const Args = struct {
     };
 };
 
-pub fn read_eeprom(allocator: std.mem.Allocator, args: Args) !void {
+pub fn read_eeprom(args: Args) !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
     var raw_socket = try gcat.nic.RawSocket.init(args.ifname);
     defer raw_socket.deinit();
 

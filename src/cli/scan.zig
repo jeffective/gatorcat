@@ -39,7 +39,11 @@ pub const Args = struct {
     };
 };
 
-pub fn scan(allocator: std.mem.Allocator, args: Args) !void {
+pub fn scan(args: Args) !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
     var raw_socket = try gcat.nic.RawSocket.init(args.ifname);
     defer raw_socket.deinit();
 

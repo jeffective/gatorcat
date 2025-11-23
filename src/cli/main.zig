@@ -30,8 +30,7 @@ fn logFn(
     }
 }
 
-// CLI options
-const Flags = struct {
+const Args = struct {
     pub const description =
         \\The GatorCAT CLI.
         \\
@@ -79,20 +78,17 @@ pub fn main() !void {
     const args = try std.process.argsAlloc(args_allocator.allocator());
     defer std.process.argsFree(args_allocator.allocator(), args);
 
-    const parsed_args = flags.parse(args, "gatorcat", Flags, .{});
+    const parsed_args = flags.parse(args, "gatorcat", Args, .{});
 
     log_level = parsed_args.log_level;
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-
     switch (parsed_args.command) {
-        .scan => |scan_args| try scan.scan(gpa.allocator(), scan_args),
+        .scan => |scan_args| try scan.scan(scan_args),
         .benchmark => |benchmark_args| try benchmark.benchmark(benchmark_args),
-        .read_eeprom => |read_eeprom_args| try read_eeprom.read_eeprom(gpa.allocator(), read_eeprom_args),
-        .run => |run_args| try run.run(gpa.allocator(), run_args),
-        .info => |info_args| try info.info(gpa.allocator(), info_args),
-        .dc => |dc_args| try dc.dc(gpa.allocator(), dc_args),
+        .read_eeprom => |read_eeprom_args| try read_eeprom.read_eeprom(read_eeprom_args),
+        .run => |run_args| try run.run(run_args),
+        .info => |info_args| try info.info(info_args),
+        .dc => |dc_args| try dc.dc(dc_args),
         .version => {
             var std_out = std.fs.File.stdout().writer(&.{});
             const writer = &std_out.interface;

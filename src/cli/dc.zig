@@ -40,7 +40,6 @@ pub const Args = struct {
     };
 };
 
-pub fn dc(gpa: std.mem.Allocator, args: Args) !void {
-    _ = gpa;
+pub fn dc(args: Args) !void {
     _ = args;
 }

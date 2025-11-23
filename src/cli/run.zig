@@ -64,7 +64,11 @@ pub const RunError = error{
     NonRecoverable,
 };
 
-pub fn run(allocator: std.mem.Allocator, args: Args) RunError!void {
+pub fn run(args: Args) RunError!void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
     if (args.config_file_json != null and args.config_file != null) {
         std.log.err("only one of --config-file and --config-file-json is allowed", .{});
         return error.NonRecoverable;
