@@ -66,7 +66,7 @@ pub fn writeMailboxOut(
     recv_timeout_us: u32,
     mbx_out: HalfConfiguration,
     content: OutContent,
-) (error{MisbehavingSubdevice} || Port.SendDatagramWkcError)!void {
+) (error{ProtocolViolation} || Port.SendDatagramWkcError)!void {
     assert(mbx_out.isValid());
 
     const act_mbx_out = try port.fprdPackWkc(
@@ -88,14 +88,14 @@ pub fn writeMailboxOut(
         // This may occur if:
         // 1. the subdevice loses power etc.
         // 2. we screwed up the configuration
-        return error.MisbehavingSubdevice;
+        return error.ProtocolViolation;
     }
 
     // Mailbox out full?
     // This is an error since it should almost never happen.
     // If it happens it is an indication of incorrect use of this function
     // or malfunctioning subdevice.
-    if (act_mbx_out.status.mailbox_full) return error.MisbehavingSubdevice; // mbx out full
+    if (act_mbx_out.status.mailbox_full) return error.ProtocolViolation; // mbx out full
 
     var buf = std.mem.zeroes([max_size]u8);
     var writer = std.Io.Writer.fixed(&buf);
@@ -136,7 +136,7 @@ pub fn readMailboxInTimeout(
     recv_timeout_us: u32,
     mbx_in: HalfConfiguration,
     mbx_timeout_us: u32,
-) (error{ MisbehavingSubdevice, MailboxTimeout } || Port.SendDatagramWkcError)!InContent {
+) (error{ ProtocolViolation, MailboxTimeout } || Port.SendDatagramWkcError)!InContent {
     assert(mbx_in.isValid());
 
     var timer = Timer.start() catch |err| switch (err) {
@@ -168,7 +168,7 @@ pub fn readMailboxIn(
     station_address: u16,
     recv_timeout_us: u32,
     mbx_in: HalfConfiguration,
-) (error{MisbehavingSubdevice} || Port.SendDatagramWkcError)!?InContent {
+) (error{ProtocolViolation} || Port.SendDatagramWkcError)!?InContent {
     assert(mbx_in.isValid());
 
     const act_mbx_in = try port.fprdPackWkc(
@@ -193,7 +193,7 @@ pub fn readMailboxIn(
         // This may occur if:
         // 1. the subdevice loses power etc.
         // 2. we screwed up the configuration
-        return error.MisbehavingSubdevice;
+        return error.ProtocolViolation;
     }
 
     // Mailbox empty?
@@ -215,7 +215,7 @@ pub fn readMailboxIn(
         1,
     );
     const in_content = InContent.deserialize(&buf) catch |err| switch (err) {
-        error.InvalidMbxContent, error.NotImplemented => return error.MisbehavingSubdevice,
+        error.InvalidMbxContent, error.NotImplemented => return error.ProtocolViolation,
     };
     return in_content;
 }

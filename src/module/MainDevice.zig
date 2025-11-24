@@ -293,7 +293,7 @@ pub const BusPreopError = error{
     /// the link layer experienced an error
     LinkError,
     /// a subdevice responded in a non-spec-compliant manner
-    MisbehavingSubdevice,
+    ProtocolViolation,
     /// one of the configured startup parameters in the ENI failed
     StartupParametersFailed,
     /// unexpected value for working counter on a datagram (subdevice failed to modify a datagram),
@@ -335,7 +335,7 @@ pub const BusSafeopError = error{
     /// the link layer experienced an error
     LinkError,
     /// a subdevice responded in a non-spec-compliant manner
-    MisbehavingSubdevice,
+    ProtocolViolation,
     /// one of the configured startup parameters in the ENI failed
     StartupParametersFailed,
     /// unexpected value for working counter on a datagram (subdevice failed to modify a datagram),

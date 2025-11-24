@@ -144,7 +144,7 @@ pub const TransitionIPError = error{
     /// the link layer experienced an error
     LinkError,
     /// a subdevice responded in a non-spec compliant manner
-    MisbehavingSubdevice,
+    ProtocolViolation,
     /// one of the configured startup parameters in the ENI failed
     StartupParametersFailed,
     /// unexpected working counter on a datagram
@@ -325,7 +325,7 @@ pub fn transitionIP(
                         sms.sm0.physical_start_address,
                         sms.sm0.length,
                     ) catch |err| switch (err) {
-                        error.InvalidMbxConfiguration => return error.MisbehavingSubdevice,
+                        error.InvalidMbxConfiguration => return error.ProtocolViolation,
                     },
                     .supports_complete_access = blk: {
                         if (general_catagory) |general| {
@@ -362,7 +362,7 @@ pub const TransitionPSError = error{
     /// the link layer experienced an error
     LinkError,
     /// a subdevice responded in a non-spec-compliant or unexpected manner
-    MisbehavingSubdevice,
+    ProtocolViolation,
     /// one of the configured startup parameters in the ENI failed
     StartupParametersFailed,
     /// unexpected working counter on a datagram
@@ -545,7 +545,7 @@ pub fn transitionSO(
         error.CoENotSupported,
         error.CoECompleteAccessNotSupported,
         error.CoEAbort,
-        error.MisbehavingSubdevice,
+        error.ProtocolViolation,
         => return error.StartupParametersFailed,
         error.LinkError => return error.LinkError,
         error.CoEEmergency => return error.CoEEmergency,

@@ -105,7 +105,7 @@ Occuring before PREOP -> SAFEOP (PS):
         - reading the PDO assignment must be done AFTER startup parameters are applied, as CoE startup parameters may adjust the PDO assignment.
         - add up the bitlengths of the PDOs assigned to each sync manager, this determines the length (bytes) of each sync manager.
         - the PDO indices assigned to each sync manager determines if it is an input or output sync manager (see PDO index ranges in the spec.)
-            - in practice, use the EEPROM sync managers catagory to determine if a sync manager is input or output and validate the PDOs are assigned to an appropriate type of sync manager when you iterate over them and reject invalid assignments as "error.MisbehavingSubdevice".
+            - in practice, use the EEPROM sync managers catagory to determine if a sync manager is input or output and validate the PDOs are assigned to an appropriate type of sync manager when you iterate over them and reject invalid assignments as "error.ProtocolViolation".
         - the length parameter of each sync manager configuration stored in the EEPROM Sync Managers Catagory cannot be trusted, and must be determined by adding up the bitlengths of PDOs described in the EEPROM / CoE.
             - example: the Beckhoff EL2008 has 8 output bits but the EEPROM sync manager catagory has a zero length outputs sync manager, when it should be 1.
     - the physical memory offset parameter of the sync manager configuration can only be obtained from the EEPROM Sync Manager Catagory.

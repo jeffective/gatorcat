@@ -417,7 +417,7 @@ pub fn readFMMUCatagory(
     station_address: u16,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) (error{MisbehavingSubdevice} || ReadError)!FMMUCatagory {
+) (error{ProtocolViolation} || ReadError)!FMMUCatagory {
     var res = FMMUCatagory{};
 
     const catagory = try findCatagoryFP(
@@ -432,13 +432,13 @@ pub fn readFMMUCatagory(
         u17,
         catagory.byte_length,
         @divExact(@bitSizeOf(FMMUFunction), 8),
-    ) catch return error.MisbehavingSubdevice;
+    ) catch return error.ProtocolViolation;
     if (n_fmmu == 0) {
         assert(res.len == 0);
         return res;
     }
     if (n_fmmu > res.capacity()) {
-        return error.MisbehavingSubdevice;
+        return error.ProtocolViolation;
     }
 
     var buffer: [1024]u8 = undefined;
@@ -473,7 +473,7 @@ pub fn readSMCatagory(
     station_address: u16,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) (error{MisbehavingSubdevice} || ReadError)!SMCatagory {
+) (error{ProtocolViolation} || ReadError)!SMCatagory {
     const catagory = (try findCatagoryFP(
         port,
         station_address,
@@ -481,14 +481,14 @@ pub fn readSMCatagory(
         recv_timeout_us,
         eeprom_timeout_us,
     )) orelse return SMCatagory{};
-    const n_sm: u17 = std.math.divExact(u17, catagory.byte_length, @divExact(@bitSizeOf(SyncM), 8)) catch return error.MisbehavingSubdevice;
+    const n_sm: u17 = std.math.divExact(u17, catagory.byte_length, @divExact(@bitSizeOf(SyncM), 8)) catch return error.ProtocolViolation;
     var res = SMCatagory{};
     if (n_sm == 0) {
         return res;
     }
     assert(n_sm > 0);
     if (n_sm > res.capacity()) {
-        return error.MisbehavingSubdevice;
+        return error.ProtocolViolation;
     }
     var buffer: [1024]u8 = undefined;
     var stream = SIIStream.init(
@@ -513,7 +513,7 @@ pub fn readGeneralCatagory(
     station_address: u16,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) (error{MisbehavingSubdevice} || ReadError)!?CatagoryGeneral {
+) (error{ProtocolViolation} || ReadError)!?CatagoryGeneral {
     logger.debug("station addr: 0x{x}, reading SII general catagory", .{station_address});
     const catagory = try findCatagoryFP(
         port,
@@ -528,7 +528,7 @@ pub fn readGeneralCatagory(
             "Subdevice station addr: 0x{x} has invalid eeprom sii general length: {}. Expected >= {}",
             .{ station_address, catagory.byte_length, @divExact(@bitSizeOf(CatagoryGeneral), 8) },
         );
-        return error.MisbehavingSubdevice;
+        return error.ProtocolViolation;
     }
 
     const general = try readPackFP(
@@ -654,7 +654,7 @@ pub fn readPDOs(
     direction: pdi.Direction,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) (error{ MisbehavingSubdevice, OutOfMemory } || ReadError)![]PDO {
+) (error{ ProtocolViolation, OutOfMemory } || ReadError)![]PDO {
     logger.debug("station addr: 0x{x}, reading SII PDOs: {}", .{ station_address, direction });
     var pdos = std.ArrayList(PDO).empty;
     errdefer pdos.deinit(allocator);
@@ -671,7 +671,7 @@ pub fn readPDOs(
 
     // entries are 8 bytes, pdo header is 8 bytes, so
     // this should be a multiple of eight.
-    if (catagory.byte_length % 8 != 0) return error.MisbehavingSubdevice;
+    if (catagory.byte_length % 8 != 0) return error.ProtocolViolation;
     const n_headers_n_entries = @divExact(catagory.byte_length, 8);
     std.log.debug("station addr: 0x{x}, n_header_n_entries: {}", .{ station_address, n_headers_n_entries });
 
@@ -697,7 +697,7 @@ pub fn readPDOs(
                 assert(entries_remaining == 0);
                 entries.clear();
                 pdo_header = wire.packFromECatReader(PDO.Header, reader) catch return stream.err.?;
-                if (pdo_header.n_entries > PDO.max_entries) return error.MisbehavingSubdevice;
+                if (pdo_header.n_entries > PDO.max_entries) return error.ProtocolViolation;
                 entries_remaining = pdo_header.n_entries;
                 state = .entries;
                 std.log.debug("station addr: 0x{x}, pdo header: {}", .{ station_address, pdo_header });
@@ -722,9 +722,9 @@ pub fn readPDOs(
     }
     if (entries_remaining != 0) {
         std.log.err("station addr: 0x{x}, invalid SII. remaining entries: {}", .{ station_address, entries_remaining });
-        return error.MisbehavingSubdevice;
+        return error.ProtocolViolation;
     }
-    if (pdos.items.len > max_txpdos) return error.MisbehavingSubdevice;
+    if (pdos.items.len > max_txpdos) return error.ProtocolViolation;
     return try pdos.toOwnedSlice(allocator);
 }
 
@@ -1180,7 +1180,7 @@ pub fn readSMPDOAssigns(
     station_address: u16,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) (error{MisbehavingSubdevice} || ReadError)!SMPDOAssigns {
+) (error{ProtocolViolation} || ReadError)!SMPDOAssigns {
     var res = SMPDOAssigns{};
     const sm_catagory = try readSMCatagory(
         port,
@@ -1194,10 +1194,10 @@ pub fn readSMPDOAssigns(
     for (sync_managers, 0..) |sm_config, sm_idx| {
         switch (sm_config.syncM_type) {
             .mailbox_in, .mailbox_out, .not_used_or_unknown => {},
-            _ => return error.MisbehavingSubdevice,
+            _ => return error.ProtocolViolation,
             .process_data_inputs, .process_data_outputs => {
                 res.addSyncManager(sm_config, @intCast(sm_idx)) catch |err| switch (err) {
-                    error.Overflow => return error.MisbehavingSubdevice,
+                    error.Overflow => return error.ProtocolViolation,
                 };
             },
         }
@@ -1217,7 +1217,7 @@ pub fn readSMPDOAssigns(
 
         // entries are 8 bytes, pdo header is 8 bytes, so
         // this should be a multiple of eight.
-        if (catagory.byte_length % 8 != 0) return error.MisbehavingSubdevice;
+        if (catagory.byte_length % 8 != 0) return error.ProtocolViolation;
         const n_headers_n_entries = @divExact(catagory.byte_length, 8);
 
         var buffer: [1024]u8 = undefined;
@@ -1241,7 +1241,7 @@ pub fn readSMPDOAssigns(
                 .pdo_header => {
                     assert(entries_remaining == 0);
                     pdo_header = wire.packFromECatReader(PDO.Header, reader) catch return stream.err.?;
-                    if (pdo_header.n_entries > PDO.max_entries) return error.MisbehavingSubdevice;
+                    if (pdo_header.n_entries > PDO.max_entries) return error.ProtocolViolation;
                     current_sm_idx = pdo_header.syncM;
                     entries_remaining = pdo_header.n_entries;
                     if (pdo_header.isUsed()) {
@@ -1267,7 +1267,7 @@ pub fn readSMPDOAssigns(
                             else => unreachable,
                         },
                     ) catch |err| switch (err) {
-                        error.SyncManagerNotFound, error.WrongDirection => return error.MisbehavingSubdevice,
+                        error.SyncManagerNotFound, error.WrongDirection => return error.ProtocolViolation,
                     };
                     if (entries_remaining == 0) {
                         state = .pdo_header;
@@ -1278,7 +1278,7 @@ pub fn readSMPDOAssigns(
                     }
                 },
                 .entries_skip => {
-                    _ = wire.packFromECatReader(PDO.Entry, reader) catch return error.MisbehavingSubdevice;
+                    _ = wire.packFromECatReader(PDO.Entry, reader) catch return error.ProtocolViolation;
                     entries_remaining -= 1;
                     if (entries_remaining == 0) {
                         state = .pdo_header;
@@ -1290,10 +1290,10 @@ pub fn readSMPDOAssigns(
                 },
             }
         }
-        if (entries_remaining != 0) return error.MisbehavingSubdevice;
+        if (entries_remaining != 0) return error.ProtocolViolation;
     }
     res.sortAndVerifyNonOverlapping() catch |err| switch (err) {
-        error.OverlappingSM => return error.MisbehavingSubdevice,
+        error.OverlappingSM => return error.ProtocolViolation,
     };
     return res;
 }
@@ -1309,7 +1309,7 @@ pub fn readPDOBitLengths(
     direction: pdi.Direction,
     recv_timeout_us: u32,
     eeprom_timeout_us: u32,
-) (error{MisbehavingSubdevice} || ReadError)!u32 {
+) (error{ProtocolViolation} || ReadError)!u32 {
     const catagory = try findCatagoryFP(
         port,
         station_address,
@@ -1323,7 +1323,7 @@ pub fn readPDOBitLengths(
 
     // entries are 8 bytes, pdo header is 8 bytes, so
     // this should be a multiple of eight.
-    if (catagory.byte_length % 8 != 0) return error.MisbehavingSubdevice;
+    if (catagory.byte_length % 8 != 0) return error.ProtocolViolation;
     const n_headers_n_entries = @divExact(catagory.byte_length, 8);
 
     var buffer: [1024]u8 = undefined;
@@ -1347,7 +1347,7 @@ pub fn readPDOBitLengths(
             .pdo_header => {
                 assert(entries_remaining == 0);
                 pdo_header = wire.packFromECatReader(PDO.Header, reader) catch return stream.err.?;
-                if (pdo_header.n_entries > PDO.max_entries) return error.MisbehavingSubdevice;
+                if (pdo_header.n_entries > PDO.max_entries) return error.ProtocolViolation;
                 entries_remaining = pdo_header.n_entries;
                 if (pdo_header.isUsed()) {
                     state = .entries;
@@ -1382,7 +1382,7 @@ pub fn readPDOBitLengths(
             },
         }
     }
-    if (entries_remaining != 0) return error.MisbehavingSubdevice;
+    if (entries_remaining != 0) return error.ProtocolViolation;
     return total_bit_length;
 }
 

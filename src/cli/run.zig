@@ -208,7 +208,7 @@ pub fn run(args: Args) RunError!void {
                 error.StateChangeRefused,
                 error.StateChangeTimeout,
                 error.BusConfigurationMismatch,
-                error.MisbehavingSubdevice,
+                error.ProtocolViolation,
                 error.NotImplemented,
                 error.MailboxTimeout,
                 error.CoEAbort,
@@ -290,7 +290,7 @@ pub fn run(args: Args) RunError!void {
 
         md.busPreop(args.preop_timeout_us) catch |err| switch (err) {
             error.LinkError,
-            error.MisbehavingSubdevice,
+            error.ProtocolViolation,
             error.StartupParametersFailed,
             => return error.NonRecoverable,
             error.Wkc,
@@ -321,7 +321,7 @@ pub fn run(args: Args) RunError!void {
             error.NotImplemented,
             error.SIITimeout,
             error.LinkError,
-            error.MisbehavingSubdevice,
+            error.ProtocolViolation,
             error.RecvTimeout,
             error.Wkc,
             error.StateChangeTimeout,

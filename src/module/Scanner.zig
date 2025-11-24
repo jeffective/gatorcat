@@ -311,7 +311,7 @@ pub fn readSubdeviceConfigurationLeaky(
     sim: bool,
 ) (error{
     OutOfMemory,
-    MisbehavingSubdevice,
+    ProtocolViolation,
     StateChangeRefused,
     CoEAbort,
     CoEEmergency,
@@ -432,12 +432,12 @@ pub fn readSubdeviceConfigurationLeaky(
                     pdo_index,
                     &full_service_data_buffer,
                 ) catch |err| switch (err) {
-                    error.ObjectDoesNotExist => return error.MisbehavingSubdevice,
-                    error.ObjectDescriptionTooBig => return error.MisbehavingSubdevice, // TODO
+                    error.ObjectDoesNotExist => return error.ProtocolViolation,
+                    error.ObjectDescriptionTooBig => return error.ProtocolViolation, // TODO
                     error.LinkError,
                     error.RecvTimeout,
                     error.Wkc,
-                    error.MisbehavingSubdevice,
+                    error.ProtocolViolation,
                     error.MailboxTimeout,
                     error.CoEAbort,
                     error.CoEEmergency,
@@ -471,12 +471,12 @@ pub fn readSubdeviceConfigurationLeaky(
                             .description_only,
                             &ed_full_service_data_buffer,
                         ) catch |err| switch (err) {
-                            error.EntryDescriptionTooBig => return error.MisbehavingSubdevice, // TODO
-                            error.ObjectDoesNotExist => return error.MisbehavingSubdevice,
+                            error.EntryDescriptionTooBig => return error.ProtocolViolation, // TODO
+                            error.ObjectDoesNotExist => return error.ProtocolViolation,
                             error.LinkError,
                             error.RecvTimeout,
                             error.Wkc,
-                            error.MisbehavingSubdevice,
+                            error.ProtocolViolation,
                             error.MailboxTimeout,
                             error.CoEAbort,
                             error.CoEEmergency,

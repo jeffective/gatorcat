@@ -136,7 +136,7 @@ pub fn sdoWrite(
 
             if (in_content != .coe) {
                 logger.err("station_addr: {} returned incorrect protocol during COE write at index: {}, subindex: {}", .{ station_address, index, subindex });
-                return error.MisbehavingSubdevice;
+                return error.ProtocolViolation;
             }
             switch (in_content.coe) {
                 .abort => {
@@ -145,18 +145,18 @@ pub fn sdoWrite(
                 },
                 .segment => {
                     logger.err("station_addr: {} returned unexpected segment during COE write at index: {}, subindex: {}", .{ station_address, index, subindex });
-                    return error.MisbehavingSubdevice;
+                    return error.ProtocolViolation;
                 },
                 .normal => {
                     logger.err("station_addr: {} returned unexpected normal during COE write at index: {}, subindex: {}", .{ station_address, index, subindex });
-                    return error.MisbehavingSubdevice;
+                    return error.ProtocolViolation;
                 },
                 .emergency => {
                     logger.err("station_addr: {} returned emergency during COE write at index: {}, subindex: {}", .{ station_address, index, subindex });
                     return error.CoEEmergency;
                 },
                 .expedited => return,
-                else => return error.MisbehavingSubdevice,
+                else => return error.ProtocolViolation,
             }
         },
     }
@@ -167,7 +167,7 @@ pub const SDOReadPackError = error{
     CoEAbort,
     CoEEmergency,
     NotImplemented,
-    MisbehavingSubdevice,
+    ProtocolViolation,
 } || Port.SendDatagramWkcError;
 
 /// Read a packed type from an SDO.
@@ -199,11 +199,11 @@ pub fn sdoReadPack(
         cnt,
         config,
     ) catch |err| switch (err) {
-        error.WriteFailed => return error.MisbehavingSubdevice,
+        error.WriteFailed => return error.ProtocolViolation,
         error.LinkError,
         error.RecvTimeout,
         error.Wkc,
-        error.MisbehavingSubdevice,
+        error.ProtocolViolation,
         error.MailboxTimeout,
         error.CoEAbort,
         error.CoEEmergency,
@@ -213,13 +213,13 @@ pub fn sdoReadPack(
     const n_bytes_read = writer.buffered().len;
     if (n_bytes_read != bytes.len) {
         logger.err("expected pack size: {}, got {}", .{ bytes.len, n_bytes_read });
-        return error.MisbehavingSubdevice;
+        return error.ProtocolViolation;
     }
     return wire.packFromECat(packed_type, bytes);
 }
 
 pub const SDOReadError = error{
-    MisbehavingSubdevice,
+    ProtocolViolation,
     MailboxTimeout,
     CoEAbort,
     CoEEmergency,
@@ -301,7 +301,7 @@ pub fn sdoRead(
             );
 
             if (in_content != .coe) {
-                return error.MisbehavingSubdevice;
+                return error.ProtocolViolation;
             }
             switch (in_content.coe) {
                 .expedited => continue :state .expedited,
@@ -315,9 +315,9 @@ pub fn sdoRead(
                     });
                     return error.CoEAbort;
                 },
-                .segment => return error.MisbehavingSubdevice,
+                .segment => return error.ProtocolViolation,
                 .emergency => return error.CoEEmergency,
-                else => return error.MisbehavingSubdevice,
+                else => return error.ProtocolViolation,
             }
         },
         .expedited => {
@@ -733,7 +733,7 @@ pub fn readSMComms(
     mbx_timeout_us: u32,
     cnt: *Cnt,
     config: mailbox.Configuration,
-) (error{MisbehavingSubdevice} || SDOReadPackError)!SMComms {
+) (error{ProtocolViolation} || SDOReadPackError)!SMComms {
     const n_sm = try sdoReadPack(
         port,
         station_address,
@@ -749,7 +749,7 @@ pub fn readSMComms(
 
     if (n_sm > max_sm) {
         logger.err("station_addr: {} has invalid number of sync managers: {}", .{ station_address, n_sm });
-        return error.MisbehavingSubdevice;
+        return error.ProtocolViolation;
     }
 
     assert(n_sm <= max_sm);
@@ -795,7 +795,7 @@ pub fn readSMChannel(
     cnt: *Cnt,
     config: mailbox.Configuration,
     sm_idx: u5,
-) (error{MisbehavingSubdevice} || SDOReadPackError)!SMChannel {
+) (error{ProtocolViolation} || SDOReadPackError)!SMChannel {
     const index = CommunicationAreaMap.smChannel(sm_idx);
 
     const n_pdo = try sdoReadPack(
@@ -813,7 +813,7 @@ pub fn readSMChannel(
     var channel = SMChannel{};
     if (n_pdo > channel.capacity()) {
         logger.err("station_addr: {} returned invalid n pdos: {} for sm_idx: {}", .{ station_address, n_pdo, sm_idx });
-        return error.MisbehavingSubdevice;
+        return error.ProtocolViolation;
     }
     assert(n_pdo <= channel.capacity());
     for (0..n_pdo) |i| {
@@ -831,7 +831,7 @@ pub fn readSMChannel(
         );
         if (!isValidPDOIndex(pdo_index)) {
             logger.err("station_addr: {} returned invalid pdo_index: {} for n_pdo: {}, sm_idx: {}", .{ station_address, pdo_index, i, sm_idx });
-            return error.MisbehavingSubdevice;
+            return error.ProtocolViolation;
         }
         channel.buffer[i] = pdo_index;
     }
@@ -1018,7 +1018,7 @@ pub fn readPDOMapping(
     var entries = PDOMapping{};
     if (n_entries > PDOMapping.max_entries) {
         logger.err("station_addr: {} reported invalid number of COE entries: {} for index: {}", .{ station_address, n_entries, index });
-        return error.MisbehavingSubdevice;
+        return error.ProtocolViolation;
     }
 
     assert(n_entries <= PDOMapping.max_entries);
@@ -1049,7 +1049,7 @@ pub fn readSMPDOAssigns(
     mbx_timeout_us: u32,
     cnt: *Cnt,
     config: mailbox.Configuration,
-) (error{MisbehavingSubdevice} || SDOReadPackError || sii.ReadError)!sii.SMPDOAssigns {
+) (error{ProtocolViolation} || SDOReadPackError || sii.ReadError)!sii.SMPDOAssigns {
     // We need the start addr of the SM from the SII, but we want to trust the CoE
     // on what PDOs are mapped. What a pain.
     var res = sii.SMPDOAssigns{};
@@ -1066,10 +1066,10 @@ pub fn readSMPDOAssigns(
     for (sync_managers, 0..) |sm_config, sm_idx| {
         switch (sm_config.syncM_type) {
             .mailbox_in, .mailbox_out, .not_used_or_unknown => {},
-            _ => return error.MisbehavingSubdevice,
+            _ => return error.ProtocolViolation,
             .process_data_inputs, .process_data_outputs => |direction| {
                 res.addSyncManager(sm_config, @intCast(sm_idx)) catch |err| switch (err) {
-                    error.Overflow => return error.MisbehavingSubdevice,
+                    error.Overflow => return error.ProtocolViolation,
                 };
 
                 const sm_pdo_assignment = try mailbox.coe.readSMChannel(port, station_address, recv_timeout_us, mbx_timeout_us, cnt, config, @intCast(sm_idx));
@@ -1086,7 +1086,7 @@ pub fn readSMPDOAssigns(
                                 else => unreachable,
                             },
                         ) catch |err| switch (err) {
-                            error.SyncManagerNotFound, error.WrongDirection => return error.MisbehavingSubdevice,
+                            error.SyncManagerNotFound, error.WrongDirection => return error.ProtocolViolation,
                         };
                     }
                 }
@@ -1094,7 +1094,7 @@ pub fn readSMPDOAssigns(
         }
     }
     res.sortAndVerifyNonOverlapping() catch |err| switch (err) {
-        error.OverlappingSM => return error.MisbehavingSubdevice,
+        error.OverlappingSM => return error.ProtocolViolation,
     };
     return res;
 }
@@ -1133,7 +1133,7 @@ pub fn readODListLengths(
         .num_object_in_5_lists,
     );
 
-    if (index_list.len != 5) return error.MisbehavingSubdevice;
+    if (index_list.len != 5) return error.ProtocolViolation;
     assert(index_list.len == 5);
     return ODListLengths{
         .all_objects = index_list.slice()[0],
@@ -1179,7 +1179,7 @@ pub fn readODList(
     );
     const full_service_data = writer.buffered();
     const response = try server.GetODListResponse.deserialize(full_service_data);
-    if (response.list_type != list_type) return error.MisbehavingSubdevice;
+    if (response.list_type != list_type) return error.ProtocolViolation;
     return response.index_list;
 }
 
@@ -1192,7 +1192,7 @@ pub fn readSDOInfoFragments(
     opcode: SDOInfoOpCode,
     writer: *std.Io.Writer,
 ) (error{
-    MisbehavingSubdevice,
+    ProtocolViolation,
     WriteFailed,
     ObjectDoesNotExist,
     MailboxTimeout,
@@ -1203,7 +1203,7 @@ pub fn readSDOInfoFragments(
     var expected_fragments_left: u16 = 0;
     get_fragments: for (0..1024) |i| {
         const in_content = try mailbox.readMailboxInTimeout(port, station_address, recv_timeout_us, config.mbx_in, mbx_timeout_us);
-        if (in_content != .coe) return error.MisbehavingSubdevice;
+        if (in_content != .coe) return error.ProtocolViolation;
         switch (in_content.coe) {
             .abort => {
                 return error.CoEAbort;
@@ -1211,7 +1211,7 @@ pub fn readSDOInfoFragments(
             .emergency => return error.CoEEmergency,
             .sdo_info_response => |response| {
                 if (i == 0) expected_fragments_left = response.sdo_info_header.fragments_left;
-                if (response.sdo_info_header.opcode != opcode) return error.MisbehavingSubdevice;
+                if (response.sdo_info_header.opcode != opcode) return error.ProtocolViolation;
                 if (response.sdo_info_header.fragments_left != expected_fragments_left) return error.MissedFragment;
                 try writer.writeAll(response.service_data);
                 if (response.sdo_info_header.fragments_left == 0) break :get_fragments;
@@ -1231,10 +1231,10 @@ pub fn readSDOInfoFragments(
                         return error.ObjectDoesNotExist;
                     }
                 }
-                return error.MisbehavingSubdevice;
+                return error.ProtocolViolation;
             },
         }
-    } else return error.MisbehavingSubdevice;
+    } else return error.ProtocolViolation;
 }
 
 pub fn readObjectDescription(
@@ -1274,8 +1274,8 @@ pub fn readObjectDescription(
         else => |err2| return err2,
     };
     const full_service_data = writer.buffered();
-    const response = server.GetObjectDescriptionResponse.deserialize(full_service_data) catch return error.MisbehavingSubdevice;
-    if (response.index != index) return error.MisbehavingSubdevice;
+    const response = server.GetObjectDescriptionResponse.deserialize(full_service_data) catch return error.ProtocolViolation;
+    if (response.index != index) return error.ProtocolViolation;
     return response;
 }
 
@@ -1291,7 +1291,7 @@ pub fn readEntryDescription(
     value_info: ValueInfo,
     full_service_data_buffer: []u8,
 ) (error{
-    MisbehavingSubdevice,
+    ProtocolViolation,
     EntryDescriptionTooBig,
     ObjectDoesNotExist,
     MailboxTimeout,
@@ -1324,8 +1324,8 @@ pub fn readEntryDescription(
         else => |err2| return err2,
     };
     const full_service_data = writer.buffered();
-    const response = server.GetEntryDescriptionResponse.deserialize(full_service_data) catch return error.MisbehavingSubdevice;
-    if (response.index != index or response.subindex != subindex or response.value_info != value_info) return error.MisbehavingSubdevice;
+    const response = server.GetEntryDescriptionResponse.deserialize(full_service_data) catch return error.ProtocolViolation;
+    if (response.index != index or response.subindex != subindex or response.value_info != value_info) return error.ProtocolViolation;
     return response;
 }
 
