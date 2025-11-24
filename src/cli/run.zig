@@ -256,6 +256,9 @@ pub fn run(args: Args) RunError!void {
         };
         // we should not initiate zenoh until the bus contents are verified.
 
+        // TODO: get rid of this mutex!
+        var pdi_write_mutex = std.Thread.Mutex{};
+
         var maybe_zh: ?ZenohHandler = blk: {
             if (args.plugin_zenoh_config_file) |config_file| {
                 const zh = ZenohHandler.init(
@@ -264,7 +267,7 @@ pub fn run(args: Args) RunError!void {
                     config_file,
                     &md,
                     args.zenoh_log_level,
-                    &write_mutex,
+                    &pdi_write_mutex,
                 ) catch return error.NonRecoverable;
                 break :blk zh;
             } else if (args.plugin_zenoh_config_default) {
@@ -277,7 +280,7 @@ pub fn run(args: Args) RunError!void {
                     null,
                     &md,
                     args.zenoh_log_level,
-                    &write_mutex,
+                    &pdi_write_mutex,
                 ) catch return error.NonRecoverable;
                 break :blk zh;
             } else break :blk null;
@@ -349,8 +352,8 @@ pub fn run(args: Args) RunError!void {
 
             // exchange process data
             {
-                write_mutex.lock();
-                defer write_mutex.unlock();
+                pdi_write_mutex.lock();
+                defer pdi_write_mutex.unlock();
                 if (md.sendRecvCyclicFrames()) {
                     recv_timeouts = 0;
                 } else |err| switch (err) {
@@ -391,6 +394,3 @@ pub fn run(args: Args) RunError!void {
         }
     }
 }
-
-// TODO: get rid of this mutex!
-var write_mutex = std.Thread.Mutex{};
