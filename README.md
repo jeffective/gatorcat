@@ -1,5 +1,23 @@
 # gatorcat
 
+> [!INFO]
+> this project has migrated to codeberg. you can find it at https://codeberg.org/jeffective/gatorcat
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 `gatorcat` is an EtherCAT maindevice written in the Zig programming language.
 
 > [!WARNING]
